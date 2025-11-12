@@ -39,6 +39,16 @@ import {
   CreditCardOutlined,
   GiftOutlined,
   TagOutlined,
+  // Added icons for Peoples module
+  TeamOutlined,
+  IdcardOutlined,
+  SolutionOutlined,
+  HomeOutlined,
+  ApartmentOutlined,
+  // Added icons for HRM module
+  UserSwitchOutlined,
+  ClusterOutlined,
+  BranchesOutlined,
 } from "@ant-design/icons";
 
 // Import images for main modules from IMS assets
@@ -66,6 +76,7 @@ import PrintBarcode from "./pages/inventory/printbarcode";
 import PrintQRCode from "./pages/inventory/printqrcode";
 import Coupons from "./pages/coupons/coupons";
 import GiftCards from "./pages/coupons/giftcards";
+import Discount from "../ims/pages/coupons/Discount"; // ✅ Added Discount import under Coupons
 import ProductDetails from "../ims/pages/inventory/ProductDetails";
 
 // Finance & Accounts Pages
@@ -96,6 +107,20 @@ import PurchaseReturn from "./pages/purchases/PurchaseReturn";
 import ManageStock from "./pages/stock/ManageStock";
 import StockAdjustment from "./pages/stock/StockAdjustment";
 import StockTransfer from "./pages/stock/StockTransfer";
+
+// ✅ Peoples Pages
+import Customers from "../ims/pages/peoples/Customers";
+import Billers from "../ims/pages/peoples/Billers";
+import Suppliers from "../ims/pages/peoples/Suppliers";
+import Stores from "../ims/pages/peoples/Stores";
+import Warehouses from "../ims/pages/peoples/Warehouses";
+
+// ✅ HRM Pages
+import Employees from "../ims/pages/hrm/Employees";
+import EmployeeList from "../ims/pages/hrm/Employeelist";
+import Departments from "../ims/pages/hrm/Departments";
+import Designation from "../ims/pages/hrm/Designation";
+import AddEmployee from "../ims/pages/hrm/Addemployee";
 
 // ✅ User Management Pages
 import Users from "./pages/usermanagement/Users";
@@ -187,7 +212,7 @@ export const imsMenuItems = [
     ],
   },
 
-  // ✅ COUPONS MODULE (Cleaned & Updated Icons)
+  // ✅ COUPONS MODULE (Now includes Discount)
   {
     icon: <img src={couponsIcon} alt="Coupons" className="w-6 h-6" />,
     key: "/ims/coupons",
@@ -202,6 +227,11 @@ export const imsMenuItems = [
         key: "/ims/coupons/giftcards",
         label: "Gift Cards",
         icon: <GiftOutlined />,
+      },
+      {
+        key: "/ims/coupons/discount", // ✅ Added Discount submenu
+        label: "Discount",
+        icon: <TagOutlined />,
       },
     ],
   },
@@ -257,7 +287,7 @@ export const imsMenuItems = [
     ],
   },
 
-  // ✅ FINANCE & ACCOUNTS MODULE (Updated Icons)
+  // ✅ FINANCE & ACCOUNTS MODULE
   {
     icon: <img src={financeIcon} alt="Finance & Accounts" className="w-6 h-6" />,
     key: "/ims/FinanceAccounts",
@@ -275,7 +305,73 @@ export const imsMenuItems = [
     ],
   },
 
-  // ✅ User Management
+  // ✅ PEOPLES MODULE
+  {
+    icon: (
+      <div className="w-6 h-6 flex items-center justify-center">
+        <TeamOutlined />
+      </div>
+    ),
+    key: "/ims/peoples",
+    label: "Peoples",
+    children: [
+      {
+        key: "/ims/peoples/customers",
+        label: "Customers",
+        icon: <TeamOutlined />,
+      },
+      {
+        key: "/ims/peoples/billers",
+        label: "Billers",
+        icon: <IdcardOutlined />,
+      },
+      {
+        key: "/ims/peoples/suppliers",
+        label: "Suppliers",
+        icon: <SolutionOutlined />,
+      },
+      {
+        key: "/ims/peoples/stores",
+        label: "Stores",
+        icon: <HomeOutlined />,
+      },
+      {
+        key: "/ims/peoples/warehouses",
+        label: "Warehouses",
+        icon: <ApartmentOutlined />,
+      },
+    ],
+  },
+
+  // ✅ HRM MODULE (EmployeeList hidden)
+  {
+    icon: (
+      <div className="w-6 h-6 flex items-center justify-center">
+        <UserSwitchOutlined />
+      </div>
+    ),
+    key: "/ims/hrm",
+    label: "HRM",
+    children: [
+      {
+        key: "/ims/hrm/employees",
+        label: "Employees",
+        icon: <UserOutlined />,
+      },
+      {
+        key: "/ims/hrm/departments",
+        label: "Departments",
+        icon: <ClusterOutlined />,
+      },
+      {
+        key: "/ims/hrm/designation",
+        label: "Designation",
+        icon: <BranchesOutlined />,
+      },
+    ],
+  },
+
+  // ✅ USER MANAGEMENT MODULE
   {
     icon: <img src={userManagementIcon} alt="User Management" className="w-6 h-6" />,
     key: "/ims/user-management",
@@ -355,6 +451,7 @@ const IMSRoutes = () => {
       {/* Coupons */}
       <Route path="coupons/coupons" element={<Coupons />} />
       <Route path="coupons/giftcards" element={<GiftCards />} />
+      <Route path="coupons/discount" element={<Discount />} /> {/* ✅ Added Discount Route */}
 
       {/* Stock */}
       <Route path="stock/manage" element={<ManageStock />} />
@@ -384,6 +481,20 @@ const IMSRoutes = () => {
       <Route path="FinanceAccounts/BalanceSheet" element={<BalanceSheet />} />
       <Route path="FinanceAccounts/CashFlow" element={<CashFlow />} />
       <Route path="FinanceAccounts/AccountStatement" element={<AccountStatement />} />
+
+      {/* Peoples */}
+      <Route path="peoples/customers" element={<Customers />} />
+      <Route path="peoples/billers" element={<Billers />} />
+      <Route path="peoples/suppliers" element={<Suppliers />} />
+      <Route path="peoples/stores" element={<Stores />} />
+      <Route path="peoples/warehouses" element={<Warehouses />} />
+
+      {/* HRM */}
+      <Route path="hrm/employeelist" element={<EmployeeList />} /> {/* ✅ Hidden Route */}
+      <Route path="hrm/employees" element={<Employees />} />
+      <Route path="hrm/addemployee" element={<AddEmployee />} />
+      <Route path="hrm/departments" element={<Departments />} />
+      <Route path="hrm/designation" element={<Designation />} />
 
       {/* User Management */}
       <Route path="user-management/users" element={<Users />} />
