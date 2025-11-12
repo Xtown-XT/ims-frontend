@@ -216,13 +216,13 @@ const GiftCards = () => {
         style={{
           backgroundColor: colors.background,
           color: colors.color,
-          padding: "4px 12px",
           borderRadius: "4px",
           fontSize: "12px",
           fontWeight: "500",
           display: "inline-block",
           textAlign: "center",
-          minWidth: "70px",
+          width: "70px",
+          height: "20px"
         }}
       >
         {status}

@@ -65,6 +65,7 @@ import PrintBarcode from "./pages/inventory/printbarcode";
 import PrintQRCode from "./pages/inventory/printqrcode";
 import Coupons from "./pages/coupons/coupons";
 import GiftCards from "./pages/coupons/giftcards";
+import DiscountPlan from "./pages/coupons/discountPlan";
 import ProductDetails from "../ims/pages/inventory/ProductDetails";
 
 // Finance & Accounts Pages
@@ -95,6 +96,20 @@ import PurchaseReturn from "./pages/purchases/PurchaseReturn";
 import ManageStock from "./pages/stock/ManageStock";
 import StockAdjustment from "./pages/stock/StockAdjustment";
 import StockTransfer from "./pages/stock/StockTransfer";
+
+
+// reports
+import SalesReport from "./pages/reports/salesReport";
+import BestSeller from "./pages/reports/bestSeller";
+import PurchaseReport from "./pages/reports/purchaseReport";
+import InventoryReport from "./pages/reports/InventoryReport";
+import StockHistoryReport from "./pages/reports/stockHistory";
+import SoldHistoryReport from "./pages/reports/soldStock";
+import InvoiceReport from "./pages/reports/invoiceReport";
+import SupplierReport from "./pages/reports/supplierReport";
+import SupplierDueReport from "./pages/reports/supplierDueReport";
+import ExpenseReport from "./pages/reports/expenseReport";
+
 
 // ✅ User Management Pages
 import Users from "./pages/usermanagement/Users";
@@ -188,6 +203,11 @@ export const imsMenuItems = [
         label: "Gift Cards",
         icon: <GiftOutlined />,
       },
+      {
+        key: "/ims/coupons/DiscountPlan",
+        label: "Discount Plan",
+        icon: <GiftOutlined />,
+      },
     ],
   },
 
@@ -239,6 +259,25 @@ export const imsMenuItems = [
       { key: "/ims/purchases/list", label: "Purchases", icon: <ShoppingOutlined /> },
       { key: "/ims/purchases/order", label: "Purchase Order", icon: <FileTextOutlined /> },
       { key: "/ims/purchases/return", label: "Purchase Return", icon: <RollbackOutlined /> },
+    ],
+  },
+
+  // Reports
+   {
+    icon: <img src={purchaseIcon} alt="Reports" className="w-6 h-6" />,
+    key: "/ims/reports",
+    label: "Reports",
+    children: [
+      { key: "/ims/reports/SalesReport", label: "Sales Report", icon: <ShoppingOutlined /> },
+      { key: "/ims/reports/BestSeller", label: "Best Seller", icon: <FileTextOutlined /> },
+      { key: "/ims/reports/PurchaseReport", label: "Purchase Report", icon: <FileTextOutlined /> },
+      { key: "/ims/reports/InventoryReport", label: "Inventory Report", icon: <FileTextOutlined /> },
+      { key: "/ims/reports/StockHistoryReport", label: "Stock History", icon: <FileTextOutlined /> },
+      { key: "/ims/reports/SoldHistoryReport", label: "Sold Report", icon: <FileTextOutlined /> },
+      { key: "/ims/reports/InvoiceReport", label: "Invoice Report", icon: <FileTextOutlined /> },
+      { key: "/ims/reports/SupplierReport", label: "Supplier Report", icon: <FileTextOutlined /> },
+      { key: "/ims/reports/SupplierDueReport", label: "Supplier Due Report", icon: <FileTextOutlined /> },
+      { key: "/ims/reports/ExpenseReport", label: "Expense Report", icon: <FileTextOutlined /> },
     ],
   },
 
@@ -298,6 +337,7 @@ const IMSRoutes = () => {
       {/* Coupons */}
       <Route path="coupons/coupons" element={<Coupons />} />
       <Route path="coupons/giftcards" element={<GiftCards />} />
+      <Route path="coupons/DiscountPlan" element={<DiscountPlan />}></Route>
 
       {/* Stock */}
       <Route path="stock/manage" element={<ManageStock />} />
@@ -327,6 +367,19 @@ const IMSRoutes = () => {
       <Route path="FinanceAccounts/BalanceSheet" element={<BalanceSheet />} />
       <Route path="FinanceAccounts/CashFlow" element={<CashFlow />} />
       <Route path="FinanceAccounts/AccountStatement" element={<AccountStatement />} />
+      
+
+      {/* Reports */}
+      <Route path="reports/SalesReport" element={<SalesReport />}></Route>
+      <Route path="reports/BestSeller" element={<BestSeller />}></Route>
+      <Route path="reports/PurchaseReport" element={<PurchaseReport />}></Route>
+      <Route path="reports/InventoryReport" element={<InventoryReport />}></Route>
+      <Route path="reports/StockHistoryReport" element={<StockHistoryReport />}></Route>
+      <Route path="reports/SoldHistoryReport" element={<SoldHistoryReport />}></Route>
+      <Route path="reports/InvoiceReport" element={<InvoiceReport />}></Route>
+      <Route path="reports/SupplierReport" element={<SupplierReport />}></Route>
+      <Route path="reports/SupplierDueReport" element={<SupplierDueReport /> }></Route>
+      <Route path="reports/ExpenseReport" element={<ExpenseReport />}></Route>
 
       {/* User Management */}
       <Route path="user-management/users" element={<Users />} />
