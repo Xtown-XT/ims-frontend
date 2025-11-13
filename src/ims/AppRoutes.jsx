@@ -59,6 +59,7 @@ import salesIcon from "./assets/Sales.png";
 import purchaseIcon from "./assets/Purchase.png";
 import financeIcon from "./assets/Finance_Accounts.png";
 import userManagementIcon from "./assets/User-management.png";
+import hrmIcon from "./assets/User-management.png"; // You can change this to HRM specific icon later
 
 // Inventory Pages
 import Products from "./pages/inventory/products";
@@ -115,16 +116,29 @@ import Stores from "../ims/pages/peoples/Stores";
 import Warehouses from "../ims/pages/peoples/Warehouses";
 
 // ✅ HRM Pages
-import Employees from "../ims/pages/hrm/Employees";
+
 import EmployeeList from "../ims/pages/hrm/Employeelist";
-import Departments from "../ims/pages/hrm/Departments";
-import Designation from "../ims/pages/hrm/Designation";
+
 import AddEmployee from "../ims/pages/hrm/Addemployee";
 
 // ✅ User Management Pages
 import Users from "./pages/usermanagement/Users";
 import RolesPermissions from "./pages/UserManagement/RolesPermissions";
 import DeleteAccountRequest from "./pages/usermanagement/DeleteAccountRequest";
+
+// ✅ HRM Pages
+import Employees from "./pages/HRM/Employees";
+import Departments from "./pages/HRM/Departments";
+import Designation from "./pages/HRM/Designation";
+import Shifts from "./pages/HRM/Shifts";
+import Holidays from "./pages/HRM/Holidays";
+import EmployeeAttendance from "./pages/HRM/Attendance/Employee";
+import AdminAttendance from "./pages/HRM/Attendance/Admin";
+import AdminLeaves from "./pages/HRM/Leaves/AdminLeaves";
+import EmployeeLeaves from "./pages/HRM/Leaves/EmployeeLeaves";
+import LeaveTypes from "./pages/HRM/Leaves/LeaveTypes";
+import EmployeeSalary from "./pages/HRM/Payroll/EmployeeSalary";
+import Payslip from "./pages/HRM/Payroll/Payslip";
 
 // ✅ Sidebar Menu Items
 export const imsMenuItems = [
@@ -328,34 +342,6 @@ export const imsMenuItems = [
     ],
   },
 
-  // ✅ HRM MODULE (EmployeeList hidden)
-  {
-    icon: (
-      <div className="w-6 h-6 flex items-center justify-center">
-        <UserSwitchOutlined />
-      </div>
-    ),
-    key: "/ims/hrm",
-    label: "HRM",
-    children: [
-      {
-        key: "/ims/hrm/employees",
-        label: "Employees",
-        icon: <UserOutlined />,
-      },
-      {
-        key: "/ims/hrm/departments",
-        label: "Departments",
-        icon: <ClusterOutlined />,
-      },
-      {
-        key: "/ims/hrm/designation",
-        label: "Designation",
-        icon: <BranchesOutlined />,
-      },
-    ],
-  },
-
   // ✅ USER MANAGEMENT MODULE
   {
     icon: <img src={userManagementIcon} alt="User Management" className="w-6 h-6" />,
@@ -365,6 +351,48 @@ export const imsMenuItems = [
       { key: "/ims/user-management/users", label: "Users", icon: <UserOutlined /> },
       { key: "/ims/user-management/roles-permissions", label: "Roles & Permissions", icon: <SafetyCertificateOutlined /> },
       { key: "/ims/user-management/delete-account-request", label: "Delete Account Request", icon: <DeleteOutlined /> },
+    ],
+  },
+
+  // ✅ HRM Module
+  {
+    icon: <img src={hrmIcon} alt="HRM" className="w-6 h-6" />,
+    key: "/ims/hrm",
+    label: "HRM",
+    children: [
+      { key: "/ims/hrm/employees", label: "Employees", icon: <UserOutlined /> },
+      { key: "/ims/hrm/departments", label: "Departments", icon: <AppstoreOutlined /> },
+      { key: "/ims/hrm/designation", label: "Designation", icon: <SafetyCertificateOutlined /> },
+      { key: "/ims/hrm/shifts", label: "Shifts", icon: <SettingOutlined /> },
+      {
+        key: "/ims/hrm/attendance",
+        label: "Attendance",
+        icon: <FileDoneOutlined />,
+        children: [
+          { key: "/ims/hrm/attendance/employee", label: "Employee", icon: <UserOutlined /> },
+          { key: "/ims/hrm/attendance/admin", label: "Admin", icon: <SafetyCertificateOutlined /> },
+        ],
+      },
+      {
+        key: "/ims/hrm/leaves",
+        label: "Leaves",
+        icon: <FileTextOutlined />,
+        children: [
+          { key: "/ims/hrm/leaves/admin", label: "Admin Leaves", icon: <SafetyCertificateOutlined /> },
+          { key: "/ims/hrm/leaves/employee", label: "Employee Leaves", icon: <UserOutlined /> },
+          { key: "/ims/hrm/leaves/types", label: "Leave Types", icon: <FormOutlined /> },
+        ],
+      },
+      { key: "/ims/hrm/holidays", label: "Holidays", icon: <GiftOutlined /> },
+      {
+        key: "/ims/hrm/payroll",
+        label: "Payroll",
+        icon: <DollarOutlined />,
+        children: [
+          { key: "/ims/hrm/payroll/salary", label: "Employee Salary", icon: <AccountBookOutlined /> },
+          { key: "/ims/hrm/payroll/payslip", label: "Payslip", icon: <FileOutlined /> },
+        ],
+      },
     ],
   },
 ];
@@ -443,6 +471,20 @@ const IMSRoutes = () => {
       <Route path="user-management/users" element={<Users />} />
       <Route path="user-management/roles-permissions" element={<RolesPermissions />} />
       <Route path="user-management/delete-account-request" element={<DeleteAccountRequest />} />
+
+      {/* HRM */}
+      <Route path="hrm/employees" element={<Employees />} />
+      <Route path="hrm/departments" element={<Departments />} />
+      <Route path="hrm/designation" element={<Designation />} />
+      <Route path="hrm/shifts" element={<Shifts />} />
+      <Route path="hrm/holidays" element={<Holidays />} />
+      <Route path="hrm/attendance/employee" element={<EmployeeAttendance />} />
+      <Route path="hrm/attendance/admin" element={<AdminAttendance />} />
+      <Route path="hrm/leaves/admin" element={<AdminLeaves />} />
+      <Route path="hrm/leaves/employee" element={<EmployeeLeaves />} />
+      <Route path="hrm/leaves/types" element={<LeaveTypes />} />
+      <Route path="hrm/payroll/salary" element={<EmployeeSalary />} />
+      <Route path="hrm/payroll/payslip" element={<Payslip />} />
     </Routes>
   );
 };
