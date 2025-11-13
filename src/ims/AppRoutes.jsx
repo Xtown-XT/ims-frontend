@@ -110,6 +110,16 @@ import InvoiceReport from "./pages/reports/invoiceReport";
 import SupplierReport from "./pages/reports/supplierReport";
 import SupplierDueReport from "./pages/reports/supplierDueReport";
 import ExpenseReport from "./pages/reports/expenseReport";
+import AnnualReport from "./pages/reports/AnnualReport";
+import CustomerReport from "./pages/reports/CustomerReport";
+import CustomerDueReport from "./pages/reports/CustomerDueReport";
+import IncomeReport from "./pages/reports/IncomeReport";
+import ProductQuantityAlert from "./pages/reports/ProductQuantityAlert";
+import ProductReport from "./pages/reports/ProductReport";
+import ProductReportExpiry from "./pages/reports/ProductReportExpiry";
+import Profitloss from "./pages/reports/Profitloss";
+import TaxReport from "./pages/reports/TaxReport";
+
 
 
 // ✅ User Management Pages
@@ -278,7 +288,7 @@ export const imsMenuItems = [
   },
 
   // Reports
-   {
+  {
     icon: <img src={purchaseIcon} alt="Reports" className="w-6 h-6" />,
     key: "/ims/reports",
     label: "Reports",
@@ -292,7 +302,16 @@ export const imsMenuItems = [
       { key: "/ims/reports/InvoiceReport", label: "Invoice Report", icon: <FileTextOutlined /> },
       { key: "/ims/reports/SupplierReport", label: "Supplier Report", icon: <FileTextOutlined /> },
       { key: "/ims/reports/SupplierDueReport", label: "Supplier Due Report", icon: <FileTextOutlined /> },
+      { key: "/ims/reports/CustomerReport", label: "Customer Report", icon: <FileTextOutlined /> },
+      { key: "/ims/reports/CustomerDueReport", label: "Customer Due Report", icon: <FileTextOutlined /> },
+      { key: "/ims/reports/ProductQuantityAlert", label: "Product Quantity Alert", icon: <FileTextOutlined /> },
+      { key: "/ims/reports/ProductReport", label: "Product Report", icon: <FileTextOutlined /> },
+      { key: "/ims/reports/ProductReportExpiry", label: "Product Expiry Report", icon: <FileTextOutlined /> },
       { key: "/ims/reports/ExpenseReport", label: "Expense Report", icon: <FileTextOutlined /> },
+      { key: "/ims/reports/IncomeReport", label: "Income Report", icon: <FileTextOutlined /> },
+      { key: "/ims/reports/TaxReport", label: "Tax Report", icon: <FileTextOutlined /> },
+      { key: "/ims/reports/Profitloss", label: "Profit & Loss Report", icon: <FileTextOutlined /> },
+      { key: "/ims/reports/AnnualReport", label: "Annual Report", icon: <FileTextOutlined /> },
     ],
   },
 
@@ -424,7 +443,7 @@ const IMSRoutes = () => {
       <Route path="FinanceAccounts/BalanceSheet" element={<BalanceSheet />} />
       <Route path="FinanceAccounts/CashFlow" element={<CashFlow />} />
       <Route path="FinanceAccounts/AccountStatement" element={<AccountStatement />} />
-      
+
 
       {/* Reports */}
       <Route path="reports/SalesReport" element={<SalesReport />}></Route>
@@ -435,8 +454,17 @@ const IMSRoutes = () => {
       <Route path="reports/SoldHistoryReport" element={<SoldHistoryReport />}></Route>
       <Route path="reports/InvoiceReport" element={<InvoiceReport />}></Route>
       <Route path="reports/SupplierReport" element={<SupplierReport />}></Route>
-      <Route path="reports/SupplierDueReport" element={<SupplierDueReport /> }></Route>
+      <Route path="reports/SupplierDueReport" element={<SupplierDueReport />}></Route>
       <Route path="reports/ExpenseReport" element={<ExpenseReport />}></Route>
+      <Route path="reports/AnnualReport" element={<AnnualReport />} />
+      <Route path="reports/CustomerReport" element={<CustomerReport />} />
+      <Route path="reports/CustomerDueReport" element={<CustomerDueReport />} />
+      <Route path="reports/IncomeReport" element={<IncomeReport />} />
+      <Route path="reports/ProductQuantityAlert" element={<ProductQuantityAlert />} />
+      <Route path="reports/ProductReport" element={<ProductReport />} />
+      <Route path="reports/ProductReportExpiry" element={<ProductReportExpiry />} />
+      <Route path="reports/Profitloss" element={<Profitloss />} />
+      <Route path="reports/TaxReport" element={<TaxReport />} />
 
       {/* User Management */}
       <Route path="user-management/users" element={<Users />} />
