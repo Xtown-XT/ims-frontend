@@ -370,6 +370,21 @@ const SoldStockReport = () => {
 
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <Button
+            icon={<FaFilePdf color="red" size={16} />}
+            onClick={handleExportPDF}
+            title="Export to PDF"
+          />
+          <Button
+            icon={<FaFileExcel color="green" size={16} />}
+            onClick={handleExportCSV}
+            title="Export to Excel"
+          />
+          <Button
+            icon={<PrinterOutlined />}
+            onClick={handlePrint}
+            title="Print"
+          />
+          <Button
             icon={<IoReloadOutline color="#9333ea" size={18} />}
             onClick={handleRefresh}
             title="Refresh"
@@ -454,28 +469,6 @@ const SoldStockReport = () => {
           background: "#fff",
         }}
       >
-        <div className="flex justify-between items-center m-5 flex-wrap gap-3">
-          <div>
-            <h3 className="text-lg font-semibold text-gray-800">Sold Stock</h3>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button
-              icon={<FaFilePdf color="red" size={16} />}
-              onClick={handleExportPDF}
-              title="Export to PDF"
-            />
-            <Button
-              icon={<FaFileExcel color="green" size={16} />}
-              onClick={handleExportCSV}
-              title="Export to Excel"
-            />
-            <Button
-              icon={<PrinterOutlined color="black" size={16} />}
-              onClick={handlePrint}
-              title="Print"
-            />
-          </div>
-        </div>
         <Table
           columns={columns}
           dataSource={filteredData}
