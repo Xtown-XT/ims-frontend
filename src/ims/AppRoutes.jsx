@@ -116,10 +116,9 @@ import Stores from "../ims/pages/peoples/Stores";
 import Warehouses from "../ims/pages/peoples/Warehouses";
 
 // ✅ HRM Pages
-import Employees from "../ims/pages/hrm/Employees";
+
 import EmployeeList from "../ims/pages/hrm/Employeelist";
-import Departments from "../ims/pages/hrm/Departments";
-import Designation from "../ims/pages/hrm/Designation";
+
 import AddEmployee from "../ims/pages/hrm/Addemployee";
 
 // ✅ User Management Pages
@@ -339,34 +338,6 @@ export const imsMenuItems = [
         key: "/ims/peoples/warehouses",
         label: "Warehouses",
         icon: <ApartmentOutlined />,
-      },
-    ],
-  },
-
-  // ✅ HRM MODULE (EmployeeList hidden)
-  {
-    icon: (
-      <div className="w-6 h-6 flex items-center justify-center">
-        <UserSwitchOutlined />
-      </div>
-    ),
-    key: "/ims/hrm",
-    label: "HRM",
-    children: [
-      {
-        key: "/ims/hrm/employees",
-        label: "Employees",
-        icon: <UserOutlined />,
-      },
-      {
-        key: "/ims/hrm/departments",
-        label: "Departments",
-        icon: <ClusterOutlined />,
-      },
-      {
-        key: "/ims/hrm/designation",
-        label: "Designation",
-        icon: <BranchesOutlined />,
       },
     ],
   },
