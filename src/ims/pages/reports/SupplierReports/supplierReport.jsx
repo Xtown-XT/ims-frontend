@@ -416,6 +416,23 @@ const SupplierReport = () => {
 
   return (
     <div className="bg-gray-50 min-h-screen p-6">
+
+      <div className="flex items-center justify-start gap-4 my-4">
+        <Link smooth to="/ims/reports/SupplierReports/SupplierReport">
+          <Button
+            type={location.pathname.includes("/SupplierReports/SupplierReport") ? "primary" : "default"}
+          >Supplier Report</Button>
+        </Link>
+
+        <Link smooth to="/ims/reports/SupplierReports/SupplierDueReport">
+          <Button
+            type={location.pathname.includes("/SupplierReports/SupplierDueReport") ? "primary" : "default" }
+          >Supplier Due</Button>
+        </Link>
+
+      </div>
+
+
       {/* Header */}
       <div className="flex justify-between items-center mb-6 flex-wrap gap-3">
         <div>

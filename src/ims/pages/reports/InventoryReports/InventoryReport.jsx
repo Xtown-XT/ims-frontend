@@ -29,18 +29,22 @@ import {
 
 import { FaFilePdf, FaFileExcel, FaAngleUp } from "react-icons/fa6";
 import { IoReloadOutline } from "react-icons/io5";
-import { HashLink as Link } from "react-router-hash-link";
+// import { HashLink } from "react-router-hash-link";
 import { useNavigate } from "react-router-dom";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import dayjs from "dayjs";
+
+import { Link, useLocation } from "react-router-dom";
 
 const { Option } = Select;
 const { TextArea } = Input;
 const { Dragger } = Upload;
 const { RangePicker } = DatePicker;
 
-const StockHistoryReport = () => {
+const InventoryReport = () => {
+
+  const location = useLocation();
   const navigate = useNavigate();
 
   const [showForm, setShowForm] = useState(false);
@@ -58,23 +62,18 @@ const StockHistoryReport = () => {
     {
       key: 1,
       sku: "PT001",
-      product: "Lenovo IdeaPad 3",
-      initialqty: 10,
-      addedqty: 4,
-      soldqty: 8,
-      defectiveqty: 10,
-      finalqty: 29
+      productname: "Lenovo IdeaPad 3",
+      category: "Computers",
+      unit: "kg",
+      instock: "09",
     },
     {
       key: 2,
       sku: "PT002",
-      product: "Beats Pro",
-      initialqty: 10,
-      addedqty: 4,
-      soldqty: 8,
-      defectiveqty: 10,
-      finalqty: 29,
-      
+      productname: "Beats Pro",
+      category: "Electronics",
+      unit: "kg",
+      instock: "05",
     },
   ]);
 
@@ -272,12 +271,11 @@ const StockHistoryReport = () => {
 
     const columns = [
       { header: "SKU", dataKey: "sku" },
-      { header: "Product", dataKey: "product" },
-      { header: "Initial Quantity", dataKey: "initialqty" },
-      { header: "Added Quantity", dataKey: "addedqty" },
-      { header: "Sold Quantity", dataKey: "soldqty" },
-      { header: "Defective Quantity", dataKey: "defectiveqty" },
-      { header: "Final Quantity", dataKey: "finalqty" },
+      { header: "Product Name", dataKey: "productname" },
+      { header: "Brand", dataKey: "brand" },
+      { header: "Category", dataKey: "category" },
+      { header: "Unit", dataKey: "unit" },
+      { header: "In Stock Qty", dataKey: "instockqty" },
     ];
 
     autoTable(doc, {
@@ -316,9 +314,9 @@ const StockHistoryReport = () => {
       align: "left"
     },
     {
-      title: "Product",
-      dataIndex: "product",
-      key: "product",
+      title: "Product Name",
+      dataIndex: "productname",
+      key: "productname",
       align: "left",
       render: (text, record) => (
         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
@@ -337,45 +335,54 @@ const StockHistoryReport = () => {
       ),
     },
     {
-      title: "Initial Quantity",
-      dataIndex: "initialqty",
-      key: "initialqty",
-      align: "left"
-    },
-     {
-      title: "Added Quantity",
-      dataIndex: "addedqty",
-      key: "addedqty",
+      title: "Category",
+      dataIndex: "category",
+      key: "category",
       align: "left"
     },
     {
-      title: "Sold Quantity",
-      dataIndex: "soldqty",
-      key: "soldqty",
+      title: "Unit",
+      dataIndex: "unit",
+      key: "unit",
       align: "left"
     },
     {
-      title: "Defective Quantity",
-      dataIndex: "soldqty",
-      key: "soldqty",
-      align: "left"
-    },
-    {
-      title: "Final Quantity",
-      dataIndex: "finalqty",
-      key: "finalqty",
+      title: "Instock",
+      dataIndex: "instock",
+      key: "instock",
       align: "left"
     }
-   
+
   ];
 
   return (
     <div className="bg-gray-50 min-h-screen p-6">
+
+      <div className="flex items-center justify-start gap-4 my-4">
+        <Link smooth to="/ims/reports/InventoryReports/InventoryReport">
+          <Button
+            type={location.pathname.includes("/InventoryReport") ? "primary" : "default"}
+          >Inventory Report</Button>
+        </Link>
+
+        <Link smooth to="/ims/reports/StockHistoryReport">
+          <Button
+            type={location.pathname.includes("/StockHistoryReport") ? "primary" : "default" }
+          >Stock History</Button>
+        </Link>
+
+        <Link smooth to="/ims/reports/SoldHistoryReport">
+          <Button
+            type={location.pathname.includes("/SoldHistoryReport") ? "primary" : "default"}
+          >Sold Report</Button>
+        </Link>
+      </div>
+
       {/* Header */}
       <div className="flex justify-between items-center mb-6 flex-wrap gap-3">
         <div>
-          <h2 className="text-xl font-semibold text-gray-800">Stock History</h2>
-          <p className="text-sm text-gray-500">View Reports of Stock History</p>
+          <h2 className="text-xl font-semibold text-gray-800">Inventory</h2>
+          <p className="text-sm text-gray-500">View Reports of Inventory</p>
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -739,4 +746,4 @@ const StockHistoryReport = () => {
   );
 };
 
-export default StockHistoryReport;
+export default InventoryReport;

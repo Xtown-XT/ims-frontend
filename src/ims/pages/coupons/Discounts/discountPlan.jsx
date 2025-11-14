@@ -23,12 +23,15 @@ const { TextArea } = Input;
 
 const DiscountPlan = () => {
   const [showForm, setShowForm] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [searchText, setSearchText] = useState("");
   const [filterStatus, setFilterStatus] = useState(null);
   const [filterType, setFilterType] = useState(null);
   const [checked, setChecked] = useState(true);
   const [shortByFilter, setShortByFilter] = useState("Customers");
 
+  const [status, setStatus] = useState(true);
   // form instance
   const [form] = Form.useForm();
 
@@ -172,17 +175,24 @@ const DiscountPlan = () => {
       title: "Status",
       dataIndex: "status",
       key: "status",
+      status: status === true ? "Active" : "InActive",
       render: (status) => (
-        <span
+        <button
           style={{
-            background: status?.toLowerCase() === "active" ? "#3EB780" : "#d63031",
-            color: "white",
-            borderRadius: "5px",
-            padding: "2px 5px",
+            backgroundColor:
+              status.toLowerCase() === "active" ? "#71D98D" : "#FF9999",
+            color: "#fff",
+            border: "none",
+            borderRadius: "4px",
+            height: "22px",
+            width: "70px",
+            fontSize: "12px",
+            fontWeight: "500",
+            cursor: "default",
           }}
         >
           {status}
-        </span>
+        </button>
       ),
     },
     {
@@ -244,7 +254,7 @@ const DiscountPlan = () => {
                 value={shortByFilter}
                 onChange={(val) => setShortByFilter(val)}
               >
-                
+
                 <Option value="kiran">kiran</Option>
                 <Option value="vijay">vijay</Option>
               </Select>
@@ -267,33 +277,23 @@ const DiscountPlan = () => {
       </div>
 
       {/* Table */}
-      <Table
+      {/* <Table
         columns={columns}
         dataSource={filteredData}
         pagination={{ pageSize: 5 }}
         className="bg-white"
         bordered={false}
-        rowClassName={() => "hover:bg-gray-50"}
-        style={{ border: "1px solid #e5e7eb" }}
-        components={{
-          header: {
-            cell: (props) => (
-              <th
-                {...props}
-                className="bg-gray-100 text-gray-600 font-bold text-sm px-6 py-3"
-              />
-            ),
-          },
-          body: {
-            cell: (props) => <td {...props} className="px-6 py-3" />,
-            row: (props) => (
-              <tr
-                {...props}
-                className="border-t border-gray-100 hover:bg-gray-50 transition"
-              />
-            ),
-          },
-        }}
+     
+      /> */}
+
+      <Table
+        columns={columns}
+        dataSource={filteredData.slice(
+          (currentPage - 1) * pageSize,
+          currentPage * pageSize
+        )}
+        pagination={false}
+        rowKey="name"
       />
 
       {/* Add/Edit Coupon Modal */}

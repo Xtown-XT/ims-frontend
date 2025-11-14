@@ -29,11 +29,13 @@ import {
 
 import { FaFilePdf, FaFileExcel, FaAngleUp } from "react-icons/fa6";
 import { IoReloadOutline } from "react-icons/io5";
-import { HashLink as Link } from "react-router-hash-link";
+import { HashLink } from "react-router-hash-link";
 import { useNavigate } from "react-router-dom";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import dayjs from "dayjs";
+
+import { Link, useLocation } from "react-router-dom";
 
 const { Option } = Select;
 const { TextArea } = Input;
@@ -361,6 +363,27 @@ const SoldStockReport = () => {
 
   return (
     <div className="bg-gray-50 min-h-screen p-6">
+
+      <div className="flex items-center justify-start gap-4 my-4">
+        <Link smooth to="/ims/reports/InventoryReports/InventoryReport">
+          <Button
+            type={location.pathname.includes("/InventoryReport") ? "primary" : "default"}
+          >Inventory Report</Button>
+        </Link>
+
+        <Link smooth to="/ims/reports/StockHistoryReport">
+          <Button
+            type={location.pathname.includes("/StockHistoryReport") ? "primary" : "default" }
+          >Stock History</Button>
+        </Link>
+
+        <Link smooth to="/ims/reports/SoldHistoryReport">
+          <Button
+            type={location.pathname.includes("/SoldHistoryReport") ? "primary" : "default" }
+          >Sold Report</Button>
+        </Link>
+      </div>
+
       {/* Header */}
       <div className="flex justify-between items-center mb-6 flex-wrap gap-3">
         <div>
