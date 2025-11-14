@@ -29,18 +29,22 @@ import {
 
 import { FaFilePdf, FaFileExcel, FaAngleUp } from "react-icons/fa6";
 import { IoReloadOutline } from "react-icons/io5";
-import { HashLink as Link } from "react-router-hash-link";
+// import { HashLink } from "react-router-hash-link";
 import { useNavigate } from "react-router-dom";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import dayjs from "dayjs";
+
+import { Link, useLocation } from "react-router-dom";
 
 const { Option } = Select;
 const { TextArea } = Input;
 const { Dragger } = Upload;
 const { RangePicker } = DatePicker;
 
-const SoldStockReport = () => {
+const InventoryReport = () => {
+
+  const location = useLocation();
   const navigate = useNavigate();
 
   const [showForm, setShowForm] = useState(false);
@@ -59,19 +63,17 @@ const SoldStockReport = () => {
       key: 1,
       sku: "PT001",
       productname: "Lenovo IdeaPad 3",
+      category: "Computers",
       unit: "kg",
-      qty: "09",
-      taxvalue: "$450",
-      total: "$450"
+      instock: "09",
     },
     {
       key: 2,
       sku: "PT002",
       productname: "Beats Pro",
+      category: "Electronics",
       unit: "kg",
-      qty: "09",
-      taxvalue: "$350",
-      total: "$350"
+      instock: "05",
     },
   ]);
 
@@ -269,11 +271,11 @@ const SoldStockReport = () => {
 
     const columns = [
       { header: "SKU", dataKey: "sku" },
-      { header: "Product", dataKey: "product" },
+      { header: "Product Name", dataKey: "productname" },
+      { header: "Brand", dataKey: "brand" },
+      { header: "Category", dataKey: "category" },
       { header: "Unit", dataKey: "unit" },
-      { header: "Quantity", dataKey: "qty" },
-      { header: "Tax Value", dataKey: "taxvalue" },
-      { header: "Total", dataKey: "total" },
+      { header: "In Stock Qty", dataKey: "instockqty" },
     ];
 
     autoTable(doc, {
@@ -333,39 +335,54 @@ const SoldStockReport = () => {
       ),
     },
     {
+      title: "Category",
+      dataIndex: "category",
+      key: "category",
+      align: "left"
+    },
+    {
       title: "Unit",
       dataIndex: "unit",
       key: "unit",
       align: "left"
     },
-     {
-      title: "Quantity",
-      dataIndex: "qty",
-      key: "qty",
-      align: "left"
-    },
     {
-      title: "Tax Value",
-      dataIndex: "taxvalue",
-      key: "taxvalue",
-      align: "left"
-    },
-    {
-      title: "Total",
-      dataIndex: "total",
-      key: "total",
+      title: "Instock",
+      dataIndex: "instock",
+      key: "instock",
       align: "left"
     }
-   
+
   ];
 
   return (
     <div className="bg-gray-50 min-h-screen p-6">
+
+      <div className="flex items-center justify-start gap-4 my-4">
+        <Link smooth to="/ims/reports/InventoryReports/InventoryReport">
+          <Button
+            type={location.pathname.includes("/InventoryReport") ? "primary" : "default"}
+          >Inventory Report</Button>
+        </Link>
+
+        <Link smooth to="/ims/reports/StockHistoryReport">
+          <Button
+            type={location.pathname.includes("/StockHistoryReport") ? "primary" : "default" }
+          >Stock History</Button>
+        </Link>
+
+        <Link smooth to="/ims/reports/SoldHistoryReport">
+          <Button
+            type={location.pathname.includes("/SoldHistoryReport") ? "primary" : "default"}
+          >Sold Report</Button>
+        </Link>
+      </div>
+
       {/* Header */}
       <div className="flex justify-between items-center mb-6 flex-wrap gap-3">
         <div>
-          <h2 className="text-xl font-semibold text-gray-800">Sold Stock</h2>
-          <p className="text-sm text-gray-500">View Reports of Sold Stock</p>
+          <h2 className="text-xl font-semibold text-gray-800">Inventory</h2>
+          <p className="text-sm text-gray-500">View Reports of Inventory</p>
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -456,7 +473,7 @@ const SoldStockReport = () => {
       >
         <div className="flex justify-between items-center m-5 flex-wrap gap-3">
           <div>
-            <h3 className="text-lg font-semibold text-gray-800">Sold Stock</h3>
+            <h3 className="text-lg font-semibold text-gray-800">Inventory Report</h3>
           </div>
           <div className="flex items-center gap-2">
             <Button
@@ -736,4 +753,4 @@ const SoldStockReport = () => {
   );
 };
 
-export default SoldStockReport;
+export default InventoryReport;

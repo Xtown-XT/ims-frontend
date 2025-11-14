@@ -250,7 +250,7 @@ const Coupons = () => {
   ];
 
   return (
-    <div className="bg-gray-50 min-h-screen p-6">
+    <div className="bg-gray-50  min-h-screen p-6">
       {/* Header */}
       <div className="flex justify-between items-center mb-6 flex-wrap gap-3">
         <div>
@@ -336,7 +336,7 @@ const Coupons = () => {
         className="bg-white"
         bordered={false}
         rowClassName={() => "hover:bg-gray-50"}
-        style={{ border: "1px solid #e5e7eb" }}
+        style={{ border: "rounded-xl" }}
         components={{
           header: {
             cell: (props) => (

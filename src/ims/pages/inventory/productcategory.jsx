@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { Switch, Table, Input, Select, Button, Modal, Form, message } from "antd";
 import {
   SearchOutlined,
@@ -10,10 +10,13 @@ import { FaFilePdf, FaFileExcel, FaAngleUp } from "react-icons/fa6";
 import { IoReloadOutline } from "react-icons/io5";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import categoryService from "./productCategoryService";
 
 const { Option } = Select;
 
 const ProductCategory = () => {
+
+
   const [form] = Form.useForm();
 
   const [showForm, setShowForm] = useState(false);
@@ -30,29 +33,19 @@ const ProductCategory = () => {
   // ✅ Checkbox selection state
   const [selectedKeys, setSelectedKeys] = useState([]);
 
-  const [categories, setCategories] = useState([
-    {
-      key: 1,
-      category: "Computers",
-      categoryslug: "computers",
-      createdon: "",
-      status: "Active",
-    },
-    {
-      key: 2,
-      category: "Electronics",
-      categoryslug: "electronics",
-      createdon: "",
-      status: "Inactive",
-    },
-    {
-      key: 3,
-      category: "Home Appliances",
-      categoryslug: "home-appliances",
-      createdon: "",
-      status: "Active",
-    },
-  ]);
+  const [categories, setCategories] = useState([]);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const res = await categoryService.getCategories();
+        console.log("API response:", res.data);
+      } catch (err) {
+        console.error("Failed to fetch categories:", err);
+      }
+    };
+    fetchData();
+  }, []);
 
   const filteredCategories = useMemo(() => {
     let filtered = [...categories];
@@ -108,7 +101,7 @@ const ProductCategory = () => {
       setIsEditMode(false);
       setEditRecord(null);
       message.success("Category added");
-    } catch (err) {}
+    } catch (err) { }
   };
 
   const handleEdit = (record) => {
@@ -135,15 +128,15 @@ const ProductCategory = () => {
         prev.map((item) =>
           item.key === editRecord.key
             ? {
-                ...item,
-                category: values.category,
-                categoryslug: values.categoryslug,
-                createdon:
-                  values.createdon ||
-                  editRecord.createdon ||
-                  new Date().toISOString().slice(0, 10),
-                status: values.status || (checked ? "Active" : "Inactive"),
-              }
+              ...item,
+              category: values.category,
+              categoryslug: values.categoryslug,
+              createdon:
+                values.createdon ||
+                editRecord.createdon ||
+                new Date().toISOString().slice(0, 10),
+              status: values.status || (checked ? "Active" : "Inactive"),
+            }
             : item
         )
       );
@@ -152,7 +145,7 @@ const ProductCategory = () => {
       setEditRecord(null);
       form.resetFields();
       message.success("Changes saved");
-    } catch (err) {}
+    } catch (err) { }
   };
 
   const handleDelete = (record) => {
@@ -536,7 +529,7 @@ const ProductCategory = () => {
         </Form>
       </Modal>
 
-      {/* 🟣 Delete Confirmation Modal */}
+
       <Modal open={showDeleteModal} onCancel={cancelDelete} footer={null} centered>
         <div style={{ textAlign: "center", padding: "10px 0" }}>
           <div

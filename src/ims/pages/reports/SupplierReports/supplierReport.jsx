@@ -40,7 +40,7 @@ const { TextArea } = Input;
 const { Dragger } = Upload;
 const { RangePicker } = DatePicker;
 
-const StockHistoryReport = () => {
+const SupplierReport = () => {
   const navigate = useNavigate();
 
   const [showForm, setShowForm] = useState(false);
@@ -54,29 +54,44 @@ const StockHistoryReport = () => {
 
   const [selectedKeys, setSelectedKeys] = useState([]);
 
+  const [status, setStatus] = useState(true);
+
   const [formData, setFormData] = useState([
     {
       key: 1,
-      sku: "PT001",
-      product: "Lenovo IdeaPad 3",
-      initialqty: 10,
-      addedqty: 4,
-      soldqty: 8,
-      defectiveqty: 10,
-      finalqty: 29
+      reference: "PT001",
+      id: "3",
+      supplier: "kishore",
+      totalitems: 12,
+      amount: "$7000",
+      paymentmethod: "$3000",
+      status: "pending"
     },
     {
       key: 2,
-      sku: "PT002",
-      product: "Beats Pro",
-      initialqty: 10,
-      addedqty: 4,
-      soldqty: 8,
-      defectiveqty: 10,
-      finalqty: 29,
-      
+      reference: "PT002",
+      id: "3",
+      supplier: "mithun",
+      totalitems: 12,
+      amount: "$7000",
+      paymentmethod: "$3000",
+      status: "ordered"
+    },
+    {
+      key: 3,
+      reference: "PT003",
+      id: "3",
+      supplier: "aravind",
+      totalitems: 12,
+      amount: "$7000",
+      paymentmethod: "$3000",
+      status: "received"
     },
   ]);
+
+  // blue #06AED4
+  // yellow #E1CA18
+  // green #3EB780
 
   const initialDataRef = React.useRef(formData);
 
@@ -137,7 +152,7 @@ const StockHistoryReport = () => {
     // Set body to only the table content
     document.body.innerHTML = `
     <div style="padding: 20px;">
-      <h2 style="text-align: center; margin-bottom: 20px; color: #333;">Best Sellers</h2>
+      <h2 style="text-align: center; margin-bottom: 20px; color: #333;">Supplier Report</h2>
       ${tableContent}
       <div style="text-align: center; margin-top: 20px; color: #666; font-size: 12px;">
         Generated on ${new Date().toLocaleDateString()}
@@ -268,16 +283,16 @@ const StockHistoryReport = () => {
     });
     doc.setFontSize(16);
     doc.setTextColor("#9333ea");
-    doc.text("Inventory report", 40, 40);
+    doc.text("Supplier Report", 40, 40);
 
     const columns = [
-      { header: "SKU", dataKey: "sku" },
-      { header: "Product", dataKey: "product" },
-      { header: "Initial Quantity", dataKey: "initialqty" },
-      { header: "Added Quantity", dataKey: "addedqty" },
-      { header: "Sold Quantity", dataKey: "soldqty" },
-      { header: "Defective Quantity", dataKey: "defectiveqty" },
-      { header: "Final Quantity", dataKey: "finalqty" },
+      { header: "Reference", dataKey: "reference" },
+      { header: "ID", dataKey: "id" },
+      { header: "Supplier", dataKey: "supplier" },
+      { header: "Total Items", dataKey: "totalitems" },
+      { header: "Amount", dataKey: "amount" },
+      { header: "Payment Method", dataKey: "paymentmethod" },
+      { header: "Status", dataKey: "status" },
     ];
 
     autoTable(doc, {
@@ -310,17 +325,24 @@ const StockHistoryReport = () => {
   const columns = [
 
     {
-      title: "SKU",
-      dataIndex: "sku",
-      key: "sku",
+      title: "Reference",
+      dataIndex: "reference",
+      key: "reference",
       align: "left"
     },
     {
-      title: "Product",
-      dataIndex: "product",
-      key: "product",
+      title: "ID",
+      dataIndex: "id",
+      key: "id",
       align: "left",
-      render: (text, record) => (
+
+    },
+    {
+      title: "Supplier",
+      dataIndex: "supplier",
+      key: "supplier",
+      align: "left",
+       render: (text, record) => (
         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
           <img
             src={record.image || "https://via.placeholder.com/40"}
@@ -337,45 +359,85 @@ const StockHistoryReport = () => {
       ),
     },
     {
-      title: "Initial Quantity",
-      dataIndex: "initialqty",
-      key: "initialqty",
-      align: "left"
-    },
-     {
-      title: "Added Quantity",
-      dataIndex: "addedqty",
-      key: "addedqty",
+      title: "Total Items",
+      dataIndex: "totalitems",
+      key: "totalitems",
       align: "left"
     },
     {
-      title: "Sold Quantity",
-      dataIndex: "soldqty",
-      key: "soldqty",
+      title: "Amount",
+      dataIndex: "amount",
+      key: "amount",
       align: "left"
     },
     {
-      title: "Defective Quantity",
-      dataIndex: "soldqty",
-      key: "soldqty",
+      title: "Payment Method",
+      dataIndex: "paymentmethod",
+      key: "paymentmethod",
       align: "left"
     },
     {
-      title: "Final Quantity",
-      dataIndex: "finalqty",
-      key: "finalqty",
-      align: "left"
-    }
-   
+      title: "Status",
+      dataIndex: "status",
+      key: "status",
+      align: "left",
+      status: status === true ? "pending" : "ordered",
+      render: (status) => {
+        let bgColor = "";
+        if (status.toLowerCase() === "pending") {
+          bgColor = "#E1CA18"; 
+        } else if (status.toLowerCase() === "ordered") {
+          bgColor = "#06AED4"; 
+        } else if (status.toLowerCase() === "received") {
+          bgColor = "#3EB780"; 
+        }
+
+        return (
+          <button
+            style={{
+              backgroundColor: bgColor,
+              color: "#fff",
+              border: "none",
+              borderRadius: "4px",
+              height: "22px",
+              width: "70px",
+              fontSize: "12px",
+              fontWeight: "500",
+              cursor: "default",
+              textTransform: "capitalize"
+            }}
+          >
+            {status}
+          </button>
+        );
+      },
+    },
   ];
 
   return (
     <div className="bg-gray-50 min-h-screen p-6">
+
+      <div className="flex items-center justify-start gap-4 my-4">
+        <Link smooth to="/ims/reports/SupplierReports/SupplierReport">
+          <Button
+            type={location.pathname.includes("/SupplierReports/SupplierReport") ? "primary" : "default"}
+          >Supplier Report</Button>
+        </Link>
+
+        <Link smooth to="/ims/reports/SupplierReports/SupplierDueReport">
+          <Button
+            type={location.pathname.includes("/SupplierReports/SupplierDueReport") ? "primary" : "default" }
+          >Supplier Due</Button>
+        </Link>
+
+      </div>
+
+
       {/* Header */}
       <div className="flex justify-between items-center mb-6 flex-wrap gap-3">
         <div>
-          <h2 className="text-xl font-semibold text-gray-800">Stock History</h2>
-          <p className="text-sm text-gray-500">View Reports of Stock History</p>
+          <h2 className="text-xl font-semibold text-gray-800">Supplier Report</h2>
+          <p className="text-sm text-gray-500">Manage your Supplier Report</p>
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -393,6 +455,60 @@ const StockHistoryReport = () => {
               transition: "transform 0.2s",
             }}
           />
+        </div>
+      </div>
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div className="bg-white p-4 rounded-lg shadow-sm border border-[#10B981]">
+          <div className="flex justify-start items-center gap-4">
+            <div>
+              <DollarOutlined style={{ fontSize: '24px', color: '#10B981' }} />
+            </div>
+            <div>
+              <p className="text-sm text-gray-500 mb-1">Total Amount</p>
+              <p className="text-2xl font-bold text-gray-800">$4,50,000</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white p-4 rounded-lg shadow-sm border border-[p#3B82F6]">
+          <div className="flex justify-start items-center gap-4">
+            <div>
+              <CheckCircleOutlined style={{ fontSize: '24px', color: '#3B82F6' }} />
+            </div>
+            <div>
+              <p className="text-sm text-gray-500 mb-1">Total Paid</p>
+              <p className="text-2xl font-bold text-gray-800">$2,50,35</p>
+            </div>
+
+          </div>
+        </div>
+
+        <div className="bg-white p-4 rounded-lg shadow-sm border border-[#F59E0B]">
+          <div className="flex justify-start items-center gap-4">
+            <div>
+              <ClockCircleOutlined style={{ fontSize: '24px', color: '#F59E0B' }} />
+            </div>
+            <div>
+              <p className="text-sm text-gray-500 mb-1">Total Unpaid</p>
+              <p className="text-2xl font-bold text-gray-800">$1,50,35</p>
+            </div>
+
+          </div>
+        </div>
+
+        <div className="bg-white p-4 rounded-lg shadow-sm border border-[#EF4444]">
+          <div className="flex justify-start items-center gap-4">
+            <div>
+              <ExclamationCircleOutlined style={{ fontSize: '24px', color: '#EF4444' }} />
+            </div>
+            <div>
+              <p className="text-sm text-gray-500 mb-1">Overdue</p>
+              <p className="text-2xl font-bold text-gray-800">$2,52,10</p>
+            </div>
+
+          </div>
         </div>
       </div>
 
@@ -466,7 +582,7 @@ const StockHistoryReport = () => {
       >
         <div className="flex justify-between items-center m-5 flex-wrap gap-3">
           <div>
-            <h3 className="text-lg font-semibold text-gray-800">Stock History</h3>
+            <h3 className="text-lg font-semibold text-gray-800">Invoice Report</h3>
           </div>
           <div className="flex items-center gap-2">
             <Button
@@ -746,4 +862,4 @@ const StockHistoryReport = () => {
   );
 };
 
-export default StockHistoryReport;
+export default SupplierReport;
