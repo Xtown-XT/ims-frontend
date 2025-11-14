@@ -18,14 +18,14 @@ import {
   Row,
   Col,
 } from "antd";
-import { useNavigate } from "react-router-dom"; // ✅ Added navigation import
+import { useNavigate } from "react-router-dom";
 
 const { Option } = Select;
 const { TextArea } = Input;
 
 const AddEmployee = () => {
   const [form] = Form.useForm();
-  const navigate = useNavigate(); // ✅ Initialize navigation
+  const navigate = useNavigate();
 
   const handleSubmit = (values) => {
     console.log("Employee Data:", values);
@@ -37,7 +37,6 @@ const AddEmployee = () => {
 
   return (
     <div className="p-6 bg-gray-50 min-h-screen">
-      {/* Header Section */}
       <div className="flex justify-between items-center mb-6">
         <div>
           <h2 className="text-2xl font-semibold text-gray-800">Add Employee</h2>
@@ -46,19 +45,13 @@ const AddEmployee = () => {
         <Button
           icon={<ArrowLeftOutlined />}
           className="bg-blue-900 text-white font-medium px-4 py-2 hover:bg-blue-800"
-          onClick={() => navigate("/ims/hrm/employeelist")} // ✅ Fixed Back button path
+          onClick={() => navigate("/ims/hrm/employeelist")}
         >
           Back to List
         </Button>
       </div>
 
-      <Form
-        form={form}
-        layout="vertical"
-        onFinish={handleSubmit}
-        className="space-y-6"
-      >
-        {/* Employee Information */}
+      <Form form={form} layout="vertical" onFinish={handleSubmit} className="space-y-6">
         <Card
           title={
             <span className="font-semibold text-orange-600 flex items-center gap-2">
@@ -83,113 +76,76 @@ const AddEmployee = () => {
             <Col span={18}>
               <Row gutter={16}>
                 <Col span={8}>
-                  <Form.Item
-                    label="First Name"
-                    name="firstName"
-                    rules={[{ required: true, message: "Enter first name" }]}
-                  >
+                  <Form.Item label="First Name" name="firstName" rules={[{ required: true }]}>
                     <Input placeholder="First Name" />
                   </Form.Item>
                 </Col>
+
                 <Col span={8}>
-                  <Form.Item
-                    label="Last Name"
-                    name="lastName"
-                    rules={[{ required: true, message: "Enter last name" }]}
-                  >
+                  <Form.Item label="Last Name" name="lastName" rules={[{ required: true }]}>
                     <Input placeholder="Last Name" />
                   </Form.Item>
                 </Col>
+
                 <Col span={8}>
-                  <Form.Item
-                    label="Email"
-                    name="email"
-                    rules={[{ required: true, message: "Enter email" }]}
-                  >
+                  <Form.Item label="Email" name="email" rules={[{ required: true }]}>
                     <Input placeholder="Email" />
                   </Form.Item>
                 </Col>
 
                 <Col span={8}>
-                  <Form.Item
-                    label="Contact Number"
-                    name="contact"
-                    rules={[{ required: true, message: "Enter contact number" }]}
-                  >
+                  <Form.Item label="Contact Number" name="contact" rules={[{ required: true }]}>
                     <Input placeholder="Contact Number" />
                   </Form.Item>
                 </Col>
+
                 <Col span={8}>
-                  <Form.Item
-                    label="Emp Code"
-                    name="empCode"
-                    rules={[{ required: true, message: "Enter employee code" }]}
-                  >
+                  <Form.Item label="Emp Code" name="empCode" rules={[{ required: true }]}>
                     <Input placeholder="Emp Code" />
                   </Form.Item>
                 </Col>
+
                 <Col span={8}>
-                  <Form.Item
-                    label="Date of Birth"
-                    name="dob"
-                    rules={[{ required: true, message: "Select DOB" }]}
-                  >
+                  <Form.Item label="Date of Birth" name="dob" rules={[{ required: true }]}>
                     <DatePicker className="w-full" />
                   </Form.Item>
                 </Col>
 
                 <Col span={8}>
-                  <Form.Item
-                    label="Gender"
-                    name="gender"
-                    rules={[{ required: true, message: "Select gender" }]}
-                  >
+                  <Form.Item label="Gender" name="gender" rules={[{ required: true }]}>
                     <Select placeholder="Select">
                       <Option value="Male">Male</Option>
                       <Option value="Female">Female</Option>
                     </Select>
                   </Form.Item>
                 </Col>
+
                 <Col span={8}>
-                  <Form.Item
-                    label="Nationality"
-                    name="nationality"
-                    rules={[{ required: true, message: "Select nationality" }]}
-                  >
+                  <Form.Item label="Nationality" name="nationality" rules={[{ required: true }]}>
                     <Select placeholder="Select">
                       <Option value="Indian">Indian</Option>
                       <Option value="American">American</Option>
                     </Select>
                   </Form.Item>
                 </Col>
+
                 <Col span={8}>
-                  <Form.Item
-                    label="Joining Date"
-                    name="joiningDate"
-                    rules={[{ required: true, message: "Select joining date" }]}
-                  >
+                  <Form.Item label="Joining Date" name="joiningDate" rules={[{ required: true }]}>
                     <DatePicker className="w-full" />
                   </Form.Item>
                 </Col>
 
                 <Col span={8}>
-                  <Form.Item
-                    label="Shift"
-                    name="shift"
-                    rules={[{ required: true, message: "Select shift" }]}
-                  >
+                  <Form.Item label="Shift" name="shift" rules={[{ required: true }]}>
                     <Select placeholder="Select">
                       <Option value="Morning">Morning</Option>
                       <Option value="Evening">Evening</Option>
                     </Select>
                   </Form.Item>
                 </Col>
+
                 <Col span={8}>
-                  <Form.Item
-                    label="Department"
-                    name="department"
-                    rules={[{ required: true, message: "Select department" }]}
-                  >
+                  <Form.Item label="Department" name="department" rules={[{ required: true }]}>
                     <Select placeholder="Select">
                       <Option value="Sales">Sales</Option>
                       <Option value="Finance">Finance</Option>
@@ -197,12 +153,9 @@ const AddEmployee = () => {
                     </Select>
                   </Form.Item>
                 </Col>
+
                 <Col span={8}>
-                  <Form.Item
-                    label="Designation"
-                    name="designation"
-                    rules={[{ required: true, message: "Select designation" }]}
-                  >
+                  <Form.Item label="Designation" name="designation" rules={[{ required: true }]}>
                     <Select placeholder="Select">
                       <Option value="Manager">Manager</Option>
                       <Option value="Engineer">Engineer</Option>
@@ -211,11 +164,7 @@ const AddEmployee = () => {
                 </Col>
 
                 <Col span={8}>
-                  <Form.Item
-                    label="Blood Group"
-                    name="bloodGroup"
-                    rules={[{ required: true, message: "Select blood group" }]}
-                  >
+                  <Form.Item label="Blood Group" name="bloodGroup" rules={[{ required: true }]}>
                     <Select placeholder="Select">
                       <Option value="A+">A+</Option>
                       <Option value="B+">B+</Option>
@@ -226,17 +175,12 @@ const AddEmployee = () => {
               </Row>
 
               <Form.Item label="About" name="about">
-                <TextArea
-                  placeholder="Maximum 60 Characters"
-                  rows={3}
-                  maxLength={60}
-                />
+                <TextArea rows={3} maxLength={60} />
               </Form.Item>
             </Col>
           </Row>
         </Card>
 
-        {/* Address Information */}
         <Card
           title={
             <span className="font-semibold text-orange-600 flex items-center gap-2">
@@ -250,6 +194,7 @@ const AddEmployee = () => {
                 <Input placeholder="Address" />
               </Form.Item>
             </Col>
+
             <Col span={6}>
               <Form.Item label="Country" name="country">
                 <Select placeholder="Select">
@@ -258,6 +203,7 @@ const AddEmployee = () => {
                 </Select>
               </Form.Item>
             </Col>
+
             <Col span={6}>
               <Form.Item label="State" name="state">
                 <Select placeholder="Select">
@@ -275,6 +221,7 @@ const AddEmployee = () => {
                 </Select>
               </Form.Item>
             </Col>
+
             <Col span={6}>
               <Form.Item label="Zipcode" name="zipcode">
                 <Input placeholder="Zipcode" />
@@ -283,7 +230,6 @@ const AddEmployee = () => {
           </Row>
         </Card>
 
-        {/* Emergency Information */}
         <Card
           title={
             <span className="font-semibold text-orange-600 flex items-center gap-2">
@@ -297,11 +243,13 @@ const AddEmployee = () => {
                 <Input placeholder="Contact Number" />
               </Form.Item>
             </Col>
+
             <Col span={8}>
               <Form.Item label="Relation" name="relation1">
                 <Input placeholder="Relation" />
               </Form.Item>
             </Col>
+
             <Col span={8}>
               <Form.Item label="Name" name="name1">
                 <Input placeholder="Name" />
@@ -313,11 +261,13 @@ const AddEmployee = () => {
                 <Input placeholder="Contact Number" />
               </Form.Item>
             </Col>
+
             <Col span={8}>
               <Form.Item label="Relation" name="relation2">
                 <Input placeholder="Relation" />
               </Form.Item>
             </Col>
+
             <Col span={8}>
               <Form.Item label="Name" name="name2">
                 <Input placeholder="Name" />
@@ -326,7 +276,6 @@ const AddEmployee = () => {
           </Row>
         </Card>
 
-        {/* Bank Information */}
         <Card
           title={
             <span className="font-semibold text-orange-600 flex items-center gap-2">
@@ -340,16 +289,19 @@ const AddEmployee = () => {
                 <Input placeholder="Bank Name" />
               </Form.Item>
             </Col>
+
             <Col span={6}>
               <Form.Item label="Account Number" name="accountNumber">
                 <Input placeholder="Account Number" />
               </Form.Item>
             </Col>
+
             <Col span={6}>
               <Form.Item label="IFSC" name="ifsc">
                 <Input placeholder="IFSC" />
               </Form.Item>
             </Col>
+
             <Col span={6}>
               <Form.Item label="Branch" name="branch">
                 <Input placeholder="Branch" />
@@ -358,7 +310,6 @@ const AddEmployee = () => {
           </Row>
         </Card>
 
-        {/* Password */}
         <Card
           title={
             <span className="font-semibold text-orange-600 flex items-center gap-2">
@@ -372,6 +323,7 @@ const AddEmployee = () => {
                 <Input.Password placeholder="Password" />
               </Form.Item>
             </Col>
+
             <Col span={12}>
               <Form.Item label="Confirm Password" name="confirmPassword">
                 <Input.Password placeholder="Confirm Password" />
@@ -380,9 +332,11 @@ const AddEmployee = () => {
           </Row>
         </Card>
 
-        {/* Buttons */}
         <div className="flex justify-end gap-3 mt-5">
-          <Button onClick={() => navigate("/ims/hrm/employeelist")}>Cancel</Button>
+          <Button onClick={() => navigate("/ims/hrm/employeelist")}>
+            Cancel
+          </Button>
+
           <Button
             type="primary"
             htmlType="submit"
