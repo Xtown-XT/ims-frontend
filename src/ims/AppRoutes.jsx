@@ -115,11 +115,8 @@ import Suppliers from "../ims/pages/peoples/Suppliers";
 import Stores from "../ims/pages/peoples/Stores";
 import Warehouses from "../ims/pages/peoples/Warehouses";
 
-// ✅ HRM Pages
 
-import EmployeeList from "../ims/pages/hrm/Employeelist";
 
-import AddEmployee from "../ims/pages/hrm/Addemployee";
 
 // ✅ User Management Pages
 import Users from "./pages/usermanagement/Users";
@@ -127,6 +124,9 @@ import RolesPermissions from "./pages/UserManagement/RolesPermissions";
 import DeleteAccountRequest from "./pages/usermanagement/DeleteAccountRequest";
 
 // ✅ HRM Pages
+import EmployeeList from "../ims/pages/hrm/Employeelist";
+
+import AddEmployee from "../ims/pages/HRM/Addemployee";
 import Employees from "./pages/HRM/Employees";
 import Departments from "./pages/HRM/Departments";
 import Designation from "./pages/HRM/Designation";
