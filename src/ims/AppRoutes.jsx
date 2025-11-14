@@ -339,26 +339,8 @@ export const imsMenuItems = [
 
   // Reports
   {
-<<<<<<< HEAD
-    icon: <img src={purchaseIcon} alt="Reports" className="w-6 h-6" />,
-    key: "/ims/reports",
-    label: "Reports",
-    children: [
-      { key: "/ims/reports/SalesReport", label: "Sales Report", icon: <ShoppingOutlined /> },
-      { key: "/ims/reports/BestSeller", label: "Best Seller", icon: <FileTextOutlined /> },
-      { key: "/ims/reports/PurchaseReport", label: "Purchase Report", icon: <FileTextOutlined /> },
-      { key: "/ims/reports/InventoryReport", label: "Inventory Report", icon: <FileTextOutlined /> },
-      { key: "/ims/reports/StockHistoryReport", label: "Stock History", icon: <FileTextOutlined /> },
-      { key: "/ims/reports/SoldHistoryReport", label: "Sold Report", icon: <FileTextOutlined /> },
-      { key: "/ims/reports/InvoiceReport", label: "Invoice Report", icon: <FileTextOutlined /> },
-      { key: "/ims/reports/SupplierReport", label: "Supplier Report", icon: <FileTextOutlined /> },
-      { key: "/ims/reports/SupplierDueReport", label: "Supplier Due Report", icon: <FileTextOutlined /> },
-      { key: "/ims/reports/CustomerReport", label: "Customer Report", icon: <FileTextOutlined /> },
-      { key: "/ims/reports/CustomerDueReport", label: "Customer Due Report", icon: <FileTextOutlined /> },
-      { key: "/ims/reports/ProductQuantityAlert", label: "Product Quantity Alert", icon: <FileTextOutlined /> },
-      { key: "/ims/reports/ProductReport", label: "Product Report", icon: <FileTextOutlined /> },
-      { key: "/ims/reports/ProductReportExpiry", label: "Product Expiry Report", icon: <FileTextOutlined /> },
-=======
+
+
     icon: <BarChartOutlined className="w-6 h-6" />,
     key: "/ims/reports",
     label: "Reports",
@@ -398,7 +380,14 @@ export const imsMenuItems = [
         ]
       },
 
->>>>>>> madhan
+      { key: "/ims/reports/InvoiceReport", label: "Invoice Report", icon: <FileTextOutlined /> },
+     
+      { key: "/ims/reports/CustomerReport", label: "Customer Report", icon: <FileTextOutlined /> },
+      { key: "/ims/reports/CustomerDueReport", label: "Customer Due Report", icon: <FileTextOutlined /> },
+      { key: "/ims/reports/ProductQuantityAlert", label: "Product Quantity Alert", icon: <FileTextOutlined /> },
+      { key: "/ims/reports/ProductReport", label: "Product Report", icon: <FileTextOutlined /> },
+      { key: "/ims/reports/ProductReportExpiry", label: "Product Expiry Report", icon: <FileTextOutlined /> },
+
       { key: "/ims/reports/ExpenseReport", label: "Expense Report", icon: <FileTextOutlined /> },
       { key: "/ims/reports/IncomeReport", label: "Income Report", icon: <FileTextOutlined /> },
       { key: "/ims/reports/TaxReport", label: "Tax Report", icon: <FileTextOutlined /> },
@@ -587,13 +576,10 @@ const IMSRoutes = () => {
       <Route path="reports/StockHistoryReport" element={<StockHistoryReport />}></Route>
       <Route path="reports/SoldHistoryReport" element={<SoldHistoryReport />}></Route>
       <Route path="reports/InvoiceReport" element={<InvoiceReport />}></Route>
-<<<<<<< HEAD
-      <Route path="reports/SupplierReport" element={<SupplierReport />}></Route>
-      <Route path="reports/SupplierDueReport" element={<SupplierDueReport />}></Route>
-=======
+
       <Route path="reports/SupplierReports/SupplierReport" element={<SupplierReport />}></Route>
       <Route path="reports/SupplierReports/SupplierDueReport" element={<SupplierDueReport />}></Route>
->>>>>>> madhan
+
       <Route path="reports/ExpenseReport" element={<ExpenseReport />}></Route>
       <Route path="reports/AnnualReport" element={<AnnualReport />} />
       <Route path="reports/CustomerReport" element={<CustomerReport />} />
