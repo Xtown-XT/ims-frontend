@@ -1,5 +1,4 @@
 // IMSRoutes.jsx
-import React from "react";
 import { Routes, Route } from "react-router-dom";
 import {
   FileDoneOutlined,
@@ -7,7 +6,6 @@ import {
   SwapOutlined,
   SlidersOutlined,
   ShopOutlined,
-  ShoppingCartOutlined,
   FileTextOutlined,
   FileOutlined,
   FormOutlined,
@@ -20,7 +18,6 @@ import {
   BarcodeOutlined,
   QrcodeOutlined,
   TagsOutlined,
-  InboxOutlined,
   GoldOutlined,
   BlockOutlined,
   DatabaseOutlined,
@@ -326,7 +323,7 @@ export const imsMenuItems = [
     ],
   },
 
-  // ✅ HRM Module
+  // ✅ HRM Module - With Dropdown Structure
   {
     icon: <img src={hrmIcon} alt="HRM" className="w-6 h-6" />,
     key: "/ims/hrm",
@@ -336,33 +333,39 @@ export const imsMenuItems = [
       { key: "/ims/hrm/departments", label: "Departments", icon: <AppstoreOutlined /> },
       { key: "/ims/hrm/designation", label: "Designation", icon: <SafetyCertificateOutlined /> },
       { key: "/ims/hrm/shifts", label: "Shifts", icon: <SettingOutlined /> },
+      { key: "/ims/hrm/holidays", label: "Holidays", icon: <GiftOutlined /> },
+      
+      // Attendance Dropdown
       {
         key: "/ims/hrm/attendance",
         label: "Attendance",
         icon: <FileDoneOutlined />,
         children: [
+          { key: "/ims/hrm/attendance/admin", label: "Admin", icon: <UserOutlined /> },
           { key: "/ims/hrm/attendance/employee", label: "Employee", icon: <UserOutlined /> },
-          { key: "/ims/hrm/attendance/admin", label: "Admin", icon: <SafetyCertificateOutlined /> },
         ],
       },
+      
+      // Leaves Dropdown
       {
         key: "/ims/hrm/leaves",
         label: "Leaves",
         icon: <FileTextOutlined />,
         children: [
-          { key: "/ims/hrm/leaves/admin", label: "Admin Leaves", icon: <SafetyCertificateOutlined /> },
-          { key: "/ims/hrm/leaves/employee", label: "Employee Leaves", icon: <UserOutlined /> },
+          { key: "/ims/hrm/leaves/admin", label: "Admin Leaves", icon: <FileTextOutlined /> },
+          { key: "/ims/hrm/leaves/employee", label: "Employee Leaves", icon: <FileTextOutlined /> },
           { key: "/ims/hrm/leaves/types", label: "Leave Types", icon: <FormOutlined /> },
         ],
       },
-      { key: "/ims/hrm/holidays", label: "Holidays", icon: <GiftOutlined /> },
+      
+      // Payroll Dropdown
       {
         key: "/ims/hrm/payroll",
         label: "Payroll",
         icon: <DollarOutlined />,
         children: [
-          { key: "/ims/hrm/payroll/salary", label: "Employee Salary", icon: <AccountBookOutlined /> },
-          { key: "/ims/hrm/payroll/payslip", label: "Payslip", icon: <FileOutlined /> },
+          { key: "/ims/hrm/payroll/salary", label: "Employee Salary", icon: <DollarOutlined /> },
+          { key: "/ims/hrm/payroll/payslip", label: "Payslip", icon: <AccountBookOutlined /> },
         ],
       },
     ],

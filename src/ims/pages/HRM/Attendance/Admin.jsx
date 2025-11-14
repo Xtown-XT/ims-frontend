@@ -1,6 +1,10 @@
 import React, { useState } from "react";
-import { Table, Input, Select, Tag, DatePicker, Button } from "antd";
-import { SearchOutlined, CalendarOutlined, FilePdfOutlined, FileExcelOutlined } from "@ant-design/icons";
+import { Table, Input, Select, Tag, DatePicker, Button, message } from "antd";
+import { SearchOutlined, CalendarOutlined, FilePdfOutlined, FileExcelOutlined, ReloadOutlined } from "@ant-design/icons";
+import jsPDF from "jspdf";
+import "jspdf-autotable";
+import * as XLSX from "xlsx";
+import { saveAs } from "file-saver";
 
 const { Option } = Select;
 
@@ -131,6 +135,127 @@ const Admin = () => {
     return status === "Present" ? "success" : "error";
   };
 
+  // Refresh Handler
+  const handleRefresh = () => {
+    setSearchText("");
+    setFilterStatus(null);
+    setSelectedDate(null);
+    message.info("Refreshed!");
+  };
+
+  // Export PDF
+  const exportPDF = () => {
+    try {
+      if (!jsPDF) {
+        alert("PDF library not loaded. Please refresh the page and try again.");
+        return;
+      }
+
+      const doc = new jsPDF();
+      doc.setFontSize(20);
+      doc.setTextColor(40);
+      doc.text("Admin Attendance Report", 14, 22);
+
+      doc.setFontSize(12);
+      doc.setTextColor(100);
+      doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 14, 32);
+
+      if (!filteredData || filteredData.length === 0) {
+        doc.setFontSize(14);
+        doc.text("No data available to export", 14, 50);
+        doc.save("admin-attendance-report.pdf");
+        return;
+      }
+
+      const tableData = filteredData.map(item => [
+        item.name || '',
+        item.role || '',
+        item.status || '',
+        item.clockIn || '',
+        item.clockOut || '',
+        item.production || '',
+        item.break || '',
+        item.overtime || '',
+        item.totalHours || ''
+      ]);
+
+      if (typeof doc.autoTable === 'function') {
+        doc.autoTable({
+          head: [['Employee', 'Role', 'Status', 'Clock In', 'Clock Out', 'Production', 'Break', 'Overtime', 'Total Hours']],
+          body: tableData,
+          startY: 40,
+          styles: {
+            fontSize: 8,
+            cellPadding: 3,
+            overflow: 'linebreak',
+            halign: 'left',
+          },
+          headStyles: {
+            fillColor: [124, 58, 237],
+            textColor: 255,
+            fontStyle: 'bold',
+          },
+          alternateRowStyles: {
+            fillColor: [245, 245, 245],
+          },
+          margin: { top: 40 },
+        });
+      }
+
+      doc.save("admin-attendance-report.pdf");
+      message.success("PDF exported successfully");
+    } catch (error) {
+      console.error("Error exporting PDF:", error);
+      message.error(`Error exporting PDF: ${error.message}`);
+    }
+  };
+
+  // Export Excel
+  const exportExcel = () => {
+    try {
+      const worksheet = XLSX.utils.json_to_sheet(
+        filteredData.map((item) => ({
+          "Employee": item.name,
+          "Role": item.role,
+          "Status": item.status,
+          "Clock In": item.clockIn,
+          "Clock Out": item.clockOut,
+          "Production": item.production,
+          "Break": item.break,
+          "Overtime": item.overtime,
+          "Total Hours": item.totalHours,
+        }))
+      );
+
+      const columnWidths = [
+        { wch: 20 },
+        { wch: 15 },
+        { wch: 12 },
+        { wch: 12 },
+        { wch: 12 },
+        { wch: 12 },
+        { wch: 10 },
+        { wch: 12 },
+        { wch: 12 },
+      ];
+      worksheet['!cols'] = columnWidths;
+
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Admin Attendance");
+
+      const excelBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
+      const data = new Blob([excelBuffer], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+
+      saveAs(data, "admin-attendance-report.xlsx");
+      message.success("Excel exported successfully");
+    } catch (error) {
+      console.error("Error exporting Excel:", error);
+      message.error("Error exporting Excel. Please try again.");
+    }
+  };
+
   // Table columns
   const columns = [
     {
@@ -225,6 +350,7 @@ const Admin = () => {
         <div className="flex gap-2">
           <Button
             icon={<FilePdfOutlined />}
+            onClick={exportPDF}
             style={{
               background: "#DC2626",
               color: "white",
@@ -234,12 +360,18 @@ const Admin = () => {
           />
           <Button
             icon={<FileExcelOutlined />}
+            onClick={exportExcel}
             style={{
               background: "#16A34A",
               color: "white",
               borderColor: "#16A34A",
               borderRadius: "8px",
             }}
+          />
+          <Button
+            icon={<ReloadOutlined />}
+            onClick={handleRefresh}
+            style={{ borderRadius: "8px" }}
           />
         </div>
       </div>
