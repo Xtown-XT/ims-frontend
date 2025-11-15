@@ -1,6 +1,10 @@
 import React, { useState, useEffect } from "react";
-import { Button, Table, Input, Select, Progress, Tag } from "antd";
-import { SearchOutlined, ClockCircleOutlined } from "@ant-design/icons";
+import { Button, Table, Input, Select, Progress, Tag, message } from "antd";
+import { SearchOutlined, ClockCircleOutlined, FilePdfOutlined, FileExcelOutlined, ReloadOutlined } from "@ant-design/icons";
+import jsPDF from "jspdf";
+import "jspdf-autotable";
+import * as XLSX from "xlsx";
+import { saveAs } from "file-saver";
 
 const { Option } = Select;
 
@@ -8,7 +12,7 @@ const Employee = () => {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [searchText, setSearchText] = useState("");
   const [filterStatus, setFilterStatus] = useState(null);
-  const [sortBy, setSortBy] = useState("Last 7 Days");
+  const [sortBy, setSortBy] = useState("Sort By");
 
   // Update current time every second
   useEffect(() => {
@@ -137,8 +141,126 @@ const Employee = () => {
   // Get progress color
   const getProgressColor = (progress) => {
     if (progress >= 90) return "#52c41a";
-    if (progress >= 70) return "#faad14";
+    if (progress >= 70) return "#7C3AED";
     return "#ff4d4f";
+  };
+
+  // Refresh Handler
+  const handleRefresh = () => {
+    setSearchText("");
+    setFilterStatus(null);
+    setSortBy("Sort By");
+    message.info("Refreshed!");
+  };
+
+  // Export PDF
+  const exportPDF = () => {
+    try {
+      if (!jsPDF) {
+        alert("PDF library not loaded. Please refresh the page and try again.");
+        return;
+      }
+
+      const doc = new jsPDF();
+      doc.setFontSize(20);
+      doc.setTextColor(40);
+      doc.text("Employee Attendance Report", 14, 22);
+
+      doc.setFontSize(12);
+      doc.setTextColor(100);
+      doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 14, 32);
+
+      if (!filteredData || filteredData.length === 0) {
+        doc.setFontSize(14);
+        doc.text("No data available to export", 14, 50);
+        doc.save("employee-attendance-report.pdf");
+        return;
+      }
+
+      const tableData = filteredData.map(item => [
+        item.date || '',
+        item.status || '',
+        item.clockIn || '',
+        item.clockOut || '',
+        item.production || '',
+        item.break || '',
+        item.overtime || '',
+        item.totalHours || ''
+      ]);
+
+      if (typeof doc.autoTable === 'function') {
+        doc.autoTable({
+          head: [['Date', 'Status', 'Clock In', 'Clock Out', 'Production', 'Break', 'Overtime', 'Total Hours']],
+          body: tableData,
+          startY: 40,
+          styles: {
+            fontSize: 9,
+            cellPadding: 3,
+            overflow: 'linebreak',
+            halign: 'left',
+          },
+          headStyles: {
+            fillColor: [124, 58, 237],
+            textColor: 255,
+            fontStyle: 'bold',
+          },
+          alternateRowStyles: {
+            fillColor: [245, 245, 245],
+          },
+          margin: { top: 40 },
+        });
+      }
+
+      doc.save("employee-attendance-report.pdf");
+      message.success("PDF exported successfully");
+    } catch (error) {
+      console.error("Error exporting PDF:", error);
+      message.error(`Error exporting PDF: ${error.message}`);
+    }
+  };
+
+  // Export Excel
+  const exportExcel = () => {
+    try {
+      const worksheet = XLSX.utils.json_to_sheet(
+        filteredData.map((item) => ({
+          "Date": item.date,
+          "Status": item.status,
+          "Clock In": item.clockIn,
+          "Clock Out": item.clockOut,
+          "Production": item.production,
+          "Break": item.break,
+          "Overtime": item.overtime,
+          "Total Hours": item.totalHours,
+        }))
+      );
+
+      const columnWidths = [
+        { wch: 15 },
+        { wch: 12 },
+        { wch: 12 },
+        { wch: 12 },
+        { wch: 12 },
+        { wch: 10 },
+        { wch: 12 },
+        { wch: 12 },
+      ];
+      worksheet['!cols'] = columnWidths;
+
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Employee Attendance");
+
+      const excelBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
+      const data = new Blob([excelBuffer], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+
+      saveAs(data, "employee-attendance-report.xlsx");
+      message.success("Excel exported successfully");
+    } catch (error) {
+      console.error("Error exporting Excel:", error);
+      message.error("Error exporting Excel. Please try again.");
+    }
   };
 
   // Table columns
@@ -239,6 +361,33 @@ const Employee = () => {
           <h2 className="text-xl font-semibold text-gray-800 flex items-center gap-2">
             👋 Good Morning, <span className="text-violet-600">John Smilga</span>
           </h2>
+        </div>
+        <div className="flex gap-2">
+          <Button
+            icon={<FilePdfOutlined />}
+            onClick={exportPDF}
+            style={{
+              background: "#DC2626",
+              color: "white",
+              borderColor: "#DC2626",
+              borderRadius: "8px",
+            }}
+          />
+          <Button
+            icon={<FileExcelOutlined />}
+            onClick={exportExcel}
+            style={{
+              background: "#16A34A",
+              color: "white",
+              borderColor: "#16A34A",
+              borderRadius: "8px",
+            }}
+          />
+          <Button
+            icon={<ReloadOutlined />}
+            onClick={handleRefresh}
+            style={{ borderRadius: "8px" }}
+          />
         </div>
       </div>
 
@@ -387,9 +536,13 @@ const Employee = () => {
               value={sortBy}
               onChange={(val) => setSortBy(val)}
             >
-              <Option value="Last 7 Days">Last 7 Days</Option>
+              <Option value="Recently Added">Recently Added</Option>
+              <Option value="Ascending">Ascending</Option>
+              <Option value="Desending">Desending</Option>
               <Option value="Last Month">Last Month</Option>
-              <Option value="Last 3 Months">Last 3 Months</Option>
+              <Option value="Last 7 Days">Last 7 Days</Option>
+
+
             </Select>
           </div>
         </div>
