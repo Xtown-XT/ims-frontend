@@ -10,6 +10,7 @@ import { FaFilePdf, FaFileExcel, FaAngleUp } from "react-icons/fa6";
 import { IoReloadOutline } from "react-icons/io5";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import unitService from "./unitService.js";
 
 const { Option } = Select;
 
@@ -27,40 +28,19 @@ const Units = () => {
   const [selectedRowKeys, setSelectedRowKeys] = useState([]);
   const headerCheckboxRef = useRef(null);
 
-  const [formData, setFormData] = useState([
-    {
-      key: 1,
-      unit: "Kilograms",
-      shortname: "kg",
-      noofproducts: 10,
-      createddate: "10/01/2025",
-      status: "Active",
-    },
-    {
-      key: 2,
-      unit: "Liters",
-      shortname: "ltr",
-      noofproducts: 15,
-      createddate: "12/01/2025",
-      status: "Inactive",
-    },
-    {
-      key: 3,
-      unit: "Pieces",
-      shortname: "pc",
-      noofproducts: 8,
-      createddate: "14/01/2025",
-      status: "Active",
-    },
-  ]);
+  const [formData, setFormData] = useState([]);
 
   const [addUnitData, setAddUnitData] = useState({
     unit: "",
     shortname: "",
     status: true,
   });
+  
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [limit] = useState(5);
+  const [total, setTotal] = useState(0);
 
-  // ✅ Filtered Data (must come before useEffect)
   const filteredData = useMemo(() => {
     let filtered = [...formData];
     if (searchText.trim()) {
@@ -78,6 +58,20 @@ const Units = () => {
     }
     return filtered;
   }, [searchText, filterStatus, formData]);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const res = await unitService.getUnits(page, limit, search);
+        console.log("API response:", res.data.data.rows);
+        setUnits(res.data.data.rows)
+        setTotal(res.data.total);
+      } catch (err) {
+        console.error("Failed to fetch Units:", err);
+      }
+    };
+    fetchData();
+  }, [page, search]);
 
   // ✅ Handle checkbox header indeterminate state
   useEffect(() => {
@@ -124,11 +118,11 @@ const Units = () => {
     const updated = formData.map((item) =>
       item.key === editRecord.key
         ? {
-            ...item,
-            unit: addUnitData.unit,
-            shortname: addUnitData.shortname,
-            status: addUnitData.status ? "Active" : "Inactive",
-          }
+          ...item,
+          unit: addUnitData.unit,
+          shortname: addUnitData.shortname,
+          status: addUnitData.status ? "Active" : "Inactive",
+        }
         : item
     );
     setFormData(updated);
