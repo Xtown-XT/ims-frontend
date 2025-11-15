@@ -29,11 +29,13 @@ import {
 
 import { FaFilePdf, FaFileExcel, FaAngleUp } from "react-icons/fa6";
 import { IoReloadOutline } from "react-icons/io5";
-import { HashLink as Link } from "react-router-hash-link";
+// import { HashLink } from "react-router-hash-link";
 import { useNavigate } from "react-router-dom";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import dayjs from "dayjs";
+
+import { Link, useLocation } from "react-router-dom";
 
 const { Option } = Select;
 const { TextArea } = Input;
@@ -41,6 +43,8 @@ const { Dragger } = Upload;
 const { RangePicker } = DatePicker;
 
 const InventoryReport = () => {
+
+  const location = useLocation();
   const navigate = useNavigate();
 
   const [showForm, setShowForm] = useState(false);
@@ -336,7 +340,7 @@ const InventoryReport = () => {
       key: "category",
       align: "left"
     },
-     {
+    {
       title: "Unit",
       dataIndex: "unit",
       key: "unit",
@@ -348,11 +352,32 @@ const InventoryReport = () => {
       key: "instock",
       align: "left"
     }
-   
+
   ];
 
   return (
     <div className="bg-gray-50 min-h-screen p-6">
+
+      <div className="flex items-center justify-start gap-4 my-4">
+        <Link smooth to="/ims/reports/InventoryReports/InventoryReport">
+          <Button
+            type={location.pathname.includes("/InventoryReport") ? "primary" : "default"}
+          >Inventory Report</Button>
+        </Link>
+
+        <Link smooth to="/ims/reports/StockHistoryReport">
+          <Button
+            type={location.pathname.includes("/StockHistoryReport") ? "primary" : "default" }
+          >Stock History</Button>
+        </Link>
+
+        <Link smooth to="/ims/reports/SoldHistoryReport">
+          <Button
+            type={location.pathname.includes("/SoldHistoryReport") ? "primary" : "default"}
+          >Sold Report</Button>
+        </Link>
+      </div>
+
       {/* Header */}
       <div className="flex justify-between items-center mb-6 flex-wrap gap-3">
         <div>
@@ -361,6 +386,21 @@ const InventoryReport = () => {
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <Button
+            icon={<FaFilePdf color="red" size={16} />}
+            onClick={handleExportPDF}
+            title="Export to PDF"
+          />
+          <Button
+            icon={<FaFileExcel color="green" size={16} />}
+            onClick={handleExportCSV}
+            title="Export to Excel"
+          />
+          <Button
+            icon={<PrinterOutlined />}
+            onClick={handlePrint}
+            title="Print"
+          />
           <Button
             icon={<IoReloadOutline color="#9333ea" size={18} />}
             onClick={handleRefresh}
@@ -446,28 +486,6 @@ const InventoryReport = () => {
           background: "#fff",
         }}
       >
-        <div className="flex justify-between items-center m-5 flex-wrap gap-3">
-          <div>
-            <h3 className="text-lg font-semibold text-gray-800">Inventory Report</h3>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button
-              icon={<FaFilePdf color="red" size={16} />}
-              onClick={handleExportPDF}
-              title="Export to PDF"
-            />
-            <Button
-              icon={<FaFileExcel color="green" size={16} />}
-              onClick={handleExportCSV}
-              title="Export to Excel"
-            />
-            <Button
-              icon={<PrinterOutlined color="black" size={16} />}
-              onClick={handlePrint}
-              title="Print"
-            />
-          </div>
-        </div>
         <Table
           columns={columns}
           dataSource={filteredData}

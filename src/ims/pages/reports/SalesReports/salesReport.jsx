@@ -40,7 +40,7 @@ const { TextArea } = Input;
 const { Dragger } = Upload;
 const { RangePicker } = DatePicker;
 
-const SupplierReport = () => {
+const SalesReport = () => {
   const navigate = useNavigate();
 
   const [showForm, setShowForm] = useState(false);
@@ -54,44 +54,28 @@ const SupplierReport = () => {
 
   const [selectedKeys, setSelectedKeys] = useState([]);
 
-  const [status, setStatus] = useState(true);
-
   const [formData, setFormData] = useState([
     {
       key: 1,
-      reference: "PT001",
-      id: "3",
-      supplier: "kishore",
-      totalitems: 12,
-      amount: "$7000",
-      paymentmethod: "$3000",
-      status: "pending"
+      sku: "PT001",
+      productname: "Lenovo IdeaPad 3",
+      category: "Computers",
+      brand: "Lenovo",
+      soldqty: "05",
+      soldamount: "$3000",
+      instockqty: "100",
     },
     {
       key: 2,
-      reference: "PT002",
-      id: "3",
-      supplier: "mithun",
-      totalitems: 12,
-      amount: "$7000",
-      paymentmethod: "$3000",
-      status: "ordered"
-    },
-    {
-      key: 3,
-      reference: "PT003",
-      id: "3",
-      supplier: "aravind",
-      totalitems: 12,
-      amount: "$7000",
-      paymentmethod: "$3000",
-      status: "received"
+      sku: "PT002",
+      productname: "Beats Pro",
+      category: "Electronics",
+      brand: "Beats",
+      soldqty: "10",
+      soldamount: "$1600",
+      instockqty: "140",
     },
   ]);
-
-  // blue #06AED4
-  // yellow #E1CA18
-  // green #3EB780
 
   const initialDataRef = React.useRef(formData);
 
@@ -152,7 +136,7 @@ const SupplierReport = () => {
     // Set body to only the table content
     document.body.innerHTML = `
     <div style="padding: 20px;">
-      <h2 style="text-align: center; margin-bottom: 20px; color: #333;">Supplier Report</h2>
+      <h2 style="text-align: center; margin-bottom: 20px; color: #333;">Sales Report</h2>
       ${tableContent}
       <div style="text-align: center; margin-top: 20px; color: #666; font-size: 12px;">
         Generated on ${new Date().toLocaleDateString()}
@@ -283,16 +267,16 @@ const SupplierReport = () => {
     });
     doc.setFontSize(16);
     doc.setTextColor("#9333ea");
-    doc.text("Supplier Report", 40, 40);
+    doc.text("Sales Report", 40, 40);
 
     const columns = [
-      { header: "Reference", dataKey: "reference" },
-      { header: "ID", dataKey: "id" },
-      { header: "Supplier", dataKey: "supplier" },
-      { header: "Total Items", dataKey: "totalitems" },
-      { header: "Amount", dataKey: "amount" },
-      { header: "Payment Method", dataKey: "paymentmethod" },
-      { header: "Status", dataKey: "status" },
+      { header: "SKU", dataKey: "sku" },
+      { header: "Product Name", dataKey: "productname" },
+      { header: "Brand", dataKey: "brand" },
+      { header: "Category", dataKey: "category" },
+      { header: "Sold Qty", dataKey: "soldqty" },
+      { header: "Sold Amount", dataKey: "soldamount" },
+      { header: "In Stock Qty", dataKey: "instockqty" },
     ];
 
     autoTable(doc, {
@@ -325,24 +309,17 @@ const SupplierReport = () => {
   const columns = [
 
     {
-      title: "Reference",
-      dataIndex: "reference",
-      key: "reference",
+      title: "SKU",
+      dataIndex: "sku",
+      key: "sku",
       align: "left"
     },
     {
-      title: "ID",
-      dataIndex: "id",
-      key: "id",
+      title: "Product Name",
+      dataIndex: "productname",
+      key: "productname",
       align: "left",
-
-    },
-    {
-      title: "Supplier",
-      dataIndex: "supplier",
-      key: "supplier",
-      align: "left",
-       render: (text, record) => (
+      render: (text, record) => (
         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
           <img
             src={record.image || "https://via.placeholder.com/40"}
@@ -359,58 +336,34 @@ const SupplierReport = () => {
       ),
     },
     {
-      title: "Total Items",
-      dataIndex: "totalitems",
-      key: "totalitems",
+      title: "Brand",
+      dataIndex: "brand",
+      key: "brand",
       align: "left"
     },
     {
-      title: "Amount",
-      dataIndex: "amount",
-      key: "amount",
+      title: "Category",
+      dataIndex: "category",
+      key: "category",
       align: "left"
     },
     {
-      title: "Payment Method",
-      dataIndex: "paymentmethod",
-      key: "paymentmethod",
+      title: "Sold Qty",
+      dataIndex: "soldqty",
+      key: "soldqty",
       align: "left"
     },
     {
-      title: "Status",
-      dataIndex: "status",
-      key: "status",
-      align: "left",
-      status: status === true ? "pending" : "ordered",
-      render: (status) => {
-        let bgColor = "";
-        if (status.toLowerCase() === "pending") {
-          bgColor = "#E1CA18"; 
-        } else if (status.toLowerCase() === "ordered") {
-          bgColor = "#06AED4"; 
-        } else if (status.toLowerCase() === "received") {
-          bgColor = "#3EB780"; 
-        }
-
-        return (
-          <button
-            style={{
-              backgroundColor: bgColor,
-              color: "#fff",
-              border: "none",
-              borderRadius: "4px",
-              height: "22px",
-              width: "70px",
-              fontSize: "12px",
-              fontWeight: "500",
-              cursor: "default",
-              textTransform: "capitalize"
-            }}
-          >
-            {status}
-          </button>
-        );
-      },
+      title: "Sold Amount",
+      dataIndex: "soldamount",
+      key: "soldamount",
+      align: "left"
+    },
+    {
+      title: "Instock Qty",
+      dataIndex: "instockqty",
+      key: "instockqty",
+      align: "left"
     },
   ];
 
@@ -419,11 +372,26 @@ const SupplierReport = () => {
       {/* Header */}
       <div className="flex justify-between items-center mb-6 flex-wrap gap-3">
         <div>
-          <h2 className="text-xl font-semibold text-gray-800">Supplier Report</h2>
-          <p className="text-sm text-gray-500">Manage your Supplier Report</p>
+          <h2 className="text-xl font-semibold text-gray-800">Sales Report</h2>
+          <p className="text-sm text-gray-500">Manage your Sales report</p>
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <Button
+            icon={<FaFilePdf color="red" size={16} />}
+            onClick={handleExportPDF}
+            title="Export to PDF"
+          />
+          <Button
+            icon={<FaFileExcel color="green" size={16} />}
+            onClick={handleExportCSV}
+            title="Export to Excel"
+          />
+          <Button
+            icon={<PrinterOutlined />}
+            onClick={handlePrint}
+            title="Print"
+          />
           <Button
             icon={<IoReloadOutline color="#9333ea" size={18} />}
             onClick={handleRefresh}
@@ -563,28 +531,6 @@ const SupplierReport = () => {
           background: "#fff",
         }}
       >
-        <div className="flex justify-between items-center m-5 flex-wrap gap-3">
-          <div>
-            <h3 className="text-lg font-semibold text-gray-800">Invoice Report</h3>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button
-              icon={<FaFilePdf color="red" size={16} />}
-              onClick={handleExportPDF}
-              title="Export to PDF"
-            />
-            <Button
-              icon={<FaFileExcel color="green" size={16} />}
-              onClick={handleExportCSV}
-              title="Export to Excel"
-            />
-            <Button
-              icon={<PrinterOutlined color="black" size={16} />}
-              onClick={handlePrint}
-              title="Print"
-            />
-          </div>
-        </div>
         <Table
           columns={columns}
           dataSource={filteredData}
@@ -845,4 +791,4 @@ const SupplierReport = () => {
   );
 };
 
-export default SupplierReport;
+export default SalesReport;

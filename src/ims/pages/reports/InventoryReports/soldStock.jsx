@@ -29,18 +29,20 @@ import {
 
 import { FaFilePdf, FaFileExcel, FaAngleUp } from "react-icons/fa6";
 import { IoReloadOutline } from "react-icons/io5";
-import { HashLink as Link } from "react-router-hash-link";
+import { HashLink } from "react-router-hash-link";
 import { useNavigate } from "react-router-dom";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import dayjs from "dayjs";
+
+import { Link, useLocation } from "react-router-dom";
 
 const { Option } = Select;
 const { TextArea } = Input;
 const { Dragger } = Upload;
 const { RangePicker } = DatePicker;
 
-const SupplierDueReport = () => {
+const SoldStockReport = () => {
   const navigate = useNavigate();
 
   const [showForm, setShowForm] = useState(false);
@@ -54,44 +56,26 @@ const SupplierDueReport = () => {
 
   const [selectedKeys, setSelectedKeys] = useState([]);
 
-  const [status, setStatus] = useState(true);
-
   const [formData, setFormData] = useState([
     {
       key: 1,
-      reference: "PT001",
-      id: 3,
-      supplier: "kishore",
-      totalamount: "$120",
-      paid: "$700",
-      due: "$0",
-      status: "paid"
+      sku: "PT001",
+      productname: "Lenovo IdeaPad 3",
+      unit: "kg",
+      qty: "09",
+      taxvalue: "$450",
+      total: "$450"
     },
     {
       key: 2,
-      reference: "PT002",
-      id: 4,
-      supplier: "mithun",
-      totalamount: "$420",
-      paid: "$700",
-      due: "$0",
-      status: "unpaid"
-    },
-    {
-      key: 3,
-      reference: "PT003",
-      id: "5",
-      supplier: "aravind",
-      totalamount: 220,
-      paid: "$700",
-      due: "$0",
-      status: "paid"
+      sku: "PT002",
+      productname: "Beats Pro",
+      unit: "kg",
+      qty: "09",
+      taxvalue: "$350",
+      total: "$350"
     },
   ]);
-
-  // blue #06AED4
-  // yellow #E1CA18
-  // green #3EB780
 
   const initialDataRef = React.useRef(formData);
 
@@ -152,7 +136,7 @@ const SupplierDueReport = () => {
     // Set body to only the table content
     document.body.innerHTML = `
     <div style="padding: 20px;">
-      <h2 style="text-align: center; margin-bottom: 20px; color: #333;">Supplier Report</h2>
+      <h2 style="text-align: center; margin-bottom: 20px; color: #333;">Best Sellers</h2>
       ${tableContent}
       <div style="text-align: center; margin-top: 20px; color: #666; font-size: 12px;">
         Generated on ${new Date().toLocaleDateString()}
@@ -283,16 +267,15 @@ const SupplierDueReport = () => {
     });
     doc.setFontSize(16);
     doc.setTextColor("#9333ea");
-    doc.text("Supplier Report", 40, 40);
+    doc.text("Inventory report", 40, 40);
 
     const columns = [
-      { header: "Reference", dataKey: "reference" },
-      { header: "ID", dataKey: "id" },
-      { header: "Supplier", dataKey: "supplier" },
-      { header: "Total Amount", dataKey: "totalamount" },
-      { header: "Paid", dataKey: "paid" },
-      { header: "Due", dataKey: "due" },
-      { header: "Status", dataKey: "status" },
+      { header: "SKU", dataKey: "sku" },
+      { header: "Product", dataKey: "product" },
+      { header: "Unit", dataKey: "unit" },
+      { header: "Quantity", dataKey: "qty" },
+      { header: "Tax Value", dataKey: "taxvalue" },
+      { header: "Total", dataKey: "total" },
     ];
 
     autoTable(doc, {
@@ -325,22 +308,15 @@ const SupplierDueReport = () => {
   const columns = [
 
     {
-      title: "Reference",
-      dataIndex: "reference",
-      key: "reference",
+      title: "SKU",
+      dataIndex: "sku",
+      key: "sku",
       align: "left"
     },
     {
-      title: "ID",
-      dataIndex: "id",
-      key: "id",
-      align: "left",
-
-    },
-    {
-      title: "Supplier",
-      dataIndex: "supplier",
-      key: "supplier",
+      title: "Product Name",
+      dataIndex: "productname",
+      key: "productname",
       align: "left",
       render: (text, record) => (
         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
@@ -359,60 +335,78 @@ const SupplierDueReport = () => {
       ),
     },
     {
-      title: "Total Amount",
-      dataIndex: "totalamount",
-      key: "totalamount",
+      title: "Unit",
+      dataIndex: "unit",
+      key: "unit",
+      align: "left"
+    },
+     {
+      title: "Quantity",
+      dataIndex: "qty",
+      key: "qty",
       align: "left"
     },
     {
-      title: "Paid",
-      dataIndex: "paid",
-      key: "paid",
+      title: "Tax Value",
+      dataIndex: "taxvalue",
+      key: "taxvalue",
       align: "left"
     },
     {
-      title: "Due",
-      dataIndex: "due",
-      key: "due",
+      title: "Total",
+      dataIndex: "total",
+      key: "total",
       align: "left"
-    },
-    {
-      title: "Status",
-      dataIndex: "status",
-      key: "status",
-      align: "left",
-      status: status === true ? "Paid" : "UnPaid",
-      render: (status) => (
-        <button
-          style={{
-            backgroundColor:
-              status.toLowerCase() === "paid" ? "#3EB780" : "#d63031",
-            color: "#fff",
-            border: "none",
-            borderRadius: "4px",
-            height: "22px",
-            width: "46px",
-            fontSize: "12px",
-            fontWeight: "500",
-            cursor: "default",
-          }}
-        >
-          {status}
-        </button>
-      ),
-    },
+    }
+   
   ];
 
   return (
     <div className="bg-gray-50 min-h-screen p-6">
+
+      <div className="flex items-center justify-start gap-4 my-4">
+        <Link smooth to="/ims/reports/InventoryReports/InventoryReport">
+          <Button
+            type={location.pathname.includes("/InventoryReport") ? "primary" : "default"}
+          >Inventory Report</Button>
+        </Link>
+
+        <Link smooth to="/ims/reports/StockHistoryReport">
+          <Button
+            type={location.pathname.includes("/StockHistoryReport") ? "primary" : "default" }
+          >Stock History</Button>
+        </Link>
+
+        <Link smooth to="/ims/reports/SoldHistoryReport">
+          <Button
+            type={location.pathname.includes("/SoldHistoryReport") ? "primary" : "default" }
+          >Sold Report</Button>
+        </Link>
+      </div>
+
       {/* Header */}
       <div className="flex justify-between items-center mb-6 flex-wrap gap-3">
         <div>
-          <h2 className="text-xl font-semibold text-gray-800">Supplier Report</h2>
-          <p className="text-sm text-gray-500">Manage your Supplier Report</p>
+          <h2 className="text-xl font-semibold text-gray-800">Sold Stock</h2>
+          <p className="text-sm text-gray-500">View Reports of Sold Stock</p>
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <Button
+            icon={<FaFilePdf color="red" size={16} />}
+            onClick={handleExportPDF}
+            title="Export to PDF"
+          />
+          <Button
+            icon={<FaFileExcel color="green" size={16} />}
+            onClick={handleExportCSV}
+            title="Export to Excel"
+          />
+          <Button
+            icon={<PrinterOutlined />}
+            onClick={handlePrint}
+            title="Print"
+          />
           <Button
             icon={<IoReloadOutline color="#9333ea" size={18} />}
             onClick={handleRefresh}
@@ -427,60 +421,6 @@ const SupplierDueReport = () => {
               transition: "transform 0.2s",
             }}
           />
-        </div>
-      </div>
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <div className="bg-white p-4 rounded-lg shadow-sm border border-[#10B981]">
-          <div className="flex justify-start items-center gap-4">
-            <div>
-              <DollarOutlined style={{ fontSize: '24px', color: '#10B981' }} />
-            </div>
-            <div>
-              <p className="text-sm text-gray-500 mb-1">Total Amount</p>
-              <p className="text-2xl font-bold text-gray-800">$4,50,000</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-4 rounded-lg shadow-sm border border-[p#3B82F6]">
-          <div className="flex justify-start items-center gap-4">
-            <div>
-              <CheckCircleOutlined style={{ fontSize: '24px', color: '#3B82F6' }} />
-            </div>
-            <div>
-              <p className="text-sm text-gray-500 mb-1">Total Paid</p>
-              <p className="text-2xl font-bold text-gray-800">$2,50,35</p>
-            </div>
-
-          </div>
-        </div>
-
-        <div className="bg-white p-4 rounded-lg shadow-sm border border-[#F59E0B]">
-          <div className="flex justify-start items-center gap-4">
-            <div>
-              <ClockCircleOutlined style={{ fontSize: '24px', color: '#F59E0B' }} />
-            </div>
-            <div>
-              <p className="text-sm text-gray-500 mb-1">Total Unpaid</p>
-              <p className="text-2xl font-bold text-gray-800">$1,50,35</p>
-            </div>
-
-          </div>
-        </div>
-
-        <div className="bg-white p-4 rounded-lg shadow-sm border border-[#EF4444]">
-          <div className="flex justify-start items-center gap-4">
-            <div>
-              <ExclamationCircleOutlined style={{ fontSize: '24px', color: '#EF4444' }} />
-            </div>
-            <div>
-              <p className="text-sm text-gray-500 mb-1">Overdue</p>
-              <p className="text-2xl font-bold text-gray-800">$2,52,10</p>
-            </div>
-
-          </div>
         </div>
       </div>
 
@@ -552,28 +492,6 @@ const SupplierDueReport = () => {
           background: "#fff",
         }}
       >
-        <div className="flex justify-between items-center m-5 flex-wrap gap-3">
-          <div>
-            <h3 className="text-lg font-semibold text-gray-800">Invoice Report</h3>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button
-              icon={<FaFilePdf color="red" size={16} />}
-              onClick={handleExportPDF}
-              title="Export to PDF"
-            />
-            <Button
-              icon={<FaFileExcel color="green" size={16} />}
-              onClick={handleExportCSV}
-              title="Export to Excel"
-            />
-            <Button
-              icon={<PrinterOutlined color="black" size={16} />}
-              onClick={handlePrint}
-              title="Print"
-            />
-          </div>
-        </div>
         <Table
           columns={columns}
           dataSource={filteredData}
@@ -834,4 +752,4 @@ const SupplierDueReport = () => {
   );
 };
 
-export default SupplierDueReport;
+export default SoldStockReport;

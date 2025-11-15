@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { Switch, Table, Input, Select, Button, Modal, Form, message } from "antd";
 import {
   SearchOutlined,
@@ -10,16 +10,20 @@ import { FaFilePdf, FaFileExcel, FaAngleUp } from "react-icons/fa6";
 import { IoReloadOutline } from "react-icons/io5";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import categoryService from "./productCategoryService.js";
 
 const { Option } = Select;
 
 const ProductCategory = () => {
+
+
   const [form] = Form.useForm();
 
   const [showForm, setShowForm] = useState(false);
   const [searchText, setSearchText] = useState("");
   const [status, setStatus] = useState(true);
   const [checked, setChecked] = useState(true);
+  const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState(null);
   const [isEditMode, setIsEditMode] = useState(false);
   const [editRecord, setEditRecord] = useState(null);
@@ -27,32 +31,28 @@ const ProductCategory = () => {
   const [deleteRecord, setDeleteRecord] = useState(null);
   const [filtersCollapsed, setFiltersCollapsed] = useState(false);
 
+  const [page, setPage] = useState(1);
+  const [limit] = useState(5);
+  const [total, setTotal] = useState(0);
+
   // ✅ Checkbox selection state
   const [selectedKeys, setSelectedKeys] = useState([]);
 
-  const [categories, setCategories] = useState([
-    {
-      key: 1,
-      category: "Computers",
-      categoryslug: "computers",
-      createdon: "",
-      status: "Active",
-    },
-    {
-      key: 2,
-      category: "Electronics",
-      categoryslug: "electronics",
-      createdon: "",
-      status: "Inactive",
-    },
-    {
-      key: 3,
-      category: "Home Appliances",
-      categoryslug: "home-appliances",
-      createdon: "",
-      status: "Active",
-    },
-  ]);
+  const [categories, setCategories] = useState([]);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const res = await categoryService.getCategories(page, limit, search);
+        console.log("API response:", res.data.rows);
+        setCategories(res.data.rows)
+        setTotal(res.data.total);
+      } catch (err) {
+        console.error("Failed to fetch categories:", err);
+      }
+    };
+    fetchData();
+  }, [page, search]);
 
   const filteredCategories = useMemo(() => {
     let filtered = [...categories];
@@ -60,13 +60,13 @@ const ProductCategory = () => {
     if (searchText.trim()) {
       const lowerSearch = searchText.toLowerCase();
       filtered = filtered.filter((item) =>
-        item.category.toLowerCase().includes(lowerSearch)
+        item.category_name.toLowerCase().includes(lowerSearch)
       );
     }
 
     if (filterStatus) {
       filtered = filtered.filter(
-        (item) => item.status.toLowerCase() === filterStatus.toLowerCase()
+        (item) => (item.is_active ? "Active" : "Inactive") === filterStatus
       );
     }
 
@@ -84,10 +84,10 @@ const ProductCategory = () => {
     setChecked(true);
     form.resetFields();
     form.setFieldsValue({
-      category: "",
-      categoryslug: "",
+      category_name: "",
+      category_slug: "",
       createdon: "",
-      status: "Active",
+      is_active: "Active",
     });
     setShowForm(true);
   };
@@ -95,56 +95,61 @@ const ProductCategory = () => {
   const handleAddCategory = async () => {
     try {
       const values = await form.validateFields();
-      const newCategory = {
-        key: Date.now(),
-        category: values.category,
-        categoryslug: values.categoryslug,
+      const payload = {
+        category_name: values.category_name,
+        category_slug: values.category_slug,
         createdon: values.createdon || new Date().toISOString().slice(0, 10),
-        status: values.status || (checked ? "Active" : "Inactive"),
+        is_active: checked,
       };
-      setCategories((prev) => [newCategory, ...prev]);
+
+      const res = await categoryService.createCategory(payload);
+
+      setCategories((prev) => [res.data.data, ...prev]);
+      console.log("Saved:", res.data);
       setShowForm(false);
       form.resetFields();
       setIsEditMode(false);
       setEditRecord(null);
       message.success("Category added");
-    } catch (err) {}
+    } catch (err) {
+      console.log("Faild to add Category", err);
+    }
   };
 
   const handleEdit = (record) => {
     setIsEditMode(true);
     setEditRecord(record);
     form.setFieldsValue({
-      category: record.category,
-      categoryslug: record.categoryslug,
-      createdon: record.createdon || "",
-      status: record.status || "Inactive",
+      category_name: record.category_name,
+      category_slug: record.category_slug,
+      is_active: record.is_active ? "Active" : "Inactive",
     });
-    setChecked(record.status === "Active");
+    setChecked(record.is_active);
     setShowForm(true);
   };
 
-  const handleSaveChanges = async () => {
+  const handleSaveChanges = async (record) => {
     try {
-      const values = await form.validateFields();
+      const values = await form.validateFields(record);
+
       if (!editRecord) {
         message.error("No record selected for editing");
         return;
       }
+
+      const updateCategory = {
+        category_name: values.category_name,
+        category_slug: values.category_slug,
+        is_active: checked
+      }
+
+      const res = await categoryService.updateCategory(editRecord.id, updateCategory)
+
+      console.log("updated", res.data);
+
       setCategories((prev) =>
         prev.map((item) =>
-          item.key === editRecord.key
-            ? {
-                ...item,
-                category: values.category,
-                categoryslug: values.categoryslug,
-                createdon:
-                  values.createdon ||
-                  editRecord.createdon ||
-                  new Date().toISOString().slice(0, 10),
-                status: values.status || (checked ? "Active" : "Inactive"),
-              }
-            : item
+          item.id === editRecord.id ? { ...item, ...updateCategory } : item
         )
       );
       setShowForm(false);
@@ -152,7 +157,9 @@ const ProductCategory = () => {
       setEditRecord(null);
       form.resetFields();
       message.success("Changes saved");
-    } catch (err) {}
+    } catch (err) {
+      console.log("Failed to Update Category")
+    }
   };
 
   const handleDelete = (record) => {
@@ -160,11 +167,20 @@ const ProductCategory = () => {
     setShowDeleteModal(true);
   };
 
-  const confirmDelete = () => {
-    setCategories((prev) => prev.filter((item) => item.key !== deleteRecord.key));
-    setShowDeleteModal(false);
-    setDeleteRecord(null);
-    message.success("Category deleted");
+  const confirmDelete = async () => {
+
+    try {
+      await categoryService.deleteCategory(deleteRecord.id)
+
+      setCategories((prev) => prev.filter((item) => item.id !== deleteRecord.id));
+      setShowDeleteModal(false);
+      setDeleteRecord(null);
+      message.success("Category deleted");
+      console.log("Category deleted");
+
+    } catch (err) {
+      console.Consolelog("Failed to Delete Category", err);
+    }
   };
 
   const cancelDelete = () => {
@@ -260,7 +276,7 @@ const ProductCategory = () => {
   // ✅ Checkbox handlers
   const handleSelectAll = (e) => {
     if (e.target.checked) {
-      setSelectedKeys(categories.map((item) => item.key));
+      setSelectedKeys(categories.map((item) => item.id));
     } else {
       setSelectedKeys([]);
     }
@@ -288,24 +304,23 @@ const ProductCategory = () => {
       render: (_, record) => (
         <input
           type="checkbox"
-          checked={selectedKeys.includes(record.key)}
-          onChange={() => handleSelectOne(record.key)}
+          checked={selectedKeys.includes(record.id)}
+          onChange={() => handleSelectOne(record.id)}
           style={{ accentColor: "#7E57C2", cursor: "pointer" }}
         />
       ),
       width: 50,
     },
-    { title: "Category", dataIndex: "category", key: "category" },
-    { title: "Category Slug", dataIndex: "categoryslug", key: "categoryslug" },
+    { title: "Category", dataIndex: "category_name", key: "category_name" },
+    { title: "Category Slug", dataIndex: "category_slug", key: "category_slug" },
     {
       title: "Status",
-      dataIndex: "status",
-      key: "status",
-      render: (status) => (
+      dataIndex: "is_active",
+      key: "is_active",
+      render: (_, record) => (
         <button
           style={{
-            backgroundColor:
-              status.toLowerCase() === "active" ? "#3EB780" : "#d63031",
+            backgroundColor: record?.is_active ? "#3EB780" : "#d63031",
             color: "#fff",
             border: "none",
             borderRadius: "4px",
@@ -316,7 +331,7 @@ const ProductCategory = () => {
             cursor: "default",
           }}
         >
-          {status}
+          {record?.is_active ? "Active" : "Inactive"}
         </button>
       ),
     },
@@ -416,6 +431,7 @@ const ProductCategory = () => {
           columns={columns}
           dataSource={filteredCategories}
           pagination={{ pageSize: 5 }}
+          rowKey="id"
           className="bg-white"
           bordered={false}
           rowClassName={() => "hover:bg-gray-50"}
@@ -468,10 +484,10 @@ const ProductCategory = () => {
           <Form.Item
             label={
               <span className="text-sm font-medium text-gray-700">
-                Category <span className="text-red-500">*</span>
+                Category
               </span>
             }
-            name="category"
+            name="category_name"
             rules={[{ required: true, message: "Please enter category" }]}
             className="mb-3"
           >
@@ -481,10 +497,10 @@ const ProductCategory = () => {
           <Form.Item
             label={
               <span className="text-sm font-medium text-gray-700">
-                Category Slug <span className="text-red-500">*</span>
+                Category Slug
               </span>
             }
-            name="categoryslug"
+            name="category_slug"
             rules={[{ required: true, message: "Please enter category slug" }]}
             className="mb-3"
           >
@@ -493,14 +509,15 @@ const ProductCategory = () => {
 
           <div className="flex items-center justify-between mt-2">
             <span className="text-sm font-medium text-gray-700">
-              Status <span className="text-red-500">*</span>
+              Status
             </span>
-            <Form.Item name="status" valuePropName="checked" noStyle>
+            <Form.Item name="is_active" valuePropName="checked" noStyle>
               <Switch
                 size="small"
                 checked={checked}
                 onChange={(ch) => {
                   onChange(ch);
+                  form.setFieldsValue({ is_active: ch });
                 }}
               />
             </Form.Item>
@@ -536,7 +553,7 @@ const ProductCategory = () => {
         </Form>
       </Modal>
 
-      {/* 🟣 Delete Confirmation Modal */}
+
       <Modal open={showDeleteModal} onCancel={cancelDelete} footer={null} centered>
         <div style={{ textAlign: "center", padding: "10px 0" }}>
           <div
