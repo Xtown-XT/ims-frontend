@@ -567,7 +567,6 @@ const IMSRoutes = () => {
       <Route path="FinanceAccounts/CashFlow" element={<CashFlow />} />
       <Route path="FinanceAccounts/AccountStatement" element={<AccountStatement />} />
 
-
       {/* Reports */}
       <Route path="reports/SalesReports/SalesReport" element={<SalesReport />}></Route>
       <Route path="reports/SalesReports/BestSeller" element={<BestSeller />}></Route>

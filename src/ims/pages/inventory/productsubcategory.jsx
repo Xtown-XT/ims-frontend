@@ -374,7 +374,7 @@ const ProductSubCategory = () => {
             border: "none",
             borderRadius: "4px",
             height: "22px",
-            width: "46px",
+            width: "70px",
             fontSize: "12px",
             fontWeight: "500",
             cursor: "default",
