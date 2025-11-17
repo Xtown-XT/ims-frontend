@@ -1,17 +1,13 @@
 import React, { useState, useEffect } from "react";
 import {
-  EyeOutlined,
   EditOutlined,
   DeleteOutlined,
-  FilePdfOutlined,
-  FileExcelOutlined,
   ReloadOutlined,
   PlusOutlined,
   UploadOutlined,
   EyeInvisibleOutlined,
   EyeTwoTone,
   SearchOutlined,
-  DownOutlined,
 } from "@ant-design/icons";
 import {
   Button,
@@ -23,117 +19,93 @@ import {
   Form,
   Switch,
   Pagination,
+  message,
 } from "antd";
-import jsPDF from "jspdf";
-import "jspdf-autotable";
-import * as XLSX from "xlsx";
-import { saveAs } from "file-saver";
 
-// 🖼️ Images
-import AlizaDuncan from "../Sales/assets/AlizaDuncan.jpeg";
-import HenryBryant from "../Sales/assets/HenryBryant.jpeg";
-import JadaRobinson from "../Sales/assets/JadaRobinson.jpeg";
-import JamesHigham from "../Sales/assets/JamesHigham.jpeg";
-import JennyEllis from "../Sales/assets/JennyEllis.jpeg";
-import KarenGalvan from "../Sales/assets/KarenGalvan.jpeg";
-import LeonBaxter from "../Sales/assets/LeonBaxter.jpeg";
-import MichaelDawson from "../Sales/assets/MichaelDawson.jpeg";
-import ThomasWard from "../Sales/assets/ThomasWard.jpeg";
+import userService from "./UserService";
+import RoleService from "./RoleService";
 
-const { Search } = Input;
 const { Option } = Select;
 
 const Users = () => {
-  const [pageSize, setPageSize] = useState(10);
+  const [messageApi, contextHolder] = message.useMessage();
+
+  const [pageSize] = useState(10);
   const [current, setCurrent] = useState(1);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [form] = Form.useForm();
+
   const [imagePreview, setImagePreview] = useState(null);
+  const [modalImageFile, setModalImageFile] = useState(null);
+
   const [searchText, setSearchText] = useState("");
-  const [filteredData, setFilteredData] = useState([]);
   const [statusFilter, setStatusFilter] = useState(null);
-  const [selectedRowKeys, setSelectedRowKeys] = useState([]);
+
+  const [allUsers, setAllUsers] = useState([]);
+  const [filteredData, setFilteredData] = useState([]);
+
+  const [roles, setRoles] = useState([]);
+
   const [isEditMode, setIsEditMode] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
 
-  const usersData = [
-    {
-      key: "1",
-      avatar: HenryBryant,
-      name: "Henry Bryant",
-      phone: "+12498345785",
-      email: "henry@example.com",
-      role: "Admin",
-      status: "InActive",
-    },
-    {
-      key: "2",
-      avatar: JennyEllis,
-      name: "Jenny Ellis",
-      phone: "+13178964582",
-      email: "jenny@example.com",
-      role: "Manager",
-      status: "Active",
-    },
-    {
-      key: "3",
-      avatar: LeonBaxter,
-      name: "Leon Baxter",
-      phone: "+12796183487",
-      email: "leon@example.com",
-      role: "Salesman",
-      status: "Active",
-    },
-    {
-      key: "4",
-      avatar: KarenGalvan,
-      name: "Karen Flores",
-      phone: "+17538647943",
-      email: "karen@example.com",
-      role: "Supervisor",
-      status: "Active",
-    },
-    {
-      key: "5",
-      avatar: MichaelDawson,
-      name: "Michael Dawson",
-      phone: "+13798132475",
-      email: "michael@example.com",
-      role: "Store Keeper",
-      status: "Active",
-    },
-    {
-      key: "6",
-      avatar: KarenGalvan,
-      name: "Karen Galvan",
-      phone: "+17596341894",
-      email: "karen@example.com",
-      role: "Purchase",
-      status: "Active",
-    },
-  ];
+  // ✅ FIXED ROLE FETCHING WITH ERROR HANDLING
+  const fetchRoles = async () => {
+    try {
+      const res = await RoleService.getAllRoles();
+      console.log("Roles Response:", res.data);
+
+      let rolesArray = [];
+      if (Array.isArray(res.data)) rolesArray = res.data;
+      else if (Array.isArray(res.data.data)) rolesArray = res.data.data;
+      else if (Array.isArray(res.data.rows)) rolesArray = res.data.rows;
+
+      setRoles(rolesArray);
+    } catch (err) {
+      console.error("Failed to load roles:", err);
+      setRoles([]);
+    }
+  };
+
+  const fetchUsers = async () => {
+    try {
+      const res = await userService.getAllUsers();
+      console.log("Users API Response:", res);
+      console.log("Users Data:", res.data);
+      setAllUsers(res.data || []);
+      setFilteredData(res.data || []);
+    } catch (err) {
+      console.error("Error fetching users:", err);
+      messageApi.error("Failed to load users");
+    }
+  };
 
   useEffect(() => {
-    setFilteredData(usersData);
+    fetchRoles();
+    fetchUsers();
   }, []);
 
   const applyFilters = () => {
-    let filtered = [...usersData];
+    let filtered = [...allUsers];
 
     if (searchText) {
       filtered = filtered.filter(
         (user) =>
-          user.name.toLowerCase().includes(searchText.toLowerCase()) ||
-          user.email.toLowerCase().includes(searchText.toLowerCase()) ||
-          user.phone.includes(searchText) ||
-          user.role.toLowerCase().includes(searchText.toLowerCase()) ||
-          user.status.toLowerCase().includes(searchText.toLowerCase())
+          (user.username || "")
+            .toLowerCase()
+            .includes(searchText.toLowerCase()) ||
+          (user.email || "")
+            .toLowerCase()
+            .includes(searchText.toLowerCase()) ||
+          (user.phone || "").includes(searchText)
       );
     }
 
     if (statusFilter) {
       filtered = filtered.filter(
-        (user) => user.status.toLowerCase() === statusFilter.toLowerCase()
+        (user) =>
+          (user.is_active ? "Active" : "Inactive").toLowerCase() ===
+          statusFilter.toLowerCase()
       );
     }
 
@@ -143,165 +115,106 @@ const Users = () => {
 
   useEffect(() => {
     applyFilters();
-  }, [searchText, statusFilter]);
+  }, [searchText, statusFilter, allUsers]);
 
-  const handleSearch = (value) => setSearchText(value);
-  const handleStatusFilter = (value) => setStatusFilter(value);
-
-  const handleView = (record) => {
-    Modal.info({
-      title: "User Details",
-      content: (
-        <div>
-          <p><strong>Name:</strong> {record.name}</p>
-          <p><strong>Email:</strong> {record.email}</p>
-          <p><strong>Phone:</strong> {record.phone}</p>
-          <p><strong>Role:</strong> {record.role}</p>
-          <p><strong>Status:</strong> {record.status}</p>
-        </div>
-      ),
-      width: 500,
-    });
-  };
-
-  const handleEdit = (record) => {
-    setIsEditMode(true);
-    setEditingUser(record);
-    form.setFieldsValue({
-      user: record.name,
-      role: record.role,
-      email: record.email,
-      phone: record.phone,
-      status: record.status === "Active",
-    });
-    setImagePreview(record.avatar);
-    setIsModalVisible(true);
-  };
-
-  const handleDelete = (record) => {
-    Modal.confirm({
-      title: "Delete User",
-      content: `Are you sure you want to delete ${record.name}?`,
-      okText: "Yes, Delete",
-      okType: "danger",
-      cancelText: "Cancel",
-      onOk() {
-        const updatedUsers = usersData.filter((user) => user.key !== record.key);
-        setFilteredData(updatedUsers);
-      },
-    });
-  };
-
-  // ✅ Checkbox selection handlers
-  const handleSelectAll = (selected) => {
-    setSelectedRowKeys(selected ? filteredData.map((item) => item.key) : []);
-  };
-
-  const handleSelectRow = (record, selected) => {
-    if (selected) {
-      setSelectedRowKeys([...selectedRowKeys, record.key]);
-    } else {
-      setSelectedRowKeys(selectedRowKeys.filter((key) => key !== record.key));
-    }
+  // ✅ Updated getRoleName to use nested role from API if roles array empty
+  const getRoleName = (record) => {
+    if (record.role && record.role.role_name) return record.role.role_name;
+    const role = roles.find((r) => r.id === record.role_id || r._id === record.role_id);
+    return role ? role.role_name || role.roleName : "—";
   };
 
   const columns = [
     {
       title: "User Name",
-      dataIndex: "name",
+      dataIndex: "username",
       render: (text, record) => (
         <div className="flex items-center gap-3">
           <img
-            src={record.avatar}
-            alt={record.name}
+            src={
+              record.profile_picture
+                ? record.profile_picture.startsWith("http")
+                  ? record.profile_picture
+                  : `${import.meta.env.VITE_API_URL}/${record.profile_picture}`
+                : "/img/noimg.png"
+            }
+            alt={record.username}
             className="w-10 h-10 rounded-full object-cover"
           />
-          <span className="font-medium text-gray-800">{record.name}</span>
+          <span className="font-medium text-gray-800">{record.username}</span>
         </div>
       ),
     },
     {
       title: "Phone",
       dataIndex: "phone",
-      render: (text) => <span className="text-gray-600">{text}</span>,
     },
     {
       title: "Email",
       dataIndex: "email",
-      render: (text) => <span className="text-gray-600">{text}</span>,
     },
     {
       title: "Role",
-      dataIndex: "role",
-      render: (text) => <span className="text-gray-700">{text}</span>,
+      render: (_, record) => (
+        <span className="text-gray-700">{getRoleName(record)}</span>
+      ),
     },
-   {
-  title: "Status",
-  dataIndex: "status",
-  render: (status) => {
-    const statusColors = {
-      Active: { background: "#3EB780", color: "#fff" },
-      InActive: { background: "#d63031", color: "#fff" },
-    };
-
-    const colors = statusColors[status] || {
-      background: "#ff9999",
-      color: "#fff",
-    };
-
-    return (
-      <span
-        style={{
-          backgroundColor: colors.background,
-          color: colors.color,
-          padding: "4px 0px",
-          borderRadius: "4px",
-          fontSize: "12px",
-          fontWeight: "500",
-          display: "inline-block",
-          textAlign: "center",
-          width: "46px",
-        }}
-      >
-        {status}
-      </span>
-    );
-  },
-},
-
+    {
+      title: "Status",
+      render: (_, record) => {
+        const status = record.is_active ? "Active" : "Inactive";
+        return (
+          <span
+            style={{
+              backgroundColor: record.is_active ? "#3EB780" : "#d63031",
+              color: "#fff",
+              padding: "4px 6px",
+              borderRadius: "4px",
+              fontSize: "12px",
+              width: "60px",
+              display: "inline-block",
+              textAlign: "center",
+            }}
+          >
+            {status}
+          </span>
+        );
+      },
+    },
     {
       title: "",
       render: (_, record) => (
         <div className="flex gap-1">
           <Button
-            icon={<EyeOutlined />}
-            size="small"
-            onClick={() => handleView(record)}
-            className="w-8 h-8 flex items-center justify-center border-gray-300 text-gray-500 hover:text-blue-500 hover:border-blue-300"
-            title="View User"
-          />
-          <Button
             icon={<EditOutlined />}
             size="small"
             onClick={() => handleEdit(record)}
-            className="w-8 h-8 flex items-center justify-center border-gray-300 text-gray-500 hover:text-purple-500 hover:border-purple-300"
-            title="Edit User"
           />
           <Button
             icon={<DeleteOutlined />}
+            danger
             size="small"
-            onClick={() => handleDelete(record)}
-            className="w-8 h-8 flex items-center justify-center border-gray-300 text-gray-500 hover:text-red-500 hover:border-red-300"
-            title="Delete User"
+            onClick={() => handleDelete(record.id)}
           />
         </div>
       ),
     },
   ];
 
-  const handlePageChange = (page, size) => {
-    setCurrent(page);
-    setPageSize(size);
+  const handleDelete = (id) => {
+    Modal.confirm({
+      title: "Delete User?",
+      okType: "danger",
+      onOk: async () => {
+        try {
+          await userService.deleteUser(id);
+          messageApi.success("User deleted");
+          fetchUsers();
+        } catch {
+          messageApi.error("Delete failed");
+        }
+      },
+    });
   };
 
   const showModal = () => {
@@ -309,254 +222,227 @@ const Users = () => {
     setEditingUser(null);
     form.resetFields();
     setImagePreview(null);
+    setModalImageFile(null);
     setIsModalVisible(true);
   };
 
-  const handleCancel = () => {
-    setIsModalVisible(false);
-    form.resetFields();
-    setImagePreview(null);
-    setIsEditMode(false);
-  };
+  const handleEdit = (user) => {
+    setIsEditMode(true);
+    setEditingUser(user);
 
-  const handleSubmit = () => {
-    form.validateFields().then((values) => {
-      if (isEditMode) {
-        console.log("User Edited:", { ...editingUser, ...values });
-      } else {
-        console.log("User Added:", values);
-      }
-      setIsModalVisible(false);
-      form.resetFields();
-      setImagePreview(null);
-      setIsEditMode(false);
+    form.setFieldsValue({
+      username: user.username,
+      email: user.email,
+      phone: user.phone,
+      role_id: user.role_id,
+      is_active: user.is_active,
     });
+
+    if (user.profile_picture) {
+      const preview = user.profile_picture.startsWith("http")
+        ? user.profile_picture
+        : `${import.meta.env.VITE_API_URL}/${user.profile_picture}`;
+      setImagePreview(preview);
+    } else {
+      setImagePreview(null);
+    }
+
+    setIsModalVisible(true);
   };
 
   const handleImageUpload = (info) => {
-    const file = info.file.originFileObj;
-    const reader = new FileReader();
-    reader.onload = () => setImagePreview(reader.result);
-    reader.readAsDataURL(file);
+    const possibleFile = info?.file?.originFileObj ?? info?.file;
+
+    if (!possibleFile) return;
+
+    if (possibleFile instanceof Blob) {
+      setModalImageFile(possibleFile);
+      const reader = new FileReader();
+      reader.onload = () => setImagePreview(reader.result);
+      reader.readAsDataURL(possibleFile);
+    } else if (typeof possibleFile === "string") {
+      const preview = possibleFile.startsWith("http")
+        ? possibleFile
+        : `${import.meta.env.VITE_API_URL}/${possibleFile}`;
+      setImagePreview(preview);
+      setModalImageFile(null);
+    }
   };
 
-  const handleRefresh = () => {
-    setSearchText("");
-    setStatusFilter(null);
-    setSelectedRowKeys([]);
-    setFilteredData(usersData);
-    setCurrent(1);
+  const handleSubmit = async () => {
+    try {
+      const values = await form.validateFields();
+      const formData = new FormData();
+
+      formData.append("username", values.username);
+      formData.append("email", values.email);
+      formData.append("phone", values.phone);
+      formData.append("role_id", values.role_id);
+      formData.append("is_active", values.is_active);
+
+      if (!isEditMode) formData.append("password", values.password);
+      if (modalImageFile) formData.append("profile_picture", modalImageFile);
+
+      if (isEditMode) {
+        await userService.updateUser(editingUser.id, formData);
+        messageApi.success("User updated");
+      } else {
+        await userService.createUser(formData);
+        messageApi.success("User created");
+      }
+
+      setIsModalVisible(false);
+      fetchUsers();
+    } catch {
+      messageApi.error("Check required fields");
+    }
   };
+
+  const onPageChange = (page) => setCurrent(page);
 
   return (
     <div className="bg-white rounded-xl shadow-sm p-6">
-      {/* Header */}
+      {contextHolder}
+
       <div className="flex justify-between items-center mb-6">
-        <div>
-          <h1 className="text-2xl font-semibold text-gray-900 mb-1">Users</h1>
-          <p className="text-sm text-gray-500">Manage your users</p>
-        </div>
-        <div className="flex gap-2 items-center">
-          <Button
-            icon={<ReloadOutlined />}
-            onClick={handleRefresh}
-            className="w-9 h-9 flex items-center justify-center rounded-lg border border-gray-300 text-gray-500 hover:bg-gray-50"
-            title="Refresh"
-          />
+        <h1 className="text-2xl font-semibold text-gray-900">Users</h1>
+        <div className="flex gap-2">
+          <Button icon={<ReloadOutlined />} onClick={fetchUsers} />
           <Button
             type="primary"
             icon={<PlusOutlined />}
-            className="h-9 px-4 rounded-lg font-medium"
+            className="bg-purple-500 text-white"
             onClick={showModal}
-            style={{
-              backgroundColor: "#8b5cf6",
-              border: "none",
-            }}
           >
             Add User
           </Button>
         </div>
       </div>
 
-      {/* Search & Filters */}
-      <div className="flex items-center gap-3 mb-6">
+      <div className="flex gap-3 mb-6">
         <Input
           placeholder="Search"
-          prefix={<SearchOutlined className="text-gray-400" />}
+          prefix={<SearchOutlined />}
           value={searchText}
-          onChange={(e) => handleSearch(e.target.value)}
-          className="w-64 h-10 rounded-lg border-gray-300"
+          onChange={(e) => setSearchText(e.target.value)}
+          className="w-64"
         />
 
         <Select
           placeholder="Status"
-          className="w-32 h-10"
-          value={statusFilter}
-          onChange={handleStatusFilter}
-          suffixIcon={<DownOutlined className="text-gray-400" />}
+          className="w-32"
           allowClear
+          value={statusFilter}
+          onChange={(v) => setStatusFilter(v)}
         >
           <Option value="Active">Active</Option>
           <Option value="Inactive">Inactive</Option>
         </Select>
       </div>
 
-      {/* Table */}
-      <div className="border border-gray-200 rounded-lg overflow-hidden">
-        <Table
-          dataSource={filteredData}
-          columns={columns}
-          pagination={false}
-          rowKey="key"
-          rowSelection={{
-            selectedRowKeys,
-            onSelectAll: handleSelectAll,
-            onSelect: handleSelectRow,
-            checkStrictly: false,
-          }}
-          className="[&.ant-table-thead>tr>th]:bg-gray-50 [&.ant-table-thead>tr>th]:border-b [&.ant-table-thead>tr>th]:border-gray-200 [&.ant-table-thead>tr>th]:font-medium [&.ant-table-thead>tr>th]:text-gray-700 [&.ant-table-thead>tr>th]:py-4 [&.ant-table-tbody>tr>td]:border-b [&.ant-table-tbody>tr>td]:border-gray-100 [&.ant-table-tbody>tr>td]:py-4 [&.ant-table-tbody>tr:hover>td]:bg-gray-50 [&_.ant-checkbox-wrapper]:accent-purple-600"
-        />
-      </div>
+      <Table
+        dataSource={filteredData}
+        columns={columns}
+        pagination={false}
+        rowKey="id"
+      />
 
-      {/* Pagination */}
-      <div className="flex justify-between items-center mt-6">
-        <Pagination
-          current={current}
-          total={filteredData.length}
-          pageSize={pageSize}
-          onChange={handlePageChange}
-          showSizeChanger={false}
-        />
-      </div>
+      <Pagination
+        current={current}
+        pageSize={pageSize}
+        total={filteredData.length}
+        className="mt-6"
+        onChange={onPageChange}
+      />
 
-      {/* Add/Edit Modal */}
       <Modal
-        title={
-          <span className="text-lg font-semibold text-gray-800">
-            {isEditMode ? "Edit User" : "Add User"}
-          </span>
-        }
+        title={isEditMode ? "Edit User" : "Add User"}
         open={isModalVisible}
-        onCancel={handleCancel}
+        onCancel={() => setIsModalVisible(false)}
         footer={null}
         width={600}
       >
-        <Form layout="vertical" form={form} className="mt-4" onFinish={handleSubmit}>
-          {/* Image Upload */}
+        <Form form={form} layout="vertical" onFinish={handleSubmit}>
           <div className="flex items-center gap-4 mb-4">
-            <div className="w-28 h-28 border rounded-lg flex items-center justify-center overflow-hidden bg-gray-50">
+            <div className="w-28 h-28 border rounded-lg overflow-hidden">
               {imagePreview ? (
-                <img
-                  src={imagePreview}
-                  alt="Preview"
-                  className="w-full h-full object-cover"
-                />
+                <img src={imagePreview} className="w-full h-full object-cover" />
               ) : (
-                <span className="text-gray-400 text-sm text-center">Add Image</span>
+                <div className="flex items-center justify-center text-gray-400 h-full">
+                  No Image
+                </div>
               )}
             </div>
-            <div>
-              <Upload
-                showUploadList={false}
-                beforeUpload={() => false}
-                onChange={handleImageUpload}
-                accept="image/png, image/jpeg"
-              >
-                <Button icon={<UploadOutlined />}>Upload Image</Button>
-              </Upload>
-              <p className="text-xs text-gray-400 mt-1">JPEG, PNG up to 2 MB</p>
-            </div>
+
+            <Upload
+              showUploadList={false}
+              beforeUpload={() => false}
+              onChange={handleImageUpload}
+            >
+              <Button icon={<UploadOutlined />}>Upload</Button>
+            </Upload>
           </div>
 
-          <Form.Item
-            label="User"
-            name="user"
-            rules={[{ required: true, message: "Please enter user name" }]}
-          >
+          <Form.Item name="username" label="User Name" rules={[{ required: true }]}>
             <Input placeholder="Enter user name" />
           </Form.Item>
 
-          <Form.Item
-            label="Role"
-            name="role"
-            rules={[{ required: true, message: "Please select a role" }]}
-          >
-            <Select placeholder="Select">
-              <Option value="Admin">Admin</Option>
-              <Option value="Manager">Manager</Option>
-              <Option value="Accountant">Accountant</Option>
-              <Option value="Salesman">Salesman</Option>
+          <Form.Item name="role_id" label="Role" rules={[{ required: true }]}>
+            <Select placeholder="Select Role">
+              {roles.map((role) => (
+                <Option key={role.id || role._id} value={role.id || role._id}>
+                  {role.role_name || role.roleName || "—"}
+                </Option>
+              ))}
             </Select>
           </Form.Item>
 
-          <Form.Item
-            label="Email"
-            name="email"
-            rules={[{ required: true, type: "email", message: "Please enter a valid email" }]}
-          >
+          <Form.Item name="email" label="Email" rules={[{ required: true, type: "email" }]}>
             <Input placeholder="Enter email" />
           </Form.Item>
 
-          <Form.Item
-            label="Phone"
-            name="phone"
-            rules={[{ required: true, message: "Please enter phone number" }]}
-          >
-            <Input placeholder="Enter phone number" />
+          <Form.Item name="phone" label="Phone" rules={[{ required: true }]}>
+            <Input placeholder="Enter phone" />
           </Form.Item>
 
           {!isEditMode && (
-            <div className="grid grid-cols-2 gap-4">
-              <Form.Item
-                label="Password"
-                name="password"
-                rules={[{ required: true, message: "Please enter password" }]}
-              >
+            <>
+              <Form.Item name="password" label="Password" rules={[{ required: true }]}>
                 <Input.Password
                   placeholder="Enter password"
-                  iconRender={(visible) =>
-                    visible ? <EyeTwoTone /> : <EyeInvisibleOutlined />
-                  }
+                  iconRender={(v) => (v ? <EyeTwoTone /> : <EyeInvisibleOutlined />)}
                 />
               </Form.Item>
 
               <Form.Item
-                label="Confirm Password"
                 name="confirmPassword"
+                label="Confirm Password"
                 dependencies={["password"]}
                 rules={[
-                  { required: true, message: "Please confirm your password" },
+                  { required: true },
                   ({ getFieldValue }) => ({
                     validator(_, value) {
-                      if (!value || getFieldValue("password") === value) {
-                        return Promise.resolve();
-                      }
-                      return Promise.reject(new Error("Passwords do not match!"));
+                      if (!value || value === getFieldValue("password")) return Promise.resolve();
+                      return Promise.reject("Passwords do not match!");
                     },
                   }),
                 ]}
               >
                 <Input.Password
                   placeholder="Confirm password"
-                  iconRender={(visible) =>
-                    visible ? <EyeTwoTone /> : <EyeInvisibleOutlined />
-                  }
+                  iconRender={(v) => (v ? <EyeTwoTone /> : <EyeInvisibleOutlined />)}
                 />
               </Form.Item>
-            </div>
+            </>
           )}
 
-          <Form.Item label="Status" name="status" valuePropName="checked">
+          <Form.Item name="is_active" label="Status" valuePropName="checked">
             <Switch defaultChecked />
           </Form.Item>
 
-          <div className="flex justify-end gap-3 mt-6">
-            <Button onClick={handleCancel}>Cancel</Button>
-            <Button
-              type="primary"
-              htmlType="submit"
-              className="bg-purple-500 hover:bg-purple-600 border-none text-white"
-            >
+          <div className="flex justify-end gap-3">
+            <Button onClick={() => setIsModalVisible(false)}>Cancel</Button>
+            <Button type="primary" htmlType="submit" className="bg-purple-500 text-white">
               {isEditMode ? "Update User" : "Add User"}
             </Button>
           </div>
