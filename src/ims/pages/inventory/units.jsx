@@ -15,69 +15,75 @@ import unitService from "./unitService.js";
 const { Option } = Select;
 
 const Units = () => {
+  const [form] = Form.useForm();
   const [showForm, setShowForm] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [searchText, setSearchText] = useState("");
   const [filterStatus, setFilterStatus] = useState(null);
-  const [status, setStatus] = useState(true);
+  const [checked, setChecked] = useState(true);
   const [editRecord, setEditRecord] = useState(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteRecord, setDeleteRecord] = useState(null);
   const [filtersCollapsed, setFiltersCollapsed] = useState(false);
 
+  const [loading, setLoading] = useState(false);
+
   const [selectedRowKeys, setSelectedRowKeys] = useState([]);
   const headerCheckboxRef = useRef(null);
 
-  const [formData, setFormData] = useState([]);
+  const [units, setUnits] = useState([]);
 
-  const [addUnitData, setAddUnitData] = useState({
-    unit: "",
-    shortname: "",
-    status: true,
-  });
-  
-  const [search, setSearch] = useState("");
-  const [page, setPage] = useState(1);
   const [limit] = useState(5);
   const [total, setTotal] = useState(0);
 
+  // Fetch data from API
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const res = await unitService.getUnits();
+        console.log("API response:", res.data);
+        const fetchedUnits = res.data.data?.rows || res.data.data || [];
+        setUnits(fetchedUnits);
+        setTotal(fetchedUnits.length);
+      } catch (error) {
+        console.error("Failed to fetch Units:", error);
+        message.error(error.response?.data?.message || "Failed to fetch units");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
+
+  // Client-side filtering for search and status
   const filteredData = useMemo(() => {
-    let filtered = [...formData];
+    let filtered = [...units];
+    
+    // Search filter
     if (searchText.trim()) {
       const lowerSearch = searchText.toLowerCase();
       filtered = filtered.filter(
         (item) =>
-          item.unit.toLowerCase().includes(lowerSearch) ||
-          item.shortname.toLowerCase().includes(lowerSearch)
+          item.unit_name?.toLowerCase().includes(lowerSearch) ||
+          item.short_name?.toLowerCase().includes(lowerSearch)
       );
     }
+    
+    // Status filter
     if (filterStatus) {
-      filtered = filtered.filter(
-        (item) => item.status.toLowerCase() === filterStatus.toLowerCase()
-      );
+      const isActive = filterStatus.toLowerCase() === 'active';
+      filtered = filtered.filter((item) => item.is_active === isActive);
     }
+    
     return filtered;
-  }, [searchText, filterStatus, formData]);
+  }, [searchText, filterStatus, units]);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const res = await unitService.getUnits(page, limit, search);
-        console.log("API response:", res.data.data.rows);
-        setUnits(res.data.data.rows)
-        setTotal(res.data.total);
-      } catch (err) {
-        console.error("Failed to fetch Units:", err);
-      }
-    };
-    fetchData();
-  }, [page, search]);
-
-  // ✅ Handle checkbox header indeterminate state
+  // Handle checkbox header indeterminate state
   useEffect(() => {
     const total = filteredData.length;
     const selectedCount = selectedRowKeys.filter((k) =>
-      filteredData.some((b) => b.key === k)
+      filteredData.some((b) => b.id === k)
     ).length;
 
     if (headerCheckboxRef.current) {
@@ -86,47 +92,89 @@ const Units = () => {
     }
   }, [filteredData, selectedRowKeys]);
 
-  const handleInputChange = (e) => {
-    setAddUnitData({ ...addUnitData, [e.target.name]: e.target.value });
+  const onChange = (ch) => {
+    setChecked(ch);
+    form.setFieldsValue({ is_active: ch });
   };
 
-  const handleAddUnit = () => {
-    const newUnit = {
-      key: formData.length + 1,
-      unit: addUnitData.unit,
-      shortname: addUnitData.shortname,
-      noofproducts: Math.floor(Math.random() * 50),
-      createddate: new Date().toLocaleDateString(),
-      status: addUnitData.status ? "Active" : "Inactive",
-    };
-    setFormData([...formData, newUnit]);
-    handleCloseModal();
+  const openAddModal = () => {
+    setIsEditMode(false);
+    setEditRecord(null);
+    setChecked(true);
+    form.resetFields();
+    form.setFieldsValue({
+      unit_name: "",
+      short_name: "",
+      is_active: true,
+    });
+    setShowForm(true);
+  };
+
+  const handleAddUnit = async () => {
+    try {
+      const values = await form.validateFields();
+      const payload = {
+        unit_name: values.unit_name,
+        short_name: values.short_name,
+        is_active: checked,
+      };
+
+      const res = await unitService.createUnit(payload);
+      const newUnit = res.data.data || res.data;
+      setUnits((prev) => [newUnit, ...prev]);
+      setTotal((prev) => prev + 1);
+      console.log("Saved:", res.data);
+      message.success("Unit added successfully");
+      handleCloseModal();
+      form.resetFields();
+    } catch (err) {
+      console.error("Failed to add unit:", err);
+      message.error(err.response?.data?.message || "Failed to add unit");
+    }
   };
 
   const handleEdit = (record) => {
     setIsEditMode(true);
     setEditRecord(record);
-    setAddUnitData({
-      unit: record.unit,
-      shortname: record.shortname,
-      status: record.status === "Active",
+    form.setFieldsValue({
+      unit_name: record.unit_name,
+      short_name: record.short_name,
+      is_active: record.is_active,
     });
+    setChecked(record.is_active);
     setShowForm(true);
   };
 
-  const handleSaveChanges = () => {
-    const updated = formData.map((item) =>
-      item.key === editRecord.key
-        ? {
-          ...item,
-          unit: addUnitData.unit,
-          shortname: addUnitData.shortname,
-          status: addUnitData.status ? "Active" : "Inactive",
-        }
-        : item
-    );
-    setFormData(updated);
-    handleCloseModal();
+  const handleSaveChanges = async () => {
+    try {
+      const values = await form.validateFields();
+
+      if (!editRecord) {
+        message.error("No record selected for editing");
+        return;
+      }
+
+      const updateUnit = {
+        unit_name: values.unit_name,
+        short_name: values.short_name,
+        is_active: checked,
+      };
+
+      const res = await unitService.updateUnit(editRecord.id, updateUnit);
+      console.log("Updated:", res.data);
+
+      setUnits((prev) =>
+        prev.map((item) =>
+          item.id === editRecord.id ? { ...item, ...updateUnit } : item
+        )
+      );
+      message.success("Unit updated successfully");
+      handleCloseModal();
+      form.resetFields();
+    } catch (err) {
+      console.error("Failed to update unit:", err);
+      message.error(err.response?.data?.message || "Failed to update unit");
+    }
   };
 
   const handleDelete = (record) => {
@@ -134,11 +182,20 @@ const Units = () => {
     setShowDeleteModal(true);
   };
 
-  const confirmDelete = () => {
-    setFormData((prev) => prev.filter((item) => item.key !== deleteRecord.key));
-    setSelectedRowKeys((prev) => prev.filter((k) => k !== deleteRecord.key));
-    setShowDeleteModal(false);
-    setDeleteRecord(null);
+  const confirmDelete = async () => {
+    try {
+      await unitService.deleteUnit(deleteRecord.id);
+      setUnits((prev) => prev.filter((item) => item.id !== deleteRecord.id));
+      setSelectedRowKeys((prev) => prev.filter((k) => k !== deleteRecord.id));
+      setTotal((prev) => prev - 1);
+      message.success("Unit deleted successfully");
+      setShowDeleteModal(false);
+      setDeleteRecord(null);
+      console.log("Unit deleted");
+    } catch (err) {
+      console.error("Failed to delete unit:", err);
+      message.error(err.response?.data?.message || "Failed to delete unit");
+    }
   };
 
   const cancelDelete = () => {
@@ -150,7 +207,7 @@ const Units = () => {
     setShowForm(false);
     setIsEditMode(false);
     setEditRecord(null);
-    setAddUnitData({ unit: "", shortname: "", status: true });
+    form.resetFields();
   };
 
   const handleRefresh = () => {
@@ -206,11 +263,11 @@ const Units = () => {
     doc.text("Units Report", 40, 40);
 
     const columns = [
-      { header: "Unit", dataKey: "unit" },
-      { header: "Short Name", dataKey: "shortname" },
-      { header: "No of Products", dataKey: "noofproducts" },
-      { header: "Created Date", dataKey: "createddate" },
-      { header: "Status", dataKey: "status" },
+      { header: "Unit", dataKey: "unit_name" },
+      { header: "Short Name", dataKey: "short_name" },
+      // { header: "No of Products", dataKey: "noofproducts" },
+      { header: "Created Date", dataKey: "createdAt" },
+      { header: "Status", dataKey: "is_active" },
     ];
 
     autoTable(doc, {
@@ -226,78 +283,72 @@ const Units = () => {
     message.success("PDF downloaded successfully");
   };
 
-  // ✅ Checkbox handlers
-  const toggleRowSelection = (key) => {
-    setSelectedRowKeys((prev) =>
-      prev.includes(key)
-        ? prev.filter((k) => k !== key)
-        : [...prev, key]
-    );
+  // Checkbox handlers
+  const handleSelectAll = (e) => {
+    if (e.target.checked) {
+      setSelectedRowKeys(units.map((item) => item.id));
+    } else {
+      setSelectedRowKeys([]);
+    }
   };
 
-  const handleHeaderCheckboxChange = (e) => {
-    const checked = e.target.checked;
-    if (checked) {
-      const visibleKeys = filteredData.map((b) => b.key);
-      const merged = Array.from(new Set([...selectedRowKeys, ...visibleKeys]));
-      setSelectedRowKeys(merged);
-    } else {
-      const visibleKeysSet = new Set(filteredData.map((b) => b.key));
-      setSelectedRowKeys((prev) => prev.filter((k) => !visibleKeysSet.has(k)));
-    }
+  const handleSelectOne = (id) => {
+    setSelectedRowKeys((prev) =>
+      prev.includes(id)
+        ? prev.filter((k) => k !== id)
+        : [...prev, id]
+    );
   };
 
   const columns = [
     {
       title: (
         <input
-          ref={headerCheckboxRef}
           type="checkbox"
-          onChange={handleHeaderCheckboxChange}
-          checked={
-            filteredData.length > 0 &&
-            filteredData.every((b) => selectedRowKeys.includes(b.key))
-          }
-          style={{
-            width: 16,
-            height: 16,
-            accentColor: "#6C5CE7",
-            cursor: "pointer",
-          }}
+          checked={selectedRowKeys.length === units.length && units.length > 0}
+          onChange={handleSelectAll}
+          style={{ accentColor: "#6C5CE7", cursor: "pointer" }}
         />
       ),
       dataIndex: "checkbox",
-      render: (_, record) => {
-        const checked = selectedRowKeys.includes(record.key);
-        return (
-          <input
-            type="checkbox"
-            checked={checked}
-            onChange={() => toggleRowSelection(record.key)}
-            style={{
-              width: 16,
-              height: 16,
-              accentColor: "#6C5CE7",
-              cursor: "pointer",
-            }}
-          />
-        );
-      },
+      render: (_, record) => (
+        <input
+          type="checkbox"
+          checked={selectedRowKeys.includes(record.id)}
+          onChange={() => handleSelectOne(record.id)}
+          style={{ accentColor: "#6C5CE7", cursor: "pointer" }}
+        />
+      ),
       width: 50,
     },
-    { title: "Unit", dataIndex: "unit", key: "unit" },
-    { title: "Short Name", dataIndex: "shortname", key: "shortname" },
-    { title: "No of Products", dataIndex: "noofproducts", key: "noofproducts" },
-    { title: "Created Date", dataIndex: "createddate", key: "createddate" },
+    { title: "Unit", dataIndex: "unit_name", key: "unit_name" },
+    { title: "Short Name", dataIndex: "short_name", key: "short_name" },
+    { 
+      title: "Created Date", 
+      dataIndex: "createdAt", 
+      key: "createdAt",
+      render: (date) => {
+        if (!date) return '';
+        // If date is already formatted as "DD MMM YYYY", return as is
+        if (typeof date === 'string' && date.includes(' ')) return date;
+        // Otherwise format the date
+        const dateObj = new Date(date);
+        return dateObj.toLocaleDateString('en-GB', { 
+          day: '2-digit', 
+          month: 'short', 
+          year: 'numeric' 
+        });
+      }
+    },
     {
       title: "Status",
-      dataIndex: "status",
-      key: "status",
-      render: (status) => (
+      dataIndex: "is_active",
+      key: "is_active",
+      render: (is_active) => (
         <button
           style={{
             backgroundColor:
-              status.toLowerCase() === "active" ? "#3EB780" : "#d63031",
+              is_active ? "#3EB780" : "#d63031",
             color: "#fff",
             border: "none",
             borderRadius: "4px",
@@ -308,7 +359,7 @@ const Units = () => {
             cursor: "default",
           }}
         >
-          {status}
+          {is_active ? "Active" : "Inactive"}
         </button>
       ),
     },
@@ -359,11 +410,7 @@ const Units = () => {
           />
           <Button
             type="primary"
-            onClick={() => {
-              setIsEditMode(false);
-              setAddUnitData({ unit: "", shortname: "", status: true });
-              setShowForm(true);
-            }}
+            onClick={openAddModal}
             style={{
               backgroundColor: "#6C5CE7",
               borderColor: "#6C5CE7",
@@ -420,7 +467,13 @@ const Units = () => {
         <Table
           columns={columns}
           dataSource={filteredData}
-          pagination={{ pageSize: 5 }}
+          loading={loading}
+          rowKey="id"
+          pagination={{
+            pageSize: limit,
+            showSizeChanger: false,
+            showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} items`,
+          }}
           className="bg-white"
           bordered={false}
           rowClassName={() => "hover:bg-gray-50"}
@@ -435,7 +488,7 @@ const Units = () => {
       {/* Add/Edit Modal */}
       <Modal
         title={
-          <span style={{ fontWeight: "600" }}>
+          <span className="font-semibold">
             {isEditMode ? "Edit Unit" : "Add Unit"}
           </span>
         }
@@ -444,42 +497,53 @@ const Units = () => {
         footer={null}
         centered
       >
-        <Form layout="vertical">
-          <Form.Item label="Unit" required>
-            <Input
-              placeholder="Enter unit name"
-              name="unit"
-              value={addUnitData.unit}
-              onChange={handleInputChange}
-            />
-          </Form.Item>
-          <Form.Item label="Short Name" required>
-            <Input
-              placeholder="Enter short name"
-              name="shortname"
-              value={addUnitData.shortname}
-              onChange={handleInputChange}
-            />
-          </Form.Item>
-          <Form.Item label="Status">
-            <Switch
-              checked={addUnitData.status}
-              onChange={(checked) =>
-                setAddUnitData({ ...addUnitData, status: checked })
-              }
-              style={{
-                backgroundColor: addUnitData.status ? "#3EB780" : "#ccc",
-              }}
-            />
-          </Form.Item>
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "flex-end",
-              gap: "10px",
-              marginTop: "20px",
-            }}
+        <Form layout="vertical" form={form}>
+          <Form.Item
+            label={
+              <span className="text-sm font-medium text-gray-700">
+                Unit Name
+              </span>
+            }
+            name="unit_name"
+            rules={[{ required: true, message: "Please enter unit name" }]}
+            className="mb-3"
           >
+            <Input placeholder="Enter unit name" />
+          </Form.Item>
+
+          <Form.Item
+            label={
+              <span className="text-sm font-medium text-gray-700">
+                Short Name
+              </span>
+            }
+            name="short_name"
+            rules={[{ required: true, message: "Please enter short name" }]}
+            className="mb-3"
+          >
+            <Input placeholder="Enter short name" />
+          </Form.Item>
+
+          <div className="flex items-center justify-between mt-2">
+            <span className="text-sm font-medium text-gray-700">
+              Status
+            </span>
+            <Form.Item name="is_active" valuePropName="checked" noStyle>
+              <Switch
+                size="small"
+                checked={checked}
+                onChange={(ch) => {
+                  onChange(ch);
+                  form.setFieldsValue({ is_active: ch });
+                }}
+                style={{
+                  backgroundColor: checked ? "#3EB780" : "#ccc",
+                }}
+              />
+            </Form.Item>
+          </div>
+
+          <div className="flex justify-end gap-3 mt-6">
             <Button
               onClick={handleCloseModal}
               style={{
@@ -492,11 +556,12 @@ const Units = () => {
             </Button>
             <Button
               type="primary"
-              onClick={isEditMode ? handleSaveChanges : handleAddUnit}
               style={{
                 backgroundColor: "#6C5CE7",
                 borderColor: "#6C5CE7",
+                color: "#fff",
               }}
+              onClick={isEditMode ? handleSaveChanges : handleAddUnit}
             >
               {isEditMode ? "Save Changes" : "Add Unit"}
             </Button>

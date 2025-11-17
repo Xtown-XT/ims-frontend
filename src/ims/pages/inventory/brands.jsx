@@ -22,81 +22,81 @@ import { FaFilePdf, FaFileExcel, FaAngleUp } from "react-icons/fa6";
 import { IoReloadOutline } from "react-icons/io5";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import brandService from "./brandsService.js";
 
 const { Option } = Select;
 
 const Brands = () => {
+  const [form] = Form.useForm();
   const [showForm, setShowForm] = useState(false);
-  const [isEditMode, setIsEditMode] = useState(false); // ✅ Track Add/Edit
+  const [isEditMode, setIsEditMode] = useState(false);
   const [searchText, setSearchText] = useState("");
-  const [filterCategory, setFilterCategory] = useState(null);
-  const [filterBrand, setFilterBrand] = useState(null);
   const [status, setStatus] = useState(true);
   const [filterStatus, setFilterStatus] = useState(null);
   const [imageUrl, setImageUrl] = useState(null);
+  const [imageFile, setImageFile] = useState(null);
   const [editRecord, setEditRecord] = useState(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteRecord, setDeleteRecord] = useState(null);
   const [filtersCollapsed, setFiltersCollapsed] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  // NEW: selected rows state
   const [selectedRowKeys, setSelectedRowKeys] = useState([]);
-
-  // REF for header checkbox to set indeterminate state
   const headerCheckboxRef = useRef(null);
 
-  const [formData, setFormData] = useState({
-    image: "",
-    brand: "",
-    createddate: "",
-    status: "",
-  });
+  const [limit] = useState(10);
+  const [total, setTotal] = useState(0);
 
-  const [brands, setBrands] = useState([
-    {
-      key: 1,
-      image: "https://via.placeholder.com/80x80.png?text=L",
-      brand: "Lenovo",
-      createddate: "24 Dec 2024",
-      status: "Active",
-    },
-    {
-      key: 2,
-      image: "https://via.placeholder.com/80x80.png?text=B",
-      brand: "Beats",
-      createddate: "20 Dec 2024",
-      status: "Inactive",
-    },
-    {
-      key: 3,
-      image: "https://via.placeholder.com/80x80.png?text=N",
-      brand: "Nike",
-      createddate: "10 Dec 2024",
-      status: "Active",
-    },
-    {
-      key: 4,
-      image: "https://via.placeholder.com/80x80.png?text=A",
-      brand: "Apple",
-      createddate: "02 Dec 2024",
-      status: "Active",
-    },
-  ]);
+  const [brands, setBrands] = useState([]);
 
-  // ✅ Filter brands by search text
+  // Fetch brands from API
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const res = await brandService.getBrands();
+        console.log("API response:", res.data);
+        // Backend returns { rows: [...], count, page, limit, totalPages }
+        const fetchedBrands = res.data.rows || [];
+        setBrands(fetchedBrands);
+        setTotal(res.data.count || fetchedBrands.length);
+      } catch (err) {
+        console.error("Failed to fetch brands:", err);
+        message.error(err.response?.data?.message || "Failed to fetch brands");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
+
+  // Client-side filtering for search and status
   const filteredBrands = useMemo(() => {
-    if (!searchText.trim()) return brands;
-    const lowerSearch = searchText.toLowerCase();
-    return brands.filter((brand) =>
-      brand.brand.toLowerCase().includes(lowerSearch)
-    );
-  }, [searchText, brands]);
+    let filtered = [...brands];
+
+    // Search filter
+    if (searchText.trim()) {
+      const lowerSearch = searchText.toLowerCase();
+      filtered = filtered.filter(
+        (item) =>
+          item.brand_name?.toLowerCase().includes(lowerSearch)
+      );
+    }
+
+    // Status filter
+    if (filterStatus) {
+      const isActive = filterStatus.toLowerCase() === 'active';
+      filtered = filtered.filter((item) => item.is_active === isActive);
+    }
+
+    return filtered;
+  }, [searchText, filterStatus, brands]);
 
   // Keep header checkbox indeterminate sync when filteredBrands or selectedRowKeys change
   useEffect(() => {
     const total = filteredBrands.length;
     const selectedCount = selectedRowKeys.filter((k) =>
-      filteredBrands.some((b) => b.key === k)
+      filteredBrands.some((b) => b.id === k)
     ).length;
 
     if (headerCheckboxRef.current) {
@@ -105,74 +105,161 @@ const Brands = () => {
     }
   }, [filteredBrands, selectedRowKeys]);
 
-  const handleInputChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
-
   const handleImageChange = (info) => {
-    const file = info.file.originFileObj;
-    const imageUrl = URL.createObjectURL(file);
-    setImageUrl(imageUrl);
-    setFormData({ ...formData, image: file });
+    console.log("Upload info:", info);
+    const file = info.file.originFileObj || info.file;
+    console.log("Selected file:", file);
+    
+    if (file) {
+      // Check if it's a valid image file
+      if (!file.type || !file.type.startsWith('image/')) {
+        message.error('Please select a valid image file (JPEG or PNG)');
+        return;
+      }
+      
+      try {
+        const imageUrl = URL.createObjectURL(file);
+        console.log("Created image URL:", imageUrl);
+        setImageUrl(imageUrl);
+        setImageFile(file);
+        message.success('Image selected successfully');
+      } catch (error) {
+        console.error("Error creating image URL:", error);
+        message.error('Failed to load image preview');
+      }
+    } else {
+      console.error("No file found in upload info");
+    }
   };
 
-  // ✅ Add Brand
-  const handleAddBrand = () => {
-    const newBrand = {
-      key: brands.length + 1,
-      image: imageUrl,
-      brand: formData.brand,
-      createddate: new Date().toLocaleDateString(),
-      status: status ? "Active" : "Inactive",
-    };
-
-    setBrands([...brands, newBrand]);
-    handleCloseModal();
+  // Refetch brands
+  const refetchBrands = async () => {
+    try {
+      setLoading(true);
+      const res = await brandService.getBrands();
+      console.log("Refetch response:", res.data);
+      // Backend returns { rows: [...], count, page, limit, totalPages }
+      const fetchedBrands = res.data.rows || [];
+      console.log("Fetched brands count:", fetchedBrands.length);
+      console.log("First brand:", fetchedBrands[0]);
+      setBrands(fetchedBrands);
+      setTotal(res.data.count || fetchedBrands.length);
+    } catch (err) {
+      console.error("Failed to refetch brands:", err);
+      console.error("Error details:", err.response?.data);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // ✅ Edit Brand
+  // Add Brand
+  const handleAddBrand = async () => {
+    try {
+      const values = await form.validateFields();
+
+      const formData = new FormData();
+      formData.append('brand_name', values.brand_name);
+      formData.append('is_active', status ? 'true' : 'false');
+      if (imageFile) {
+        formData.append('image', imageFile);
+        console.log("Image file to upload:", imageFile.name, imageFile.type);
+      }
+
+      console.log("FormData contents:");
+      for (let pair of formData.entries()) {
+        console.log(pair[0], pair[1]);
+      }
+
+      const res = await brandService.createBrand(formData);
+      console.log("Create brand response:", res.data);
+      message.success("Brand added successfully");
+      handleCloseModal();
+      form.resetFields();
+      setImageUrl(null);
+      setImageFile(null);
+      // Refetch to get the latest data from server
+      await refetchBrands();
+    } catch (err) {
+      console.error("Failed to add brand:", err);
+      console.error("Error response:", err.response?.data);
+      message.error(err.response?.data?.message || "Failed to add brand");
+    }
+  };
+
+  // Edit Brand
   const handleEdit = (record) => {
     setIsEditMode(true);
     setEditRecord(record);
-    setFormData({
-      image: record.image,
-      brand: record.brand,
-      createddate: record.createddate,
-      status: record.status,
+    form.setFieldsValue({
+      brand_name: record.brand_name,
+      is_active: record.is_active,
     });
-    setStatus(record.status === "Active");
+    setStatus(record.is_active);
     setImageUrl(record.image);
+    setImageFile(null);
     setShowForm(true);
   };
 
-  // ✅ Save Changes
-  const handleSaveChanges = () => {
-    const updatedData = brands.map((item) =>
-      item.key === editRecord.key
-        ? {
-            ...item,
-            brand: formData.brand,
-            image: imageUrl,
-            status: status ? "Active" : "Inactive",
-          }
-        : item
-    );
-    setBrands(updatedData);
-    handleCloseModal();
+  // Save Changes
+  const handleSaveChanges = async () => {
+    try {
+      const values = await form.validateFields();
+
+      if (!editRecord) {
+        message.error("No record selected for editing");
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('brand_name', values.brand_name);
+      formData.append('is_active', status ? 'true' : 'false');
+      if (imageFile) {
+        formData.append('image', imageFile);
+        console.log("New image file to upload:", imageFile.name, imageFile.type);
+      }
+
+      console.log("Update FormData contents:");
+      for (let pair of formData.entries()) {
+        console.log(pair[0], pair[1]);
+      }
+
+      const res = await brandService.updateBrand(editRecord.id, formData);
+      console.log("Update brand response:", res.data);
+      message.success("Brand updated successfully");
+      handleCloseModal();
+      form.resetFields();
+      setImageUrl(null);
+      setImageFile(null);
+      // Refetch to get the latest data from server
+      await refetchBrands();
+    } catch (err) {
+      console.error("Failed to update brand:", err);
+      console.error("Error response:", err.response?.data);
+      message.error(err.response?.data?.message || "Failed to update brand");
+    }
   };
 
-  // ✅ Delete Brand Logic
+  // Delete Brand
   const handleDelete = (record) => {
     setDeleteRecord(record);
     setShowDeleteModal(true);
   };
 
-  const confirmDelete = () => {
-    setBrands((prev) => prev.filter((item) => item.key !== deleteRecord.key));
-    // Also clear selection if the deleted item was selected
-    setSelectedRowKeys((prev) => prev.filter((k) => k !== deleteRecord.key));
-    setShowDeleteModal(false);
-    setDeleteRecord(null);
+  const confirmDelete = async () => {
+    try {
+      await brandService.deleteBrand(deleteRecord.id);
+      message.success("Brand deleted successfully");
+      setShowDeleteModal(false);
+      setDeleteRecord(null);
+      setSelectedRowKeys((prev) => prev.filter((k) => k !== deleteRecord.id));
+      // Refetch to get the latest data from server
+      await refetchBrands();
+    } catch (err) {
+      console.error("Failed to delete brand:", err);
+      message.error(err.response?.data?.message || "Failed to delete brand");
+      setShowDeleteModal(false);
+      setDeleteRecord(null);
+    }
   };
 
   const cancelDelete = () => {
@@ -180,23 +267,21 @@ const Brands = () => {
     setDeleteRecord(null);
   };
 
-  // ✅ Close and Reset Form
+  // Close and Reset Form
   const handleCloseModal = () => {
     setShowForm(false);
     setIsEditMode(false);
-    setFormData({ image: "", brand: "", createddate: "", status: "" });
+    form.resetFields();
     setImageUrl(null);
+    setImageFile(null);
     setEditRecord(null);
     setStatus(true);
   };
 
-  // 🟣 Refresh handler
+  // Refresh handler
   const handleRefresh = () => {
     setSearchText("");
-    setFilterCategory(null);
-    setFilterBrand(null);
     setFilterStatus(null);
-    // Also clear selection on refresh
     setSelectedRowKeys([]);
     message.success("Refreshed");
   };
@@ -288,47 +373,41 @@ const Brands = () => {
     message.success("PDF downloaded successfully");
   };
 
-  // NEW: toggle single row selection
-  const toggleRowSelection = (key) => {
+  // Toggle single row selection
+  const toggleRowSelection = (id) => {
     setSelectedRowKeys((prev) => {
-      if (prev.includes(key)) {
-        return prev.filter((k) => k !== key);
+      if (prev.includes(id)) {
+        return prev.filter((k) => k !== id);
       } else {
-        return [...prev, key];
+        return [...prev, id];
       }
     });
   };
 
-  // NEW: toggle select all for currently filteredBrands
+  // Toggle select all for currently filteredBrands
   const handleHeaderCheckboxChange = (e) => {
     const checked = e.target.checked;
     if (checked) {
-      // select all visible (filteredBrands)
-      const visibleKeys = filteredBrands.map((b) => b.key);
-      // Merge with existing selected keys (but keep only unique)
+      const visibleKeys = filteredBrands.map((b) => b.id);
       const merged = Array.from(new Set([...selectedRowKeys, ...visibleKeys]));
       setSelectedRowKeys(merged);
     } else {
-      // unselect all visible (filteredBrands)
-      const visibleKeysSet = new Set(filteredBrands.map((b) => b.key));
+      const visibleKeysSet = new Set(filteredBrands.map((b) => b.id));
       setSelectedRowKeys((prev) => prev.filter((k) => !visibleKeysSet.has(k)));
     }
   };
 
   const columns = [
     {
-      // Header checkbox - controlled + indeterminate through ref
       title: (
         <input
           ref={headerCheckboxRef}
           type="checkbox"
           onChange={handleHeaderCheckboxChange}
-          // header checkbox is checked only if all visible rows are selected
           checked={
             filteredBrands.length > 0 &&
-            filteredBrands.every((b) => selectedRowKeys.includes(b.key))
+            filteredBrands.every((b) => selectedRowKeys.includes(b.id))
           }
-          // make checked color purple for modern browsers
           style={{
             width: 16,
             height: 16,
@@ -339,20 +418,19 @@ const Brands = () => {
       ),
       dataIndex: "checkbox",
       render: (_, record) => {
-        const checked = selectedRowKeys.includes(record.key);
+        const checked = selectedRowKeys.includes(record.id);
         return (
           <input
             type="checkbox"
             checked={checked}
-            onChange={() => toggleRowSelection(record.key)}
-            // make checked color purple for modern browsers
+            onChange={() => toggleRowSelection(record.id)}
             style={{
               width: 16,
               height: 16,
               accentColor: "#6C5CE7",
               cursor: "pointer",
             }}
-            title={`Select ${record.brand}`}
+            title={`Select ${record.brand_name}`}
           />
         );
       },
@@ -360,12 +438,12 @@ const Brands = () => {
     },
     {
       title: "Brand",
-      dataIndex: "brand",
-      key: "brand",
+      dataIndex: "brand_name",
+      key: "brand_name",
       render: (text, record) => (
         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
           <img
-            src={record.image || "https://via.placeholder.com/40x40?text=Img"}
+            src={record.image ? `http://192.168.1.18:5000${record.image}` : "https://via.placeholder.com/40x40?text=Img"}
             style={{
               width: 40,
               height: 40,
@@ -378,7 +456,45 @@ const Brands = () => {
         </div>
       ),
     },
-    { title: "Created Date", dataIndex: "createddate", key: "createddate" },
+    {
+      title: "Created Date",
+      dataIndex: "createdAt",
+      key: "createdAt",
+      render: (date) => {
+        if (!date) return '';
+        // If date is already formatted as "DD MMM YYYY", return as is
+        if (typeof date === 'string' && date.includes(' ') && !date.includes('T')) return date;
+        // Otherwise format the date
+        const dateObj = new Date(date);
+        return dateObj.toLocaleDateString('en-GB', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric'
+        });
+      }
+    },
+    {
+      title: "Status",
+      dataIndex: "is_active",
+      key: "is_active",
+      render: (is_active) => (
+        <button
+          style={{
+            backgroundColor: is_active ? "#3EB780" : "#d63031",
+            color: "#fff",
+            border: "none",
+            borderRadius: "4px",
+            height: "22px",
+            width: "46px",
+            fontSize: "12px",
+            fontWeight: "500",
+            cursor: "default",
+          }}
+        >
+          {is_active ? "Active" : "Inactive"}
+        </button>
+      ),
+    },
     {
       title: "Actions",
       key: "actions",
@@ -501,19 +617,25 @@ const Brands = () => {
         </Form>
       )}
 
-      {/* ✅ Table with smooth rounded corners */}
+      {/* Table with smooth rounded corners */}
       <div
         style={{
           border: "1px solid #e5e7eb",
-          borderRadius: 12, // ✅ smooth rounded corners
-          overflow: "hidden", // ✅ ensures corners apply to the table content
+          borderRadius: 12,
+          overflow: "hidden",
           background: "#fff",
         }}
       >
         <Table
           columns={columns}
           dataSource={filteredBrands}
-          pagination={{ pageSize: 5 }}
+          loading={loading}
+          rowKey="id"
+          pagination={{
+            pageSize: limit,
+            showSizeChanger: false,
+            showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} items`,
+          }}
           className="bg-white"
           bordered={false}
           rowClassName={() => "hover:bg-gray-50"}
@@ -525,7 +647,7 @@ const Brands = () => {
         />
       </div>
 
-      {/* 🟣 Add/Edit Brand Modal */}
+      {/* Add/Edit Brand Modal */}
       <Modal
         title={
           <span style={{ fontWeight: "600" }}>
@@ -537,7 +659,7 @@ const Brands = () => {
         footer={null}
         centered
       >
-        <Form layout="vertical" className="space-y-3">
+        <Form layout="vertical" form={form} className="space-y-3">
           {/* Image Upload */}
           <div
             style={{
@@ -563,12 +685,16 @@ const Brands = () => {
               {imageUrl ? (
                 <>
                   <img
-                    src={imageUrl}
+                    src={imageUrl.startsWith('blob:') || imageUrl.startsWith('http') ? imageUrl : `http://192.168.1.18:5000${imageUrl}`}
                     alt="Preview"
                     style={{
                       width: "100%",
                       height: "100%",
                       objectFit: "cover",
+                    }}
+                    onError={(e) => {
+                      console.error("Image failed to load:", imageUrl);
+                      e.target.src = "https://via.placeholder.com/120x120?text=Error";
                     }}
                   />
                   <Button
@@ -585,7 +711,7 @@ const Brands = () => {
                     }}
                     onClick={() => {
                       setImageUrl(null);
-                      setFormData({ ...formData, image: null });
+                      setImageFile(null);
                     }}
                   />
                 </>
@@ -619,12 +745,12 @@ const Brands = () => {
           </div>
 
           {/* Brand Name */}
-          <Form.Item label="Brand" required>
-            <Input
-              name="brand"
-              value={formData.brand}
-              onChange={handleInputChange}
-            />
+          <Form.Item
+            label="Brand Name"
+            name="brand_name"
+            rules={[{ required: true, message: "Please enter brand name" }]}
+          >
+            <Input placeholder="Enter brand name" />
           </Form.Item>
 
           {/* Status Toggle */}
