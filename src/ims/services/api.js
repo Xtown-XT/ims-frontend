@@ -2,7 +2,7 @@ import axios from "axios";
 import { getAccessToken } from "./auth";
 
 const api = axios.create({
-  baseURL: "http://192.168.1.9:5000/ims_api/v1",
+  baseURL: "http://192.168.1.18:5000/ims_api/v1",
   timeout: 10000,
   headers: {
     "Content-Type": "application/json",
