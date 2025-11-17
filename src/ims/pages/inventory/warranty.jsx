@@ -1,64 +1,85 @@
-import React, { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Table, Input, Select, Button, Modal, Form, Switch, message } from "antd";
 import {
   SearchOutlined,
   PlusOutlined,
   EditOutlined,
   DeleteOutlined,
-  ExclamationCircleOutlined,
 } from "@ant-design/icons";
 import { FaFilePdf, FaFileExcel, FaAngleUp } from "react-icons/fa6";
 import { IoReloadOutline } from "react-icons/io5";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import warrantyService from "./warrantyService.js";
 
 const { Option } = Select;
 
 const Warranties = () => {
   const [showForm, setShowForm] = useState(false);
-  const [isEditMode, setIsEditMode] = useState(false); // ✅ Add/Edit toggle
+  const [isEditMode, setIsEditMode] = useState(false);
   const [editRecord, setEditRecord] = useState(null);
   const [searchText, setSearchText] = useState("");
+  const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState(null);
-  const [status, setStatus] = useState(true);
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [recordToDelete, setRecordToDelete] = useState(null);
   const [filtersCollapsed, setFiltersCollapsed] = useState(false);
 
-  const [formData, setFormData] = useState([
-    {
-      key: 1,
-      warranty: "Accidental Protection Plan",
-      description: "Covers accidental damage to your product.",
-      duration: "6 Months",
-      status: "Active",
-    },
-    {
-      key: 2,
-      warranty: "Extended Service Plan",
-      description: "Extends service warranty for 1 year.",
-      duration: "12 Months",
-      status: "Inactive",
-    },
-    {
-      key: 3,
-      warranty: "Replacement Warranty",
-      description: "Covers replacement of faulty items",
-      duration: "2 Month",
-      status: "Active",
-    },
-  ]);
+  const [status , setStatus] = useState(true)
+  const [page] = useState(1);
+  const [limit] = useState(5);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(false);
+
+  const [formData, setFormData] = useState([]);
 
   const [addWarrantyData, setAddWarrantyData] = useState({
     warranty: "",
     duration: "",
     period: "",
     description: "",
-    status: false,
+    status: true,
   });
 
   // New: selection state for checkboxes
   const [selectedRowKeys, setSelectedRowKeys] = useState([]);
+
+  // ✅ Fetch warranties from API
+  useEffect(() => {
+    const fetchData = async () => {
+      if (loading) return; // Prevent multiple calls
+      
+      try {
+        setLoading(true);
+        const res = await warrantyService.getWarranties(page, limit, search);
+        console.log("API response:", res.data);
+        
+        // Handle response structure: {data: {rows: [], count: 3, page: 1, limit: 5, totalPages: 1}}
+        const warranties = res.data?.data?.rows || res.data?.rows || [];
+        
+        // Transform API data to match component format
+        const transformedData = warranties.map((item) => ({
+          key: item.id,
+          id: item.id,
+          warranty: item.warranty_name,
+          description: item.description,
+          duration: `${item.duration} ${item.period}`,
+          durationValue: item.duration,
+          period: item.period,
+          status: item.status ? "Active" : "Inactive",
+        }));
+        
+        setFormData(transformedData);
+        setTotal(res.data?.data?.count || res.data?.count || warranties.length);
+      } catch (err) {
+        console.error("Failed to fetch warranties:", err);
+        message.error("Failed to load warranties");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, [page, search]);
 
   // ✅ Search + Filter logic
   const filteredData = useMemo(() => {
@@ -89,7 +110,7 @@ const Warranties = () => {
   };
 
   // ✅ Add Warranty
-  const handleAddWarranty = () => {
+  const handleAddWarranty = async () => {
     if (
       !addWarrantyData.warranty.trim() ||
       !addWarrantyData.duration.trim() ||
@@ -100,17 +121,39 @@ const Warranties = () => {
       return;
     }
 
-    const newWarranty = {
-      key: formData.length + 1,
-      warranty: addWarrantyData.warranty,
-      description: addWarrantyData.description,
-      duration: `${addWarrantyData.duration} ${addWarrantyData.period}`,
-      status: addWarrantyData.status ? "Active" : "Inactive",
-    };
+    try {
+      const payload = {
+        warranty_name: addWarrantyData.warranty,
+        duration: parseInt(addWarrantyData.duration),
+        period: addWarrantyData.period,
+        description: addWarrantyData.description,
+        status: addWarrantyData.status,
+      };
 
-    setFormData([...formData, newWarranty]);
-    handleCloseModal();
-    message.success("Warranty added");
+      const res = await warrantyService.createWarranty(payload);
+
+      // Transform response to match table format - same as ProductCategory
+      const createdWarranty = res.data.data;
+      const newWarranty = {
+        key: createdWarranty.id,
+        id: createdWarranty.id,
+        warranty: createdWarranty.warranty_name,
+        description: createdWarranty.description,
+        duration: `${createdWarranty.duration} ${createdWarranty.period}`,
+        durationValue: createdWarranty.duration,
+        period: createdWarranty.period,
+        status: createdWarranty.status ? "Active" : "Inactive",
+      };
+
+      setFormData([newWarranty, ...formData]);
+      handleCloseModal();
+      message.success("Warranty added");
+    } catch (err) {
+      console.log("Failed to add warranty", err);
+      console.log("Error response:", err.response?.data);
+      console.log("Error status:", err.response?.status);
+      message.error(err.response?.data?.message || "Failed to add warranty");
+    }
   };
 
   // ✅ Edit Warranty
@@ -118,11 +161,10 @@ const Warranties = () => {
     setIsEditMode(true);
     setEditRecord(record);
 
-    const [durationValue, durationPeriod] = (record.duration || "").split(" ");
     setAddWarrantyData({
       warranty: record.warranty,
-      duration: durationValue || "",
-      period: durationPeriod || "",
+      duration: record.durationValue || "",
+      period: record.period || "",
       description: record.description,
       status: record.status === "Active",
     });
@@ -131,21 +173,46 @@ const Warranties = () => {
   };
 
   // ✅ Save Changes
-  const handleSaveChanges = () => {
-    const updatedData = formData.map((item) =>
-      item.key === editRecord.key
-        ? {
-            ...item,
-            warranty: addWarrantyData.warranty,
-            description: addWarrantyData.description,
-            duration: `${addWarrantyData.duration} ${addWarrantyData.period}`,
-            status: addWarrantyData.status ? "Active" : "Inactive",
-          }
-        : item
-    );
-    setFormData(updatedData);
-    handleCloseModal();
-    message.success("Warranty updated");
+  const handleSaveChanges = async () => {
+    if (!editRecord) {
+      message.error("No record selected for editing");
+      return;
+    }
+
+    try {
+      const payload = {
+        warranty_name: addWarrantyData.warranty,
+        duration: parseInt(addWarrantyData.duration),
+        period: addWarrantyData.period,
+        description: addWarrantyData.description,
+        status: addWarrantyData.status,
+      };
+
+      const res = await warrantyService.updateWarranty(editRecord.id, payload);
+      console.log("Warranty updated:", res.data);
+
+      // Update local state
+      const updatedData = formData.map((item) =>
+        item.id === editRecord.id
+          ? {
+              ...item,
+              warranty: addWarrantyData.warranty,
+              description: addWarrantyData.description,
+              duration: `${addWarrantyData.duration} ${addWarrantyData.period}`,
+              durationValue: addWarrantyData.duration,
+              period: addWarrantyData.period,
+              status: addWarrantyData.status ? "Active" : "Inactive",
+            }
+          : item
+      );
+      
+      setFormData(updatedData);
+      handleCloseModal();
+      message.success("Warranty updated successfully");
+    } catch (err) {
+      console.error("Failed to update warranty:", err);
+      message.error("Failed to update warranty");
+    }
   };
 
   // ✅ Delete Warranty
@@ -154,14 +221,22 @@ const Warranties = () => {
     setDeleteModalVisible(true);
   };
 
-  const handleConfirmDelete = () => {
-    setFormData(formData.filter((item) => item.key !== recordToDelete.key));
-    setDeleteModalVisible(false);
-    setRecordToDelete(null);
-    message.success("Warranty deleted");
+  const handleConfirmDelete = async () => {
+    try {
+      await warrantyService.deleteWarranty(recordToDelete.id);
+      console.log("Warranty deleted");
 
-    // also remove from selectedRowKeys if present
-    setSelectedRowKeys((prev) => prev.filter((k) => k !== recordToDelete.key));
+      setFormData(formData.filter((item) => item.id !== recordToDelete.id));
+      setDeleteModalVisible(false);
+      setRecordToDelete(null);
+      message.success("Warranty deleted successfully");
+
+      // also remove from selectedRowKeys if present
+      setSelectedRowKeys((prev) => prev.filter((k) => k !== recordToDelete.key));
+    } catch (err) {
+      console.error("Failed to delete warranty:", err);
+      message.error("Failed to delete warranty");
+    }
   };
 
   const handleCancelDelete = () => {
@@ -179,13 +254,14 @@ const Warranties = () => {
       duration: "",
       period: "",
       description: "",
-      status: false,
+      status: true,
     });
   };
 
   // 🟣 Refresh handler (clears search/filters)
   const handleRefresh = () => {
     setSearchText("");
+    setSearch("");
     setFilterStatus(null);
     message.success("Refreshed");
 
@@ -426,7 +502,7 @@ const Warranties = () => {
                 duration: "",
                 period: "",
                 description: "",
-                status: false,
+                status: true,
               });
               setShowForm(true);
             }}
@@ -453,7 +529,10 @@ const Warranties = () => {
               prefix={<SearchOutlined />}
               style={{ width: 280 }}
               value={searchText}
-              onChange={(e) => setSearchText(e.target.value)}
+              onChange={(e) => {
+                setSearchText(e.target.value);
+                setSearch(e.target.value);
+              }}
               allowClear
             />
             <div className="flex gap-3">
@@ -487,6 +566,7 @@ const Warranties = () => {
         <Table
           columns={columns}
           dataSource={filteredData}
+          loading={loading}
           pagination={{ pageSize: 5 }}
           className="bg-white"
           bordered={false}
@@ -546,9 +626,9 @@ const Warranties = () => {
                   setAddWarrantyData({ ...addWarrantyData, period: val })
                 }
               >
-                <Option value="Day">Day</Option>
-                <Option value="Month">Month</Option>
-                <Option value="Year">Year</Option>
+                <Option value="Days">Days</Option>
+                <Option value="Months">Months</Option>
+                <Option value="Years">Years</Option>
               </Select>
             </Form.Item>
           </div>
@@ -672,3 +752,4 @@ const Warranties = () => {
 };
 
 export default Warranties;
+

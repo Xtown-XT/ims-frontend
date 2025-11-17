@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Table, Input, Select, Button, Modal, Form, Switch, message, Checkbox } from "antd";
 import {
   SearchOutlined,
@@ -10,6 +10,7 @@ import { FaFilePdf, FaFileExcel, FaAngleUp } from "react-icons/fa6";
 import { IoReloadOutline } from "react-icons/io5";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import variantAttributesService from "./variantattributesService.js";
 
 const { Option } = Select;
 
@@ -18,38 +19,55 @@ const VariantAttributes = () => {
   const [isEditMode, setIsEditMode] = useState(false);
   const [editRecord, setEditRecord] = useState(null);
   const [searchText, setSearchText] = useState("");
+  const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState(null);
-  const [status, setStatus] = useState(true);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteRecord, setDeleteRecord] = useState(null);
   const [filtersCollapsed, setFiltersCollapsed] = useState(false);
+  const [checked, setChecked] = useState(true);
+
+  const [page] = useState(1);
+  const [limit] = useState(5);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(false);
 
   // NEW: state for selected checkboxes (keys)
   const [selectedRowKeys, setSelectedRowKeys] = useState([]);
 
-  const [formData, setFormData] = useState([
-    {
-      key: 1,
-      variant: "Color",
-      values: "Red, Blue, Green",
-      createddate: "01/10/2025",
-      status: "Active",
-    },
-    {
-      key: 2,
-      variant: "Size",
-      values: "XS, S, M, L, XL",
-      createddate: "02/10/2025",
-      status: "Inactive",
-    },
-    {
-      key: 3,
-      variant: "Material",
-      values: "Cotton, Polyester",
-      createddate: "03/10/2025",
-      status: "Active",
-    },
-  ]);
+  const [formData, setFormData] = useState([]);
+
+  // ✅ Fetch variant attributes from API
+  useEffect(() => {
+    const fetchData = async () => {
+      if (loading) return; // Prevent multiple calls
+      
+      try {
+        setLoading(true);
+        const res = await variantAttributesService.getVariantAttributes(page, limit, search);
+        console.log("API response:", res.data);
+        
+        // Transform API data to match component format
+        const attributes = res.data?.data?.rows || res.data?.rows || [];
+        const transformedData = attributes.map((item) => ({
+          key: item.id,
+          id: item.id,
+          variant: item.variant_name,
+          values: Array.isArray(item.values) ? item.values.join(", ") : item.values,
+          createddate: new Date(item.createdAt).toLocaleDateString(),
+          status: item.status ? "Active" : "Inactive",
+        }));
+        
+        setFormData(transformedData);
+        setTotal(res.data?.data?.count || res.data?.count || attributes.length);
+      } catch (err) {
+        console.error("Failed to fetch variant attributes:", err);
+        message.error("Failed to load variant attributes");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, [page, search]);
 
   const [addVariantData, setAddVariantData] = useState({
     variant: "",
@@ -389,7 +407,10 @@ const VariantAttributes = () => {
               prefix={<SearchOutlined />}
               style={{ width: 250 }}
               value={searchText}
-              onChange={(e) => setSearchText(e.target.value)}
+              onChange={(e) => {
+                setSearchText(e.target.value);
+                setSearch(e.target.value);
+              }}
               allowClear
             />
             <div className="flex gap-3">
@@ -422,6 +443,7 @@ const VariantAttributes = () => {
   <Table
     columns={columns}
     dataSource={filteredData}
+    loading={loading}
     pagination={{ pageSize: 5 }}
     className="bg-white"
     bordered={false}

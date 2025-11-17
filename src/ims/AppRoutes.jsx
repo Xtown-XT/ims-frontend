@@ -42,6 +42,8 @@ import {
   SolutionOutlined,
   HomeOutlined,
   ApartmentOutlined,
+  ShoppingCartOutlined,
+  InboxOutlined,
   // Added icons for HRM module
   UserSwitchOutlined,
   ClusterOutlined,
@@ -76,7 +78,7 @@ import ProductSubCategory from "./pages/inventory/productsubcategory";
 import Brands from "./pages/inventory/brands";
 import Units from "./pages/inventory/units";
 import VariantAttributes from "./pages/inventory/variantattributes";
-import Warranties from "./pages/inventory/warranty";
+import Warranty from "./pages/inventory/warranty";
 import PrintBarcode from "./pages/inventory/printbarcode";
 import PrintQRCode from "./pages/inventory/printqrcode";
 import Coupons from "./pages/coupons/coupons";
@@ -228,7 +230,7 @@ export const imsMenuItems = [
       },
       {
         key: "/ims/inventory/warranty",
-        label: "Warranties",
+        label: "Warranty",
         icon: <SafetyCertificateOutlined />,
       },
       {
@@ -528,7 +530,7 @@ const IMSRoutes = () => {
       <Route path="inventory/brands" element={<Brands />} />
       <Route path="inventory/units" element={<Units />} />
       <Route path="inventory/variantattributes" element={<VariantAttributes />} />
-      <Route path="inventory/warranty" element={<Warranties />} />
+      <Route path="inventory/warranty" element={<Warranty />} />
       <Route path="inventory/print-barcode" element={<PrintBarcode />} />
       <Route path="inventory/print-qr" element={<PrintQRCode />} />
       <Route path="inventory/productdetails" element={<ProductDetails />} />
