@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { Table, Button, Tag, Modal, Input, Select, message } from "antd";
+import { useState } from "react";
+import { Table, Button, Tag, Modal, Input, Select, message, Radio } from "antd";
 import { 
   FilePdfOutlined, 
   FileExcelOutlined, 
@@ -9,7 +9,8 @@ import {
   ReloadOutlined,
   EyeOutlined,
   DownloadOutlined,
-  PrinterOutlined
+  PrinterOutlined,
+  PlusCircleOutlined
 } from "@ant-design/icons";
 import { Plus, AlertCircle } from "lucide-react";
 
@@ -21,12 +22,22 @@ const EmployeeSalary = () => {
   const [editingRecord, setEditingRecord] = useState(null);
   const [searchText, setSearchText] = useState("");
   const [filterStatus, setFilterStatus] = useState(null);
+  const [selectedRowKeys, setSelectedRowKeys] = useState([]);
 
   const [formValues, setFormValues] = useState({
-    name: "",
-    role: "",
-    email: "",
-    salary: "",
+    employee: "",
+    basicSalary: "",
+    status: "Paid",
+    hraAllowance: "",
+    conveyance: "",
+    medicalAllowance: "",
+    bonus: "",
+    allowanceOthers: "",
+    pf: "",
+    professionalTax: "",
+    tds: "",
+    loansOthers: "",
+    deductionOthers: "",
   });
 
   const [salaryData, setSalaryData] = useState([
@@ -143,16 +154,45 @@ const EmployeeSalary = () => {
     setFormValues({ ...formValues, [e.target.name]: e.target.value });
   };
 
+  // Calculate totals
+  const calculateTotals = () => {
+    const totalAllowance = 
+      (parseFloat(formValues.hraAllowance) || 0) +
+      (parseFloat(formValues.conveyance) || 0) +
+      (parseFloat(formValues.medicalAllowance) || 0) +
+      (parseFloat(formValues.bonus) || 0) +
+      (parseFloat(formValues.allowanceOthers) || 0);
+
+    const totalDeduction = 
+      (parseFloat(formValues.pf) || 0) +
+      (parseFloat(formValues.professionalTax) || 0) +
+      (parseFloat(formValues.tds) || 0) +
+      (parseFloat(formValues.loansOthers) || 0) +
+      (parseFloat(formValues.deductionOthers) || 0);
+
+    const basicSalary = parseFloat(formValues.basicSalary) || 0;
+    const netSalary = basicSalary + totalAllowance - totalDeduction;
+
+    return { totalAllowance, totalDeduction, netSalary };
+  };
+
   // Add / Update Salary
   const handleAddSalary = () => {
-    if (!formValues.name || !formValues.email || !formValues.salary) {
+    if (!formValues.employee || !formValues.basicSalary) {
       message.warning("Please fill all required fields!");
       return;
     }
 
+    const { netSalary } = calculateTotals();
+
     if (editingRecord) {
       const updated = salaryData.map((item) =>
-        item.key === editingRecord.key ? { ...item, ...formValues } : item
+        item.key === editingRecord.key ? { 
+          ...item, 
+          name: formValues.employee,
+          salary: `$${netSalary.toFixed(2)}`,
+          status: formValues.status
+        } : item
       );
       setSalaryData(updated);
       message.success("Salary updated successfully");
@@ -160,18 +200,32 @@ const EmployeeSalary = () => {
       const newEntry = {
         key: Date.now(),
         id: `EMP${String(salaryData.length + 1).padStart(3, '0')}`,
-        name: formValues.name,
-        role: formValues.role,
+        name: formValues.employee,
+        role: "Employee",
         image: "/api/placeholder/40/40",
-        email: formValues.email,
-        salary: formValues.salary,
-        status: "Paid",
+        email: "employee@example.com",
+        salary: `$${netSalary.toFixed(2)}`,
+        status: formValues.status,
       };
       setSalaryData([...salaryData, newEntry]);
       message.success("Salary added successfully");
     }
 
-    setFormValues({ name: "", role: "", email: "", salary: "" });
+    setFormValues({ 
+      employee: "",
+      basicSalary: "",
+      status: "Paid",
+      hraAllowance: "",
+      conveyance: "",
+      medicalAllowance: "",
+      bonus: "",
+      allowanceOthers: "",
+      pf: "",
+      professionalTax: "",
+      tds: "",
+      loansOthers: "",
+      deductionOthers: "",
+    });
     setEditingRecord(null);
     setShowForm(false);
   };
@@ -180,10 +234,19 @@ const EmployeeSalary = () => {
   const handleEdit = (record) => {
     setEditingRecord(record);
     setFormValues({
-      name: record.name,
-      role: record.role,
-      email: record.email,
-      salary: record.salary,
+      employee: record.name,
+      basicSalary: "",
+      status: record.status,
+      hraAllowance: "",
+      conveyance: "",
+      medicalAllowance: "",
+      bonus: "",
+      allowanceOthers: "",
+      pf: "",
+      professionalTax: "",
+      tds: "",
+      loansOthers: "",
+      deductionOthers: "",
     });
     setShowForm(true);
   };
@@ -192,7 +255,46 @@ const EmployeeSalary = () => {
   const handleRefresh = () => {
     setSearchText("");
     setFilterStatus(null);
+    setSelectedRowKeys([]);
     message.info("Refreshed!");
+  };
+
+  // Export to PDF
+  const handleExportPDF = () => {
+    message.success("Exporting to PDF...");
+    // Add your PDF export logic here
+  };
+
+  // Export to Excel
+  const handleExportExcel = () => {
+    message.success("Exporting to Excel...");
+    // Add your Excel export logic here
+  };
+
+  // Print Handler
+  const handlePrint = () => {
+    window.print();
+    message.info("Opening print dialog...");
+  };
+
+  // View Handler
+  const handleView = (record) => {
+    message.info(`Viewing details for ${record.name}`);
+    // Add your view logic here
+  };
+
+  // Download Handler
+  const handleDownload = (record) => {
+    message.success(`Downloading salary slip for ${record.name}`);
+    // Add your download logic here
+  };
+
+  // Checkbox selection
+  const rowSelection = {
+    selectedRowKeys,
+    onChange: (selectedKeys) => {
+      setSelectedRowKeys(selectedKeys);
+    },
   };
 
   // Table columns
@@ -239,7 +341,15 @@ const EmployeeSalary = () => {
       key: "status",
       align: "center",
       render: (status) => (
-        <Tag color="success" style={{ borderRadius: "6px", padding: "2px 12px" }}>
+        <Tag 
+          style={{ 
+            borderRadius: "6px", 
+            padding: "2px 12px",
+            backgroundColor: "#3EB780",
+            color: "white",
+            border: "none"
+          }}
+        >
           {status}
         </Tag>
       ),
@@ -250,10 +360,34 @@ const EmployeeSalary = () => {
       align: "center",
       render: (_, record) => (
         <div className="flex gap-2 justify-center">
-          <Button icon={<EyeOutlined />} type="text" style={{ color: "#6B7280" }} />
-          <Button icon={<DownloadOutlined />} type="text" style={{ color: "#6B7280" }} />
-          <Button icon={<EditOutlined />} onClick={() => handleEdit(record)} type="text" style={{ color: "#6B7280" }} />
-          <Button icon={<DeleteOutlined />} onClick={() => showDeleteConfirm(record)} type="text" style={{ color: "#6B7280" }} />
+          <Button 
+            icon={<EyeOutlined />} 
+            type="text" 
+            style={{ color: "#6B7280" }} 
+            onClick={() => handleView(record)}
+            title="View"
+          />
+          <Button 
+            icon={<DownloadOutlined />} 
+            type="text" 
+            style={{ color: "#6B7280" }} 
+            onClick={() => handleDownload(record)}
+            title="Download"
+          />
+          <Button 
+            icon={<EditOutlined />} 
+            onClick={() => handleEdit(record)} 
+            type="text" 
+            style={{ color: "#6B7280" }}
+            title="Edit"
+          />
+          <Button 
+            icon={<DeleteOutlined />} 
+            onClick={() => showDeleteConfirm(record)} 
+            type="text" 
+            style={{ color: "#6B7280" }}
+            title="Delete"
+          />
         </div>
       ),
     },
@@ -270,33 +404,40 @@ const EmployeeSalary = () => {
         <div className="flex gap-2">
           <Button
             icon={<FilePdfOutlined />}
+            onClick={handleExportPDF}
             style={{
               background: "#DC2626",
               color: "white",
               borderColor: "#DC2626",
               borderRadius: "8px",
             }}
+            title="Export to PDF"
           />
           <Button
             icon={<FileExcelOutlined />}
+            onClick={handleExportExcel}
             style={{
               background: "#16A34A",
               color: "white",
               borderColor: "#16A34A",
               borderRadius: "8px",
             }}
+            title="Export to Excel"
           />
           <Button
             icon={<PrinterOutlined />}
+            onClick={handlePrint}
             style={{ borderRadius: "8px" }}
+            title="Print"
           />
           <Button
             icon={<ReloadOutlined />}
             onClick={handleRefresh}
             style={{ borderRadius: "8px" }}
+            title="Refresh"
           />
           <button
-            className="flex items-center gap-1 bg-orange-500 text-white px-3 py-1.5 rounded-lg hover:bg-orange-600 transition text-sm"
+            className="flex items-center gap-1 bg-purple-500 text-white px-3 py-1.5 rounded-lg hover:bg-purple-600 transition text-sm"
             onClick={() => setShowForm(true)}
           >
             <Plus size={14} /> Add Payroll
@@ -327,7 +468,7 @@ const EmployeeSalary = () => {
               allowClear
             >
               <Option value="Paid">Paid</Option>
-              <Option value="Pending">Pending</Option>
+              <Option value="Unpaid">Unpaid</Option>
             </Select>
           </div>
         </div>
@@ -335,6 +476,7 @@ const EmployeeSalary = () => {
         <Table
           columns={columns}
           dataSource={filteredData}
+          rowSelection={rowSelection}
           pagination={{ pageSize: 10 }}
           rowClassName={() => "hover:bg-gray-50"}
           style={{ border: "1px solid #e5e7eb" }}
@@ -343,9 +485,9 @@ const EmployeeSalary = () => {
 
       {/* Modal Form */}
       {showForm && (
-        <div className="fixed inset-0 bg-black/75 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl w-full max-w-md p-6 relative shadow-xl">
-            <div className="flex items-center justify-between border-b border-gray-200 pb-3 mb-4">
+        <div className="fixed inset-0 bg-black/75 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl w-full max-w-2xl max-h-[85vh] flex flex-col relative shadow-xl">
+            <div className="flex items-center justify-between border-b border-gray-200 px-5 py-3">
               <h3 className="text-lg font-semibold text-gray-800">
                 {editingRecord ? "Edit Salary" : "Add Payroll"}
               </h3>
@@ -357,76 +499,267 @@ const EmployeeSalary = () => {
               </button>
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-5 overflow-y-auto px-5 py-4 flex-1">
+              {/* Select Employee */}
               <div>
-                <label className="text-sm text-gray-700 mb-1 block">
-                  Employee Name <span className="text-red-500">*</span>
+                <label className="text-sm font-medium text-gray-700 mb-1.5 block">
+                  Select Employee <span className="text-red-500">*</span>
                 </label>
+                <Select
+                  placeholder="Select"
+                  className="w-full"
+                  value={formValues.employee || undefined}
+                  onChange={(value) => setFormValues({ ...formValues, employee: value })}
+                >
+                  <Option value="Carl Evans">Carl Evans</Option>
+                  <Option value="Minerva Rameriz">Minerva Rameriz</Option>
+                  <Option value="Robert Lamon">Robert Lamon</Option>
+                  <Option value="Patricia Lewis">Patricia Lewis</Option>
+                  <Option value="Mark Joslyn">Mark Joslyn</Option>
+                </Select>
+              </div>
+
+              {/* Salary Information */}
+              <div>
+                <h4 className="text-sm font-semibold text-gray-800 mb-2">Salary Information</h4>
+                <div>
+                  <label className="text-sm font-medium text-gray-700 mb-1.5 block">
+                    Basic Salary <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    name="basicSalary"
+                    value={formValues.basicSalary}
+                    onChange={handleInputChange}
+                    placeholder="Enter basic salary"
+                    className="w-full border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+                  />
+                </div>
+              </div>
+
+              {/* Status */}
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-1.5 block">Status</label>
+                <Radio.Group
+                  value={formValues.status}
+                  onChange={(e) => setFormValues({ ...formValues, status: e.target.value })}
+                >
+                  <Radio value="Paid">Paid</Radio>
+                  <Radio value="Unpaid">Unpaid</Radio>
+                </Radio.Group>
+              </div>
+
+              {/* Allowances */}
+              <div>
+                <h4 className="text-sm font-semibold text-gray-800 mb-2">Allowances</h4>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-medium text-gray-700 mb-1 block">
+                      HRA Allowance <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      name="hraAllowance"
+                      value={formValues.hraAllowance}
+                      onChange={handleInputChange}
+                      placeholder="0"
+                      className="w-full border border-gray-300 rounded-md px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-gray-700 mb-1 block">
+                      Conveyance <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      name="conveyance"
+                      value={formValues.conveyance}
+                      onChange={handleInputChange}
+                      placeholder="0"
+                      className="w-full border border-gray-300 rounded-md px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-gray-700 mb-1 block">
+                      Medical Allowance <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      name="medicalAllowance"
+                      value={formValues.medicalAllowance}
+                      onChange={handleInputChange}
+                      placeholder="0"
+                      className="w-full border border-gray-300 rounded-md px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-gray-700 mb-1 block">
+                      Bonus <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      name="bonus"
+                      value={formValues.bonus}
+                      onChange={handleInputChange}
+                      placeholder="0"
+                      className="w-full border border-gray-300 rounded-md px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Others (Allowances) */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs font-medium text-gray-700">Others</label>
+                  <button className="w-7 h-7 rounded-full bg-blue-900 flex items-center justify-center text-white hover:opacity-90">
+                    <PlusCircleOutlined style={{ fontSize: '14px' }} />
+                  </button>
+                </div>
                 <input
-                  type="text"
-                  name="name"
-                  value={formValues.name}
+                  type="number"
+                  name="allowanceOthers"
+                  value={formValues.allowanceOthers}
                   onChange={handleInputChange}
-                  placeholder="Enter employee name"
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-400"
+                  placeholder="0"
+                  className="w-full border border-gray-300 rounded-md px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
                 />
               </div>
 
+              {/* Deductions */}
               <div>
-                <label className="text-sm text-gray-700 mb-1 block">
-                  Role <span className="text-red-500">*</span>
-                </label>
+                <h4 className="text-sm font-semibold text-gray-800 mb-2">Deductions</h4>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-medium text-gray-700 mb-1 block">
+                      PF <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      name="pf"
+                      value={formValues.pf}
+                      onChange={handleInputChange}
+                      placeholder="0"
+                      className="w-full border border-gray-300 rounded-md px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-gray-700 mb-1 block">
+                      Professional Tax <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      name="professionalTax"
+                      value={formValues.professionalTax}
+                      onChange={handleInputChange}
+                      placeholder="0"
+                      className="w-full border border-gray-300 rounded-md px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-gray-700 mb-1 block">
+                      TDS <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      name="tds"
+                      value={formValues.tds}
+                      onChange={handleInputChange}
+                      placeholder="0"
+                      className="w-full border border-gray-300 rounded-md px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-gray-700 mb-1 block">
+                      Loans & Others <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      name="loansOthers"
+                      value={formValues.loansOthers}
+                      onChange={handleInputChange}
+                      placeholder="0"
+                      className="w-full border border-gray-300 rounded-md px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Others (Deductions) */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs font-medium text-gray-700">Others</label>
+                  <button className="w-7 h-7 rounded-full bg-blue-900 flex items-center justify-center text-white hover:opacity-90">
+                    <PlusCircleOutlined style={{ fontSize: '14px' }} />
+                  </button>
+                </div>
                 <input
-                  type="text"
-                  name="role"
-                  value={formValues.role}
+                  type="number"
+                  name="deductionOthers"
+                  value={formValues.deductionOthers}
                   onChange={handleInputChange}
-                  placeholder="Enter role"
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-400"
+                  placeholder="0"
+                  className="w-full border border-gray-300 rounded-md px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
                 />
               </div>
 
-              <div>
-                <label className="text-sm text-gray-700 mb-1 block">
-                  Email <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="email"
-                  name="email"
-                  value={formValues.email}
-                  onChange={handleInputChange}
-                  placeholder="Enter email"
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-400"
-                />
-              </div>
-
-              <div>
-                <label className="text-sm text-gray-700 mb-1 block">
-                  Salary <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  name="salary"
-                  value={formValues.salary}
-                  onChange={handleInputChange}
-                  placeholder="$00,000"
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-400"
-                />
+              {/* Summary */}
+              <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className="text-xs font-medium text-gray-700 mb-1 block">
+                      Total Allowance <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={calculateTotals().totalAllowance.toFixed(2)}
+                      readOnly
+                      className="w-full border border-gray-300 rounded-md px-2 py-1.5 text-sm bg-gray-100"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-gray-700 mb-1 block">
+                      Total Deduction <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={calculateTotals().totalDeduction.toFixed(2)}
+                      readOnly
+                      className="w-full border border-gray-300 rounded-md px-2 py-1.5 text-sm bg-gray-100"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-gray-700 mb-1 block">
+                      Net Salary <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={calculateTotals().netSalary.toFixed(2)}
+                      readOnly
+                      className="w-full border border-gray-300 rounded-md px-2 py-1.5 text-sm bg-gray-100"
+                    />
+                  </div>
+                </div>
               </div>
             </div>
 
-            <div className="flex justify-end gap-3 mt-6">
+            <div className="flex justify-end gap-3 px-5 py-3 border-t border-gray-200 bg-white">
+              <button
+                className="px-5 py-2 rounded-md bg-red-600 text-white hover:bg-red-600 transition text-sm"
+              >
+                Preview
+              </button>
               <button
                 onClick={() => setShowForm(false)}
-                className="px-5 py-2 rounded-md bg-gray-400 text-white hover:opacity-95 transition"
+                className="px-5 py-2 rounded-md bg-gray-500 text-white hover:opacity-95 transition text-sm"
               >
-                Cancel
+                Reset
               </button>
               <button
                 onClick={handleAddSalary}
-                className="px-5 py-2 rounded-md bg-orange-500 text-white hover:bg-orange-600 transition"
+                className="px-5 py-2 rounded-md bg-purple-500 text-white hover:bg-purple-600 transition text-sm"
               >
-                {editingRecord ? "Update Salary" : "Add Payroll"}
+                Save
               </button>
             </div>
           </div>

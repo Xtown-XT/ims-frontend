@@ -1,17 +1,23 @@
 import React, { useState } from "react";
 import { Table, Button, Tag, Modal, Input, Form, message } from "antd";
-import { FilePdfOutlined, FileExcelOutlined, EditOutlined, DeleteOutlined } from "@ant-design/icons";
+import { FilePdfOutlined, FileExcelOutlined, EditOutlined, DeleteOutlined, ReloadOutlined } from "@ant-design/icons";
 import { Plus, AlertCircle } from "lucide-react";
+import jsPDF from "jspdf";
+import "jspdf-autotable";
+import * as XLSX from "xlsx";
+import { saveAs } from "file-saver";
 
 const { confirm } = Modal;
 
 const LeaveTypes = () => {
   const [showForm, setShowForm] = useState(false);
   const [editingRecord, setEditingRecord] = useState(null);
+  const [selectAll, setSelectAll] = useState(false);
 
   const [formValues, setFormValues] = useState({
     leaveType: "",
     leaveQuota: "",
+    status: "Active",
   });
 
   const [leaveData, setLeaveData] = useState([
@@ -80,6 +86,125 @@ const LeaveTypes = () => {
     setFormValues({ ...formValues, [e.target.name]: e.target.value });
   };
 
+  // Select All Checkbox
+  const handleSelectAll = () => {
+    const newSelectAll = !selectAll;
+    setSelectAll(newSelectAll);
+    setLeaveData(leaveData.map((item) => ({ ...item, selected: newSelectAll })));
+  };
+
+  // Individual Row Checkbox
+  const handleRowCheck = (key) => {
+    const updated = leaveData.map((item) =>
+      item.key === key ? { ...item, selected: !item.selected } : item
+    );
+    setLeaveData(updated);
+    setSelectAll(updated.every((i) => i.selected));
+  };
+
+  // Refresh Handler
+  const handleRefresh = () => {
+    message.info("Refreshed!");
+  };
+
+  // Export PDF
+  const exportPDF = () => {
+    try {
+      if (!jsPDF) {
+        alert("PDF library not loaded. Please refresh the page and try again.");
+        return;
+      }
+
+      const doc = new jsPDF();
+      doc.setFontSize(20);
+      doc.setTextColor(40);
+      doc.text("Leave Types Report", 14, 22);
+
+      doc.setFontSize(12);
+      doc.setTextColor(100);
+      doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 14, 32);
+
+      if (!leaveData || leaveData.length === 0) {
+        doc.setFontSize(14);
+        doc.text("No data available to export", 14, 50);
+        doc.save("leave-types-report.pdf");
+        return;
+      }
+
+      const tableData = leaveData.map(item => [
+        item.leaveType || '',
+        item.leaveQuota || '',
+        item.createdOn || '',
+        item.status || ''
+      ]);
+
+      if (typeof doc.autoTable === 'function') {
+        doc.autoTable({
+          head: [['Leave Type', 'Leave Quota', 'Created On', 'Status']],
+          body: tableData,
+          startY: 40,
+          styles: {
+            fontSize: 10,
+            cellPadding: 4,
+            overflow: 'linebreak',
+            halign: 'left',
+          },
+          headStyles: {
+            fillColor: [124, 58, 237],
+            textColor: 255,
+            fontStyle: 'bold',
+          },
+          alternateRowStyles: {
+            fillColor: [245, 245, 245],
+          },
+          margin: { top: 40 },
+        });
+      }
+
+      doc.save("leave-types-report.pdf");
+      message.success("PDF exported successfully");
+    } catch (error) {
+      console.error("Error exporting PDF:", error);
+      message.error(`Error exporting PDF: ${error.message}`);
+    }
+  };
+
+  // Export Excel
+  const exportExcel = () => {
+    try {
+      const worksheet = XLSX.utils.json_to_sheet(
+        leaveData.map((item) => ({
+          "Leave Type": item.leaveType,
+          "Leave Quota": item.leaveQuota,
+          "Created On": item.createdOn,
+          "Status": item.status,
+        }))
+      );
+
+      const columnWidths = [
+        { wch: 20 },
+        { wch: 15 },
+        { wch: 15 },
+        { wch: 12 },
+      ];
+      worksheet['!cols'] = columnWidths;
+
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Leave Types");
+
+      const excelBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
+      const data = new Blob([excelBuffer], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+
+      saveAs(data, "leave-types-report.xlsx");
+      message.success("Excel exported successfully");
+    } catch (error) {
+      console.error("Error exporting Excel:", error);
+      message.error("Error exporting Excel. Please try again.");
+    }
+  };
+
   // Add / Update Leave Type
   const handleAddLeaveType = () => {
     if (!formValues.leaveType || !formValues.leaveQuota) {
@@ -103,13 +228,14 @@ const LeaveTypes = () => {
           month: "short",
           year: "numeric",
         }),
-        status: "Active",
+        status: formValues.status,
+        selected: false,
       };
       setLeaveData([...leaveData, newEntry]);
       message.success("Leave type added successfully");
     }
 
-    setFormValues({ leaveType: "", leaveQuota: "" });
+    setFormValues({ leaveType: "", leaveQuota: "", status: "Active" });
     setEditingRecord(null);
     setShowForm(false);
   };
@@ -120,12 +246,25 @@ const LeaveTypes = () => {
     setFormValues({
       leaveType: record.leaveType,
       leaveQuota: record.leaveQuota,
+      status: record.status,
     });
     setShowForm(true);
   };
 
   // Table columns
   const columns = [
+    {
+      title: <input type="checkbox" checked={selectAll} onChange={handleSelectAll} />,
+      dataIndex: "checkbox",
+      render: (_, record) => (
+        <input
+          type="checkbox"
+          checked={record.selected || false}
+          onChange={() => handleRowCheck(record.key)}
+        />
+      ),
+      width: 50,
+    },
     {
       title: "Leave Type",
       dataIndex: "leaveType",
@@ -150,7 +289,14 @@ const LeaveTypes = () => {
       key: "status",
       align: "center",
       render: (status) => (
-        <Tag color="success" style={{ borderRadius: "6px", padding: "2px 12px" }}>
+        <Tag
+          style={{
+            borderRadius: "6px",
+            padding: "2px 12px",
+            color: "white",
+            backgroundColor: status === "Active" ? "#3EB780" : "#d63031",
+          }}
+        >
           {status}
         </Tag>
       ),
@@ -179,6 +325,7 @@ const LeaveTypes = () => {
         <div className="flex gap-2">
           <Button
             icon={<FilePdfOutlined />}
+            onClick={exportPDF}
             style={{
               background: "#DC2626",
               color: "white",
@@ -188,6 +335,7 @@ const LeaveTypes = () => {
           />
           <Button
             icon={<FileExcelOutlined />}
+            onClick={exportExcel}
             style={{
               background: "#16A34A",
               color: "white",
@@ -195,8 +343,13 @@ const LeaveTypes = () => {
               borderRadius: "8px",
             }}
           />
+          <Button
+            icon={<ReloadOutlined />}
+            onClick={handleRefresh}
+            style={{ borderRadius: "8px" }}
+          />
           <button
-            className="flex items-center gap-1 bg-orange-500 text-white px-3 py-1.5 rounded-lg hover:bg-orange-600 transition text-sm"
+            className="flex items-center gap-1 bg-purple-500 text-white px-3 py-1.5 rounded-lg hover:bg-purple-600 transition text-sm"
             onClick={() => setShowForm(true)}
           >
             <Plus size={14} /> Add Leave Type
@@ -259,6 +412,21 @@ const LeaveTypes = () => {
                   className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-400"
                 />
               </div>
+
+              <div>
+                <label className="text-sm text-gray-700 mb-1 block">
+                  Status <span className="text-red-500">*</span>
+                </label>
+                <select
+                  name="status"
+                  value={formValues.status}
+                  onChange={handleInputChange}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-400"
+                >
+                  <option value="Active">Active</option>
+                  <option value="Inactive">Inactive</option>
+                </select>
+              </div>
             </div>
 
             <div className="flex justify-end gap-3 mt-6">
@@ -270,9 +438,9 @@ const LeaveTypes = () => {
               </button>
               <button
                 onClick={handleAddLeaveType}
-                className="px-5 py-2 rounded-md bg-orange-500 text-white hover:bg-orange-600 transition"
+                className="px-5 py-2 rounded-md bg-purple-500 text-white hover:bg-purple-600 transition"
               >
-                {editingRecord ? "Update Leave Type" : "Add Leave Type"}
+                {editingRecord ? "Save Changes" : "Submit"}
               </button>
             </div>
           </div>

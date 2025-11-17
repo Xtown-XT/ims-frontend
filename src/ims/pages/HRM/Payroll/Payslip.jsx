@@ -1,5 +1,4 @@
-import React from "react";
-import { Button } from "antd";
+import { Button, message } from "antd";
 import { 
   FilePdfOutlined, 
   PrinterOutlined, 
@@ -10,6 +9,8 @@ import {
   BarcodeOutlined
 } from "@ant-design/icons";
 import { useNavigate } from "react-router-dom";
+import jsPDF from "jspdf";
+import "jspdf-autotable";
 
 const Payslip = () => {
   const navigate = useNavigate();
@@ -46,6 +47,128 @@ const Payslip = () => {
     navigate("/ims/hrm/payroll/salary");
   };
 
+  // Export to PDF
+  const handleExportPDF = () => {
+    try {
+      const doc = new jsPDF();
+
+      // Add title
+      doc.setFontSize(20);
+      doc.setTextColor(40);
+      doc.text("Payslip", 14, 22);
+
+      // Add employee info
+      doc.setFontSize(12);
+      doc.setTextColor(100);
+      doc.text(`Month: ${payslipData.month}`, 14, 32);
+      doc.text(`Employee Name: ${payslipData.employeeName}`, 14, 40);
+      doc.text(`Employee ID: ${payslipData.employeeId}`, 14, 48);
+      doc.text(`Location: ${payslipData.location}`, 14, 56);
+      doc.text(`Pay Period: ${payslipData.payPeriod}`, 14, 64);
+
+      // Earnings Table
+      doc.setFontSize(14);
+      doc.setTextColor(40);
+      doc.text("Earnings", 14, 78);
+
+      const earningsData = payslipData.earnings.map(item => [
+        item.type,
+        item.amount
+      ]);
+      earningsData.push(['Total Earnings', payslipData.totalEarnings]);
+
+      doc.autoTable({
+        head: [['Pay Type', 'Amount']],
+        body: earningsData,
+        startY: 82,
+        styles: {
+          fontSize: 10,
+          cellPadding: 3,
+        },
+        headStyles: {
+          fillColor: [124, 58, 237],
+          textColor: 255,
+          fontStyle: 'bold',
+        },
+        margin: { left: 14, right: 105 },
+      });
+
+      // Deductions Table
+      const deductionsStartY = doc.lastAutoTable.finalY + 10;
+      doc.setFontSize(14);
+      doc.setTextColor(40);
+      doc.text("Deductions", 14, deductionsStartY);
+
+      const deductionsData = payslipData.deductions.map(item => [
+        item.type,
+        item.amount
+      ]);
+      deductionsData.push(['Total Deductions', payslipData.totalDeductions]);
+
+      doc.autoTable({
+        head: [['Pay Type', 'Amount']],
+        body: deductionsData,
+        startY: deductionsStartY + 4,
+        styles: {
+          fontSize: 10,
+          cellPadding: 3,
+        },
+        headStyles: {
+          fillColor: [220, 38, 38],
+          textColor: 255,
+          fontStyle: 'bold',
+        },
+        margin: { left: 14, right: 105 },
+      });
+
+      // Net Salary
+      const netSalaryY = doc.lastAutoTable.finalY + 15;
+      doc.setFontSize(16);
+      doc.setTextColor(40);
+      doc.text(`Net Salary: ${payslipData.netSalary}`, 14, netSalaryY);
+      doc.setFontSize(12);
+      doc.setTextColor(100);
+      doc.text(`In Words: ${payslipData.netSalaryWords}`, 14, netSalaryY + 8);
+
+      // Save the PDF
+      doc.save(`Payslip_${payslipData.employeeName}_${payslipData.month}.pdf`);
+      message.success("PDF exported successfully");
+    } catch (error) {
+      console.error("Error exporting PDF:", error);
+      message.error("Error exporting PDF. Please try again.");
+    }
+  };
+
+  // Print Handler
+  const handlePrint = () => {
+    window.print();
+    message.info("Opening print dialog...");
+  };
+
+  // Refresh Handler
+  const handleRefresh = () => {
+    message.info("Payslip refreshed!");
+    // Add your refresh logic here
+  };
+
+  // Send Email Handler
+  const handleSendEmail = () => {
+    message.success(`Payslip sent to ${payslipData.employeeName}'s email`);
+    // Add your email sending logic here
+  };
+
+  // Download Handler
+  const handleDownload = () => {
+    message.success("Downloading payslip...");
+    // Add your download logic here
+  };
+
+  // Print Barcode Handler
+  const handlePrintBarcode = () => {
+    message.success("Printing barcode...");
+    // Add your barcode printing logic here
+  };
+
   return (
     <div className="bg-gray-50 min-h-screen px-4 py-4">
       {/* Header */}
@@ -56,20 +179,26 @@ const Payslip = () => {
         <div className="flex gap-2">
           <Button
             icon={<FilePdfOutlined />}
+            onClick={handleExportPDF}
             style={{
               background: "#DC2626",
               color: "white",
               borderColor: "#DC2626",
               borderRadius: "8px",
             }}
+            title="Export to PDF"
           />
           <Button
             icon={<PrinterOutlined />}
+            onClick={handlePrint}
             style={{ borderRadius: "8px" }}
+            title="Print"
           />
           <Button
             icon={<ReloadOutlined />}
+            onClick={handleRefresh}
             style={{ borderRadius: "8px" }}
+            title="Refresh"
           />
           <button
             className="flex items-center gap-2 bg-slate-800 text-white px-4 py-2 rounded-lg hover:bg-slate-900 transition text-sm"
@@ -97,34 +226,40 @@ const Payslip = () => {
             <div className="flex gap-2">
               <Button
                 icon={<MailOutlined />}
+                onClick={handleSendEmail}
                 style={{
-                  background: "#FF9800",
+                  background: "#7C3AED",
                   color: "white",
-                  borderColor: "#FF9800",
+                  borderColor: "#7C3AED",
                   borderRadius: "8px",
                 }}
+                title="Send Email"
               >
                 Send Email
               </Button>
               <Button
                 icon={<DownloadOutlined />}
+                onClick={handleDownload}
                 style={{
-                  background: "#2563EB",
+                  background: "#64748B",
                   color: "white",
-                  borderColor: "#2563EB",
+                  borderColor: "#64748B",
                   borderRadius: "8px",
                 }}
+                title="Download"
               >
                 Download
               </Button>
               <Button
                 icon={<BarcodeOutlined />}
+                onClick={handlePrintBarcode}
                 style={{
                   background: "#DC2626",
                   color: "white",
                   borderColor: "#DC2626",
                   borderRadius: "8px",
                 }}
+                title="Print Barcode"
               >
                 Print Barcode
               </Button>
