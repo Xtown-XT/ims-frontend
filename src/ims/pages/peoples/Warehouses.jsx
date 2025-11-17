@@ -1,5 +1,5 @@
 // src/pages/peoples/warehouses.jsx
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react"; // added useEffect
 import {
   Table,
   Input,
@@ -27,6 +27,7 @@ import { FaFilePdf, FaFileExcel, FaAngleUp } from "react-icons/fa6";
 import { IoReloadOutline } from "react-icons/io5";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import warehouseService from "../peoples/WarehouseService"; // ADDED: service import
 
 const Warehouses = () => {
   const [searchText, setSearchText] = useState("");
@@ -91,6 +92,50 @@ const Warehouses = () => {
   const [isDeleteModalVisible, setIsDeleteModalVisible] = useState(false);
   const [deleteWarehouse, setDeleteWarehouse] = useState(null);
 
+  // ---------------------------
+  // fetch function declared so other handlers (create/update) can call it
+  // ---------------------------
+  const fetchWarehouses = async () => {
+    try {
+      const res = await warehouseService.getWarehouses(
+        currentPage,
+        pageSize,
+        searchText
+      );
+
+      const rows = res?.data?.data?.rows ?? [];
+
+      const mapped = rows.map((r) => ({
+        key: r.id || r.key || String(Math.random()),
+        warehouse: r.warehouse_name || r.warehouse || "",
+        contact: r.Contact_person || r.contact || "",
+        phone: r.phone_number || r.phone || r.phone_work || "",
+        email: r.email || "",
+        totalProducts: r.totalProducts || 0,
+        stock: r.stock || 0,
+        qty: r.qty || 0,
+        created: r.createdAt
+          ? new Date(r.createdAt).toLocaleDateString()
+          : r.created || "",
+        status: r.status || "Active",
+        address: r.address || "",
+        city: r.city || "",
+        state: r.state || "",
+        country: r.country || "",
+        postalCode: r.postalCode || r.postal_code || "",
+        products: r.products || [],
+      }));
+
+      setWarehouses(mapped);
+    } catch (err) {
+      console.error("Failed to fetch warehouses from API:", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchWarehouses();
+  }, [currentPage, pageSize, searchText]);
+
   const handleSearch = (e) => setSearchText(e.target.value);
   const handleMenuClick = (e) => setStatusFilter(e.key);
   const toggleFilters = () => setFiltersCollapsed((prev) => !prev);
@@ -113,6 +158,8 @@ const Warehouses = () => {
       return matchesSearch && matchesStatus;
     });
   }, [searchText, statusFilter, warehouses]);
+
+
 
   // EXPORT TO CSV
   const handleExportCSV = () => {
@@ -215,9 +262,47 @@ const Warehouses = () => {
     setIsModalVisible(true);
   };
 
-  const showViewModal = (record) => {
-    setViewWarehouse(record);
-    setIsViewModalVisible(true);
+  const showViewModal = async (record) => {
+    try {
+      setIsViewModalVisible(true);
+      setViewWarehouse(null); // Show loading state
+
+      // Fetch warehouse by ID from API
+      const res = await warehouseService.getWarehouseById(record.key);
+      const data = res?.data?.data;
+
+      if (data) {
+        const warehouseDetails = {
+          key: data.id || record.key,
+          warehouse: data.warehouse_name || record.warehouse,
+          contact: data.Contact_person || record.contact,
+          phone: data.phone_number || record.phone,
+          email: data.email || record.email,
+          address: data.address || record.address,
+          city: data.city || record.city,
+          state: data.state || record.state,
+          country: data.country || record.country,
+          postalCode: data.postalCode || data.postal_code || record.postalCode,
+          status: data.status || record.status,
+          totalProducts: data.totalProducts || record.totalProducts,
+          stock: data.stock || record.stock,
+          qty: data.qty || record.qty,
+          created: data.createdAt
+            ? new Date(data.createdAt).toLocaleDateString()
+            : record.created,
+          products: data.products || record.products || [],
+        };
+        setViewWarehouse(warehouseDetails);
+      } else {
+        // Fallback to local data if API doesn't return data
+        setViewWarehouse(record);
+      }
+    } catch (err) {
+      console.error("Failed to fetch warehouse by ID:", err);
+      message.error("Failed to load warehouse details");
+      // Fallback to local data on error
+      setViewWarehouse(record);
+    }
   };
 
   const handleCloseViewModal = () => {
@@ -231,40 +316,89 @@ const Warehouses = () => {
     setIsEditMode(false);
   };
 
-  const handleSubmit = (values) => {
-    const newWarehouse = {
-      key: isEditMode && selectedWarehouse ? selectedWarehouse.key : Date.now().toString(),
-      warehouse: values.warehouse,
-      contact: values.contactPerson,
-      phone: values.phone,
-      email: values.email,
-      totalProducts: selectedWarehouse?.totalProducts || 0,
-      stock: selectedWarehouse?.stock || 0,
-      qty: selectedWarehouse?.qty || 0,
-      created: selectedWarehouse?.created || new Date().toLocaleDateString(),
-      status: values.status ? "Active" : "Inactive",
-      address: values.address,
-      city: values.city,
-      state: values.state,
-      country: values.country,
-      postalCode: values.postalCode,
-      products: selectedWarehouse?.products || [],
-    };
 
-    if (isEditMode && selectedWarehouse) {
-      setWarehouses((prev) =>
-        prev.map((w) => (w.key === selectedWarehouse.key ? newWarehouse : w))
-      );
-      message.success(`Warehouse "${newWarehouse.warehouse}" updated successfully!`);
+  const handleSubmit = async (values) => {
+  const payload = {
+    warehouse_name: values.warehouse,
+    Contact_person: values.contactPerson,
+    email: values.email,
+    phone_number: values.phone,
+    phone_work: values.phone, // since the form doesn't have separate work phone
+    address: values.address,
+    city: values.city,
+    state: values.state,
+    country: values.country,
+  };
+
+  try {
+    if (!isEditMode) {
+      // CREATE API CALL
+      const res = await warehouseService.createWarehouse(payload);
+
+      message.success("Warehouse created successfully!");
+
+      // Add new item to table without refreshing the page (optimistic)
+      const newItem = {
+        key: res.data?.data?.id ?? String(Math.random()),
+        warehouse: res.data?.data?.warehouse_name ?? payload.warehouse_name,
+        contact: res.data?.data?.Contact_person ?? payload.Contact_person,
+        phone: res.data?.data?.phone_number ?? payload.phone_number,
+        email: res.data?.data?.email ?? payload.email,
+        address: res.data?.data?.address ?? payload.address,
+        city: res.data?.data?.city ?? payload.city,
+        state: res.data?.data?.state ?? payload.state,
+        country: res.data?.data?.country ?? payload.country,
+        created: res.data?.data?.createdAt ? new Date(res.data.data.createdAt).toLocaleDateString() : new Date().toLocaleDateString(),
+        status: "Active",
+        products: [],
+      };
+
+      setWarehouses((prev) => [newItem, ...prev]);
+
+      // THEN fetch fresh data from backend to keep everything consistent
+      await fetchWarehouses();
     } else {
-      setWarehouses((prev) => [newWarehouse, ...prev]);
-      message.success(`Warehouse "${newWarehouse.warehouse}" added successfully!`);
-    }
+      // UPDATE API CALL
+      const res = await warehouseService.updateWarehouse(selectedWarehouse.key, payload);
 
+      message.success("Warehouse updated successfully!");
+
+      // Update the local state optimistically
+      const updatedWarehouse = {
+        key: selectedWarehouse.key,
+        warehouse: res.data?.data?.warehouse_name ?? payload.warehouse_name,
+        contact: res.data?.data?.Contact_person ?? payload.Contact_person,
+        phone: res.data?.data?.phone_number ?? payload.phone_number,
+        email: res.data?.data?.email ?? payload.email,
+        address: res.data?.data?.address ?? payload.address,
+        city: res.data?.data?.city ?? payload.city,
+        state: res.data?.data?.state ?? payload.state,
+        country: res.data?.data?.country ?? payload.country,
+        postalCode: selectedWarehouse?.postalCode,
+        totalProducts: selectedWarehouse?.totalProducts || 0,
+        stock: selectedWarehouse?.stock || 0,
+        qty: selectedWarehouse?.qty || 0,
+        created: selectedWarehouse?.created,
+        status: values.status ? "Active" : "Inactive",
+        products: selectedWarehouse?.products || [],
+      };
+
+      setWarehouses((prev) =>
+        prev.map((w) => (w.key === selectedWarehouse.key ? updatedWarehouse : w))
+      );
+
+      // THEN fetch fresh data from backend to keep everything consistent
+      await fetchWarehouses();
+    }
+  } catch (err) {
+    console.error("Create Warehouse Error:", err);
+    message.error("Failed to create warehouse");
+  } finally {
     form.resetFields();
     setIsModalVisible(false);
     setIsEditMode(false);
-  };
+  }
+};
 
   // 🆕 Delete Modal Logic
   const openDeleteModal = (record) => {
@@ -272,11 +406,25 @@ const Warehouses = () => {
     setIsDeleteModalVisible(true);
   };
 
-  const handleConfirmDelete = () => {
-    setWarehouses((prev) => prev.filter((w) => w.key !== deleteWarehouse.key));
-    message.success(`Warehouse "${deleteWarehouse?.warehouse}" deleted successfully!`);
-    setIsDeleteModalVisible(false);
-    setDeleteWarehouse(null);
+  const handleConfirmDelete = async () => {
+    try {
+      // DELETE API CALL
+      await warehouseService.deleteWarehouse(deleteWarehouse.key);
+
+      message.success(`Warehouse "${deleteWarehouse?.warehouse}" deleted successfully!`);
+
+      // Remove from local state
+      setWarehouses((prev) => prev.filter((w) => w.key !== deleteWarehouse.key));
+
+      // Fetch fresh data from backend to keep everything consistent
+      await fetchWarehouses();
+    } catch (err) {
+      console.error("Delete Warehouse Error:", err);
+      message.error("Failed to delete warehouse");
+    } finally {
+      setIsDeleteModalVisible(false);
+      setDeleteWarehouse(null);
+    }
   };
 
   const handleCancelDelete = () => {
@@ -525,8 +673,8 @@ const Warehouses = () => {
               className="flex-1"
             >
               <Select>
-                <Select.Option value="TN">Tamil Nadu</Select.Option>
-                <Select.Option value="MH">Maharashtra</Select.Option>
+                <Select.Option value="Tamil Nadu">Tamil Nadu</Select.Option>
+                <Select.Option value="Maharashtra">Maharashtra</Select.Option>
               </Select>
             </Form.Item>
           </div>
