@@ -598,7 +598,7 @@ import { FaFilePdf, FaFileExcel, FaAngleUp } from "react-icons/fa6";
 import { IoReloadOutline } from "react-icons/io5";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import variantAttributesService from "./variantattributesService.js";
+import variantAttributesService from "./varriantattributesService.js"
 
 const { Option } = Select;
 
