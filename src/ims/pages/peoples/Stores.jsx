@@ -1,5 +1,5 @@
 // src/pages/peoples/stores.jsx
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   Table,
   Input,
@@ -28,6 +28,7 @@ import { FaFilePdf, FaFileExcel, FaAngleUp } from "react-icons/fa6";
 import { IoReloadOutline } from "react-icons/io5";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import storesService from "../peoples/StoresService"; 
 
 const Stores = () => {
   const [searchText, setSearchText] = useState("");
@@ -98,6 +99,8 @@ const Stores = () => {
     setCurrentPage(1);
     setPageSize(10);
     message.success("Refreshed");
+    // After refresh, also re-fetch from backend to get latest data
+    fetchStores();
   };
 
   const filteredData = useMemo(() => {
@@ -166,6 +169,67 @@ const Stores = () => {
     message.success("PDF downloaded successfully");
   };
 
+  // --- NEW: fetchStores will call backend GET and update state ---
+  const fetchStores = async () => {
+    try {
+      const res = await storesService.getStores();
+
+      // Robust mapping depending on backend response shape:
+      // try common patterns:
+      const raw = res?.data ?? res; // res.data (axios) or direct array
+      // If raw has `data` or `stores` or `rows` or is an array, pick the correct one:
+      let list =
+        (raw && Array.isArray(raw)) // res.data is array
+          ? raw
+          : raw?.data && Array.isArray(raw.data)
+          ? raw.data
+          : raw?.stores && Array.isArray(raw.stores)
+          ? raw.stores
+          : raw?.rows && Array.isArray(raw.rows)
+          ? raw.rows
+          : [];
+
+      // If the API returns objects with backend field names, normalize to your frontend shape
+      const normalized = list.map((item) => {
+        return {
+          key: item.id ? String(item.id) : item.key || String(Date.now()) + Math.random(),
+          store:
+            item.store || item.store_name || item.name || item.storeName || "",
+          username: item.username || item.user_name || item.userName || "",
+          email: item.email || "",
+          phone: item.phone || item.contact || "",
+          password: item.password || item.pass || "",
+          status:
+            typeof item.is_active !== "undefined"
+              ? item.is_active
+                ? "Active"
+                : "Inactive"
+              : item.status // maybe already "Active"/"Inactive"
+              ? item.status
+              : "Inactive",
+          products: item.products || [],
+        };
+      });
+
+      // Only set if we got something; otherwise keep existing hardcoded data
+      if (normalized && normalized.length) {
+        setStores(normalized);
+      } else {
+        // If API returned empty array, set to [] to reflect backend
+        if (Array.isArray(list)) setStores([]);
+      }
+    } catch (err) {
+      console.error("Failed to fetch stores:", err);
+      // keep existing local data (hardcoded) if fetch fails
+    }
+  };
+
+  // Fetch on mount
+  useEffect(() => {
+    fetchStores();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // MODAL LOGIC
   const showAddModal = () => {
     setIsEditMode(false);
@@ -204,7 +268,8 @@ const Stores = () => {
     setIsEditMode(false);
   };
 
-  const handleSubmit = (values) => {
+  // MADE async to call POST API when adding new store
+  const handleSubmit = async (values) => {
     const newStore = {
       key: isEditMode && selectedStore ? selectedStore.key : Date.now().toString(),
       store: values.storeName,
@@ -217,13 +282,62 @@ const Stores = () => {
     };
 
     if (isEditMode && selectedStore) {
+      // Keep existing edit behavior (local update) as requested (no PUT implemented)
       setStores((prev) =>
         prev.map((s) => (s.key === selectedStore.key ? newStore : s))
       );
       message.success(`Store "${newStore.store}" updated successfully!`);
     } else {
-      setStores((prev) => [newStore, ...prev]);
-      message.success(`Store "${newStore.store}" added successfully!`);
+      // Create - call POST endpoint
+      try {
+        // Build payload for backend - adjust field names to match backend expectations if needed
+        const payload = {
+          store_name: values.storeName,
+          username: values.userName,
+          email: values.email,
+          phone: values.phone,
+          password: values.password,
+          is_active: values.status ? true : false,
+        };
+
+        const res = await storesService.createStore(payload);
+
+        // Try to use returned data from API, fallback to local object
+        const created =
+          res?.data?.data ||
+          res?.data ||
+          {
+            key: Date.now().toString(),
+            store: values.storeName,
+            username: values.userName,
+            email: values.email,
+            phone: values.phone,
+            password: values.password,
+            status: values.status ? "Active" : "Inactive",
+            products: [],
+          };
+
+        // If backend returns object with different shape, try to normalize:
+        const createdForState =
+          created.store || created.store_name
+            ? {
+                key: created.id ? String(created.id) : created.key || Date.now().toString(),
+                store: created.store || created.store_name || values.storeName,
+                username: created.username || values.userName,
+                email: created.email || values.email,
+                phone: created.phone || values.phone,
+                password: created.password || values.password,
+                status: created.is_active ? (created.is_active ? "Active" : "Inactive") : (values.status ? "Active" : "Inactive"),
+                products: created.products || [],
+              }
+            : created; // fallback
+
+        setStores((prev) => [createdForState, ...prev]);
+        message.success(`Store "${createdForState.store}" added successfully!`);
+      } catch (err) {
+        console.error("Create store failed:", err);
+        message.error("Failed to add store. Please try again.");
+      }
     }
 
     form.resetFields();
