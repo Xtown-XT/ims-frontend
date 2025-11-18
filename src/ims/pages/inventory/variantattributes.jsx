@@ -601,6 +601,9 @@ import jsPDF from "jspdf";
 
 import variantAttributesService from "./variantattributesService.js";
 
+import autoTable from "jspdf-autotable";
+
+
 const { Option } = Select;
 
 const VariantAttributes = () => {
