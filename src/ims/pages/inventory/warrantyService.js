@@ -1,7 +1,4 @@
-<<<<<<< HEAD
-=======
 
->>>>>>> madhan
 import api from "../../services/api.js"; 
 
 const warrantyService = {
@@ -11,8 +8,5 @@ const warrantyService = {
   deleteWarranty: (id) => api.delete(`/warranty/deleteWarranty/${id}`), 
 };
 
-<<<<<<< HEAD
 export default warrantyService;
-=======
-export default warrantyService;
->>>>>>> madhan
+
