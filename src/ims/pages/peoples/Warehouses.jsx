@@ -27,7 +27,7 @@ import { FaFilePdf, FaFileExcel, FaAngleUp } from "react-icons/fa6";
 import { IoReloadOutline } from "react-icons/io5";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import warehouseService from "../peoples/WarehouseService"; // ADDED: service import
+import warehouseService from "../peoples/WarehouseService.js"; 
 
 const Warehouses = () => {
   const [searchText, setSearchText] = useState("");
