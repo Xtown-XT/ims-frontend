@@ -1,5 +1,3 @@
-<<<<<<< HEAD
-=======
 // import React, { useState, useMemo } from "react";
 // import { Table, Input, Select, Button, Modal, Form, Switch, message } from "antd";
 // import {
@@ -675,7 +673,6 @@
 
 // export default Warranties;
 
->>>>>>> madhan
 import { useState, useMemo, useEffect } from "react";
 import { Table, Input, Select, Button, Modal, Form, Switch, message } from "antd";
 import {
