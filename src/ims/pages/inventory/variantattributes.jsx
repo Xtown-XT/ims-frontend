@@ -1,5 +1,4 @@
-<<<<<<< HEAD
-=======
+
 // import React, { useState, useMemo } from "react";
 // import { Table, Input, Select, Button, Modal, Form, Switch, message, Checkbox } from "antd";
 // import {
@@ -588,7 +587,6 @@
 
 // export default VariantAttributes;
 
->>>>>>> madhan
 import { useState, useMemo, useEffect } from "react";
 import { Table, Input, Select, Button, Modal, Form, Switch, message, Checkbox } from "antd";
 import {
@@ -601,11 +599,8 @@ import { FaFilePdf, FaFileExcel, FaAngleUp } from "react-icons/fa6";
 import { IoReloadOutline } from "react-icons/io5";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-<<<<<<< HEAD
-import variantAttributesService from "./variantattributesService.js";
-=======
+
 import variantAttributesService from "./variantattributesService.js"
->>>>>>> madhan
 
 const { Option } = Select;
 
