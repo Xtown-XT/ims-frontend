@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useRef } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { Table, Input, Select, Button, Modal, Form, Switch, message } from "antd";
 import {
   SearchOutlined,
@@ -10,11 +10,12 @@ import { FaFilePdf, FaFileExcel, FaAngleUp } from "react-icons/fa6";
 import { IoReloadOutline } from "react-icons/io5";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import unitService from "./unitService.js";
+import taxService from "./taxService.js";
 
 const { Option } = Select;
+const { TextArea } = Input;
 
-const Units = () => {
+const Tax = () => {
   const [form] = Form.useForm();
   const [showForm, setShowForm] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
@@ -27,46 +28,48 @@ const Units = () => {
   const [filtersCollapsed, setFiltersCollapsed] = useState(false);
 
   const [loading, setLoading] = useState(false);
-
   const [selectedRowKeys, setSelectedRowKeys] = useState([]);
-  const headerCheckboxRef = useRef(null);
 
-  const [units, setUnits] = useState([]);
+  const [taxes, setTaxes] = useState([]);
 
-  const [limit] = useState(5);
+  const [page, setPage] = useState(1)
+
+  const [search, setSearch] = useState('');
+
+  const [limit] = useState(10);
   const [total, setTotal] = useState(0);
 
-  // Fetch data from API
+  // Fetch taxes from API
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const res = await unitService.getUnits();
+        const res = await taxService.getTaxes(page, limit, search);
         console.log("API response:", res.data);
-        const fetchedUnits = res.data.data?.rows || res.data.data || [];
-        setUnits(fetchedUnits);
-        setTotal(fetchedUnits.length);
-      } catch (error) {
-        console.error("Failed to fetch Units:", error);
-        message.error(error.response?.data?.message || "Failed to fetch units");
+        const fetchedTaxes = res.data.rows || [];
+        setTaxes(fetchedTaxes);
+        setTotal(res.data.count || fetchedTaxes.length);
+      } catch (err) {
+        console.error("Failed to fetch taxes:", err);
+        message.error(err.response?.data?.message || "Failed to fetch taxes");
       } finally {
         setLoading(false);
       }
     };
     fetchData();
-  }, []);
+  }, [page, limit, search]);
 
   // Client-side filtering for search and status
   const filteredData = useMemo(() => {
-    let filtered = [...units];
+    let filtered = [...taxes];
     
     // Search filter
     if (searchText.trim()) {
       const lowerSearch = searchText.toLowerCase();
       filtered = filtered.filter(
         (item) =>
-          item.unit_name?.toLowerCase().includes(lowerSearch) ||
-          item.short_name?.toLowerCase().includes(lowerSearch)
+          item.tax_name?.toLowerCase().includes(lowerSearch) ||
+          item.tax_type?.toLowerCase().includes(lowerSearch)
       );
     }
     
@@ -77,20 +80,22 @@ const Units = () => {
     }
     
     return filtered;
-  }, [searchText, filterStatus, units]);
+  }, [searchText, filterStatus, taxes]);
 
-  // Handle checkbox header indeterminate state
-  useEffect(() => {
-    const total = filteredData.length;
-    const selectedCount = selectedRowKeys.filter((k) =>
-      filteredData.some((b) => b.id === k)
-    ).length;
-
-    if (headerCheckboxRef.current) {
-      headerCheckboxRef.current.indeterminate =
-        selectedCount > 0 && selectedCount < total;
+  // Refetch taxes
+  const refetchTaxes = async () => {
+    try {
+      setLoading(true);
+      const res = await taxService.getTaxes();
+      const fetchedTaxes = res.data.rows || [];
+      setTaxes(fetchedTaxes);
+      setTotal(res.data.count || fetchedTaxes.length);
+    } catch (err) {
+      console.error("Failed to refetch taxes:", err);
+    } finally {
+      setLoading(false);
     }
-  }, [filteredData, selectedRowKeys]);
+  };
 
   const onChange = (ch) => {
     setChecked(ch);
@@ -103,37 +108,33 @@ const Units = () => {
     setChecked(true);
     form.resetFields();
     form.setFieldsValue({
-      unit_name: "",
-      short_name: "",
+      tax_name: "",
+      tax_percentage: "",
+      tax_type: "exclusive",
+      description: "",
       is_active: true,
     });
     setShowForm(true);
   };
 
-  const handleAddUnit = async () => {
+  const handleAddTax = async () => {
     try {
       const values = await form.validateFields();
       const payload = {
-        unit_name: values.unit_name,
-        short_name: values.short_name,
-        is_active: Boolean(checked), // Ensure it's a boolean
+        tax_name: values.tax_name,
+        tax_percentage: parseFloat(values.tax_percentage),
+        tax_type: values.tax_type,
+        description: values.description || "",
+        is_active: checked,
       };
 
-      console.log("Sending payload:", payload);
-      const res = await unitService.createUnit(payload);
-      const newUnit = res.data.data || res.data;
-      setUnits((prev) => [newUnit, ...prev]);
-      setTotal((prev) => prev + 1);
-      console.log("Saved:", res.data);
-      message.success("Unit added successfully");
+      await taxService.createTax(payload);
+      message.success("Tax added successfully");
       handleCloseModal();
-      form.resetFields();
+      await refetchTaxes();
     } catch (err) {
-      console.error("Failed to add unit:", err);
-      console.error("Error response:", err.response?.data);
-      console.error("Error details:", err.response);
-      const errorMsg = err.response?.data?.message || err.response?.data?.error || "Failed to add unit";
-      message.error(errorMsg);
+      console.error("Failed to add tax:", err);
+      message.error(err.response?.data?.message || "Failed to add tax");
     }
   };
 
@@ -141,8 +142,10 @@ const Units = () => {
     setIsEditMode(true);
     setEditRecord(record);
     form.setFieldsValue({
-      unit_name: record.unit_name,
-      short_name: record.short_name,
+      tax_name: record.tax_name,
+      tax_percentage: record.tax_percentage,
+      tax_type: record.tax_type,
+      description: record.description,
       is_active: record.is_active,
     });
     setChecked(record.is_active);
@@ -158,26 +161,21 @@ const Units = () => {
         return;
       }
 
-      const updateUnit = {
-        unit_name: values.unit_name,
-        short_name: values.short_name,
+      const updateTax = {
+        tax_name: values.tax_name,
+        tax_percentage: parseFloat(values.tax_percentage),
+        tax_type: values.tax_type,
+        description: values.description || "",
         is_active: checked,
       };
 
-      const res = await unitService.updateUnit(editRecord.id, updateUnit);
-      console.log("Updated:", res.data);
-
-      setUnits((prev) =>
-        prev.map((item) =>
-          item.id === editRecord.id ? { ...item, ...updateUnit } : item
-        )
-      );
-      message.success("Unit updated successfully");
+      await taxService.updateTax(editRecord.id, updateTax);
+      message.success("Tax updated successfully");
       handleCloseModal();
-      form.resetFields();
+      await refetchTaxes();
     } catch (err) {
-      console.error("Failed to update unit:", err);
-      message.error(err.response?.data?.message || "Failed to update unit");
+      console.error("Failed to update tax:", err);
+      message.error(err.response?.data?.message || "Failed to update tax");
     }
   };
 
@@ -188,17 +186,17 @@ const Units = () => {
 
   const confirmDelete = async () => {
     try {
-      await unitService.deleteUnit(deleteRecord.id);
-      setUnits((prev) => prev.filter((item) => item.id !== deleteRecord.id));
-      setSelectedRowKeys((prev) => prev.filter((k) => k !== deleteRecord.id));
-      setTotal((prev) => prev - 1);
-      message.success("Unit deleted successfully");
+      await taxService.deleteTax(deleteRecord.id);
+      message.success("Tax deleted successfully");
       setShowDeleteModal(false);
       setDeleteRecord(null);
-      console.log("Unit deleted");
+      setSelectedRowKeys((prev) => prev.filter((k) => k !== deleteRecord.id));
+      await refetchTaxes();
     } catch (err) {
-      console.error("Failed to delete unit:", err);
-      message.error(err.response?.data?.message || "Failed to delete unit");
+      console.error("Failed to delete tax:", err);
+      message.error(err.response?.data?.message || "Failed to delete tax");
+      setShowDeleteModal(false);
+      setDeleteRecord(null);
     }
   };
 
@@ -226,13 +224,13 @@ const Units = () => {
   };
 
   const handleExportCSV = () => {
-    if (!formData || !formData.length) {
+    if (!taxes || !taxes.length) {
       message.info("No data to export");
       return;
     }
 
-    const dataToExport = filteredData.length ? filteredData : formData;
-    const headers = ["unit", "shortname", "noofproducts", "createddate", "status"];
+    const dataToExport = filteredData.length ? filteredData : taxes;
+    const headers = ["tax_name", "tax_percentage", "tax_type", "description", "is_active"];
     const csvRows = [];
     csvRows.push(headers.join(","));
     dataToExport.forEach((row) => {
@@ -246,7 +244,7 @@ const Units = () => {
     link.href = url;
     link.setAttribute(
       "download",
-      `units_export_${new Date().toISOString().slice(0, 10)}.csv`
+      `taxes_export_${new Date().toISOString().slice(0, 10)}.csv`
     );
     document.body.appendChild(link);
     link.click();
@@ -256,7 +254,7 @@ const Units = () => {
   };
 
   const handleExportPDF = () => {
-    const dataToExport = filteredData.length ? filteredData : formData;
+    const dataToExport = filteredData.length ? filteredData : taxes;
     if (!dataToExport || !dataToExport.length) {
       message.info("No data to export");
       return;
@@ -264,13 +262,13 @@ const Units = () => {
     const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "A4" });
     doc.setFontSize(16);
     doc.setTextColor("#6C5CE7");
-    doc.text("Units Report", 40, 40);
+    doc.text("Taxes Report", 40, 40);
 
     const columns = [
-      { header: "Unit", dataKey: "unit_name" },
-      { header: "Short Name", dataKey: "short_name" },
-      // { header: "No of Products", dataKey: "noofproducts" },
-      { header: "Created Date", dataKey: "createdAt" },
+      { header: "Tax Name", dataKey: "tax_name" },
+      { header: "Percentage", dataKey: "tax_percentage" },
+      { header: "Type", dataKey: "tax_type" },
+      { header: "Description", dataKey: "description" },
       { header: "Status", dataKey: "is_active" },
     ];
 
@@ -283,14 +281,14 @@ const Units = () => {
       alternateRowStyles: { fillColor: [245, 245, 245] },
     });
 
-    doc.save(`units_${new Date().toISOString().slice(0, 10)}.pdf`);
+    doc.save(`taxes_${new Date().toISOString().slice(0, 10)}.pdf`);
     message.success("PDF downloaded successfully");
   };
 
   // Checkbox handlers
   const handleSelectAll = (e) => {
     if (e.target.checked) {
-      setSelectedRowKeys(units.map((item) => item.id));
+      setSelectedRowKeys(taxes.map((item) => item.id));
     } else {
       setSelectedRowKeys([]);
     }
@@ -309,7 +307,7 @@ const Units = () => {
       title: (
         <input
           type="checkbox"
-          checked={selectedRowKeys.length === units.length && units.length > 0}
+          checked={selectedRowKeys.length === taxes.length && taxes.length > 0}
           onChange={handleSelectAll}
           style={{ accentColor: "#6C5CE7", cursor: "pointer" }}
         />
@@ -325,25 +323,22 @@ const Units = () => {
       ),
       width: 50,
     },
-    { title: "Unit", dataIndex: "unit_name", key: "unit_name" },
-    { title: "Short Name", dataIndex: "short_name", key: "short_name" },
+    { title: "Tax Name", dataIndex: "tax_name", key: "tax_name" },
     { 
-      title: "Created Date", 
-      dataIndex: "createdAt", 
-      key: "createdAt",
-      render: (date) => {
-        if (!date) return '';
-        // If date is already formatted as "DD MMM YYYY", return as is
-        if (typeof date === 'string' && date.includes(' ')) return date;
-        // Otherwise format the date
-        const dateObj = new Date(date);
-        return dateObj.toLocaleDateString('en-GB', { 
-          day: '2-digit', 
-          month: 'short', 
-          year: 'numeric' 
-        });
-      }
+      title: "Percentage", 
+      dataIndex: "tax_percentage", 
+      key: "tax_percentage",
+      render: (value) => `${value}%`
     },
+    { 
+      title: "Type", 
+      dataIndex: "tax_type", 
+      key: "tax_type",
+      render: (value) => (
+        <span style={{ textTransform: 'capitalize' }}>{value}</span>
+      )
+    },
+    { title: "Description", dataIndex: "description", key: "description" },
     {
       title: "Status",
       dataIndex: "is_active",
@@ -351,8 +346,7 @@ const Units = () => {
       render: (is_active) => (
         <button
           style={{
-            backgroundColor:
-              is_active ? "#3EB780" : "#d63031",
+            backgroundColor: is_active ? "#3EB780" : "#d63031",
             color: "#fff",
             border: "none",
             borderRadius: "4px",
@@ -384,8 +378,8 @@ const Units = () => {
       {/* Header */}
       <div className="flex justify-between items-center mb-6 flex-wrap gap-3">
         <div>
-          <h2 className="text-xl font-semibold text-gray-800">Units</h2>
-          <p className="text-sm text-gray-500">Manage your units</p>
+          <h2 className="text-xl font-semibold text-gray-800">Taxes</h2>
+          <p className="text-sm text-gray-500">Manage your taxes</p>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <Button
@@ -424,7 +418,7 @@ const Units = () => {
             }}
           >
             <PlusOutlined />
-            <span>Add Unit</span>
+            <span>Add Tax</span>
           </Button>
         </div>
       </div>
@@ -434,7 +428,7 @@ const Units = () => {
         <div>
           <Form className="flex flex-wrap gap-3 mb-4 justify-between items-center">
             <Input
-              placeholder="Search by unit or short name"
+              placeholder="Search by tax name or type"
               prefix={<SearchOutlined />}
               style={{ width: 250 }}
               value={searchText}
@@ -459,7 +453,7 @@ const Units = () => {
         </div>
       )}
 
-      {/* ✅ Table */}
+      {/* Table */}
       <div
         style={{
           border: "1px solid #e5e7eb",
@@ -493,7 +487,7 @@ const Units = () => {
       <Modal
         title={
           <span className="font-semibold">
-            {isEditMode ? "Edit Unit" : "Add Unit"}
+            {isEditMode ? "Edit Tax" : "Add Tax"}
           </span>
         }
         open={showForm}
@@ -505,27 +499,70 @@ const Units = () => {
           <Form.Item
             label={
               <span className="text-sm font-medium text-gray-700">
-                Unit Name
+                Tax Name
               </span>
             }
-            name="unit_name"
-            rules={[{ required: true, message: "Please enter unit name" }]}
+            name="tax_name"
+            rules={[{ required: true, message: "Please enter tax name" }]}
             className="mb-3"
           >
-            <Input placeholder="Enter unit name" />
+            <Input placeholder="Enter tax name (e.g., GST, VAT)" />
           </Form.Item>
 
           <Form.Item
             label={
               <span className="text-sm font-medium text-gray-700">
-                Short Name
+                Tax Percentage
               </span>
             }
-            name="short_name"
-            rules={[{ required: true, message: "Please enter short name" }]}
+            name="tax_percentage"
+            rules={[
+              { required: true, message: "Please enter tax percentage" },
+              { 
+                pattern: /^\d+(\.\d{1,2})?$/, 
+                message: "Please enter a valid percentage (e.g., 12.00)" 
+              }
+            ]}
             className="mb-3"
           >
-            <Input placeholder="Enter short name" />
+            <Input 
+              placeholder="Enter percentage (e.g., 12.00)" 
+              type="number"
+              step="0.01"
+              min="0"
+              max="100"
+            />
+          </Form.Item>
+
+          <Form.Item
+            label={
+              <span className="text-sm font-medium text-gray-700">
+                Tax Type
+              </span>
+            }
+            name="tax_type"
+            rules={[{ required: true, message: "Please select tax type" }]}
+            className="mb-3"
+          >
+            <Select placeholder="Select tax type">
+              <Option value="exclusive">Exclusive</Option>
+              <Option value="inclusive">Inclusive</Option>
+            </Select>
+          </Form.Item>
+
+          <Form.Item
+            label={
+              <span className="text-sm font-medium text-gray-700">
+                Description
+              </span>
+            }
+            name="description"
+            className="mb-3"
+          >
+            <TextArea 
+              placeholder="Enter description (optional)" 
+              rows={3}
+            />
           </Form.Item>
 
           <div className="flex items-center justify-between mt-2">
@@ -565,9 +602,9 @@ const Units = () => {
                 borderColor: "#6C5CE7",
                 color: "#fff",
               }}
-              onClick={isEditMode ? handleSaveChanges : handleAddUnit}
+              onClick={isEditMode ? handleSaveChanges : handleAddTax}
             >
-              {isEditMode ? "Save Changes" : "Add Unit"}
+              {isEditMode ? "Save Changes" : "Add Tax"}
             </Button>
           </div>
         </Form>
@@ -590,13 +627,27 @@ const Units = () => {
           >
             <DeleteOutlined style={{ fontSize: 30, color: "#EF4444" }} />
           </div>
-          <h2 style={{ fontSize: 18, fontWeight: 600, color: "#1F2937", marginBottom: 10 }}>
-            Delete Unit
+          <h2
+            style={{
+              fontSize: 18,
+              fontWeight: 600,
+              color: "#1F2937",
+              marginBottom: 10,
+            }}
+          >
+            Delete Tax
           </h2>
           <p style={{ color: "#6B7280", marginBottom: 25 }}>
-            Are you sure you want to delete this unit?
+            Are you sure you want to delete this tax?
           </p>
-          <div style={{ display: "flex", justifyContent: "center", gap: 10, marginTop: 10 }}>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "center",
+              gap: 10,
+              marginTop: 10,
+            }}
+          >
             <Button
               onClick={cancelDelete}
               style={{
@@ -629,4 +680,4 @@ const Units = () => {
   );
 };
 
-export default Units;
+export default Tax;
