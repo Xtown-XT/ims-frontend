@@ -108,20 +108,40 @@ const VariantAttributes = () => {
   };
 
   // ✅ Add Variant
-  const handleAddVariant = () => {
+  const handleAddVariant = async () => {
     if (!addVariantData.variant?.trim() || !addVariantData.values?.trim()) {
       message.warning("Please enter both Variant name and Values.");
       return;
     }
-    const newRow = {
-      key: formData.length + 1,
-      variant: addVariantData.variant.trim(),
-      values: addVariantData.values.trim(),
-      createddate: new Date().toLocaleDateString(),
-      status: addVariantData.status ? "Active" : "Inactive",
-    };
-    setFormData([...formData, newRow]);
-    handleCloseModal();
+
+    try {
+      const payload = {
+        variant_name: addVariantData.variant.trim(),
+        values: addVariantData.values.split(',').map(v => v.trim()),
+        status: addVariantData.status,
+      };
+
+      await variantAttributesService.createVariantAttribute(payload);
+      message.success("Variant attribute added successfully");
+      handleCloseModal();
+      
+      // Refetch data
+      const res = await variantAttributesService.getVariantAttributes(page, limit, search);
+      const attributes = res.data?.data?.rows || res.data?.rows || [];
+      const transformedData = attributes.map((item) => ({
+        key: item.id,
+        id: item.id,
+        variant: item.variant_name,
+        values: Array.isArray(item.values) ? item.values.join(", ") : item.values,
+        createddate: new Date(item.createdAt).toLocaleDateString(),
+        status: item.status ? "Active" : "Inactive",
+      }));
+      setFormData(transformedData);
+      setTotal(res.data?.data?.count || res.data?.count || attributes.length);
+    } catch (err) {
+      console.error("Failed to add variant attribute:", err);
+      message.error(err.response?.data?.message || "Failed to add variant attribute");
+    }
   };
 
   // ✅ Edit Variant
@@ -137,19 +157,45 @@ const VariantAttributes = () => {
   };
 
   // ✅ Save Changes
-  const handleSaveChanges = () => {
-    const updatedData = formData.map((item) =>
-      item.key === editRecord.key
-        ? {
-            ...item,
-            variant: addVariantData.variant,
-            values: addVariantData.values,
-            status: addVariantData.status ? "Active" : "Inactive",
-          }
-        : item
-    );
-    setFormData(updatedData);
-    handleCloseModal();
+  const handleSaveChanges = async () => {
+    if (!addVariantData.variant?.trim() || !addVariantData.values?.trim()) {
+      message.warning("Please enter both Variant name and Values.");
+      return;
+    }
+
+    if (!editRecord) {
+      message.error("No record selected for editing");
+      return;
+    }
+
+    try {
+      const payload = {
+        variant_name: addVariantData.variant.trim(),
+        values: addVariantData.values.split(',').map(v => v.trim()),
+        status: addVariantData.status,
+      };
+
+      await variantAttributesService.updateVariantAttribute(editRecord.id, payload);
+      message.success("Variant attribute updated successfully");
+      handleCloseModal();
+      
+      // Refetch data
+      const res = await variantAttributesService.getVariantAttributes(page, limit, search);
+      const attributes = res.data?.data?.rows || res.data?.rows || [];
+      const transformedData = attributes.map((item) => ({
+        key: item.id,
+        id: item.id,
+        variant: item.variant_name,
+        values: Array.isArray(item.values) ? item.values.join(", ") : item.values,
+        createddate: new Date(item.createdAt).toLocaleDateString(),
+        status: item.status ? "Active" : "Inactive",
+      }));
+      setFormData(transformedData);
+      setTotal(res.data?.data?.count || res.data?.count || attributes.length);
+    } catch (err) {
+      console.error("Failed to update variant attribute:", err);
+      message.error(err.response?.data?.message || "Failed to update variant attribute");
+    }
   };
 
   // ✅ Delete Variant
@@ -158,10 +204,33 @@ const VariantAttributes = () => {
     setShowDeleteModal(true);
   };
 
-  const confirmDelete = () => {
-    setFormData((prev) => prev.filter((item) => item.key !== deleteRecord.key));
-    setShowDeleteModal(false);
-    setDeleteRecord(null);
+  const confirmDelete = async () => {
+    try {
+      await variantAttributesService.deleteVariantAttribute(deleteRecord.id);
+      message.success("Variant attribute deleted successfully");
+      setShowDeleteModal(false);
+      setDeleteRecord(null);
+      setSelectedRowKeys((prev) => prev.filter((k) => k !== deleteRecord.key));
+      
+      // Refetch data
+      const res = await variantAttributesService.getVariantAttributes(page, limit, search);
+      const attributes = res.data?.data?.rows || res.data?.rows || [];
+      const transformedData = attributes.map((item) => ({
+        key: item.id,
+        id: item.id,
+        variant: item.variant_name,
+        values: Array.isArray(item.values) ? item.values.join(", ") : item.values,
+        createddate: new Date(item.createdAt).toLocaleDateString(),
+        status: item.status ? "Active" : "Inactive",
+      }));
+      setFormData(transformedData);
+      setTotal(res.data?.data?.count || res.data?.count || attributes.length);
+    } catch (err) {
+      console.error("Failed to delete variant attribute:", err);
+      message.error(err.response?.data?.message || "Failed to delete variant attribute");
+      setShowDeleteModal(false);
+      setDeleteRecord(null);
+    }
   };
 
   const cancelDelete = () => {
