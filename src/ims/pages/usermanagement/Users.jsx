@@ -29,7 +29,6 @@ const { Option } = Select;
 
 const Users = () => {
   const [messageApi, contextHolder] = message.useMessage();
-
   const [pageSize] = useState(10);
   const [current, setCurrent] = useState(1);
   const [isModalVisible, setIsModalVisible] = useState(false);
@@ -43,22 +42,21 @@ const Users = () => {
 
   const [allUsers, setAllUsers] = useState([]);
   const [filteredData, setFilteredData] = useState([]);
-
   const [roles, setRoles] = useState([]);
 
   const [isEditMode, setIsEditMode] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
 
-  // ✅ FIXED ROLE FETCHING WITH ERROR HANDLING
+  // =============== FETCH ROLES ===============
   const fetchRoles = async () => {
     try {
       const res = await RoleService.getAllRoles();
-      console.log("Roles Response:", res.data);
-
-      let rolesArray = [];
-      if (Array.isArray(res.data)) rolesArray = res.data;
-      else if (Array.isArray(res.data.data)) rolesArray = res.data.data;
-      else if (Array.isArray(res.data.rows)) rolesArray = res.data.rows;
+      const rolesArray =
+        Array.isArray(res.data)
+          ? res.data
+          : Array.isArray(res?.data?.data)
+          ? res.data.data
+          : [];
 
       setRoles(rolesArray);
     } catch (err) {
@@ -67,11 +65,10 @@ const Users = () => {
     }
   };
 
+  // =============== FETCH USERS ===============
   const fetchUsers = async () => {
     try {
       const res = await userService.getAllUsers();
-      console.log("Users API Response:", res);
-      console.log("Users Data:", res.data);
       setAllUsers(res.data || []);
       setFilteredData(res.data || []);
     } catch (err) {
@@ -85,19 +82,16 @@ const Users = () => {
     fetchUsers();
   }, []);
 
-  const applyFilters = () => {
+  // =============== FILTER USERS ===============
+  useEffect(() => {
     let filtered = [...allUsers];
 
     if (searchText) {
       filtered = filtered.filter(
         (user) =>
-          (user.username || "")
-            .toLowerCase()
-            .includes(searchText.toLowerCase()) ||
-          (user.email || "")
-            .toLowerCase()
-            .includes(searchText.toLowerCase()) ||
-          (user.phone || "").includes(searchText)
+          user.username?.toLowerCase().includes(searchText.toLowerCase()) ||
+          user.email?.toLowerCase().includes(searchText.toLowerCase()) ||
+          user.phone?.includes(searchText)
       );
     }
 
@@ -111,17 +105,13 @@ const Users = () => {
 
     setFilteredData(filtered);
     setCurrent(1);
-  };
-
-  useEffect(() => {
-    applyFilters();
   }, [searchText, statusFilter, allUsers]);
 
-  // ✅ Updated getRoleName to use nested role from API if roles array empty
+  // =============== ROLE NAME ===============
   const getRoleName = (record) => {
-    if (record.role && record.role.role_name) return record.role.role_name;
-    const role = roles.find((r) => r.id === record.role_id || r._id === record.role_id);
-    return role ? role.role_name || role.roleName : "—";
+    if (record.role?.role_name) return record.role.role_name;
+    const role = roles.find((r) => r.id === record.role_id);
+    return role?.role_name || "—";
   };
 
   const columns = [
@@ -145,42 +135,36 @@ const Users = () => {
         </div>
       ),
     },
-    {
-      title: "Phone",
-      dataIndex: "phone",
-    },
-    {
-      title: "Email",
-      dataIndex: "email",
-    },
+    { title: "Phone", dataIndex: "phone" },
+    { title: "Email", dataIndex: "email" },
+
     {
       title: "Role",
       render: (_, record) => (
         <span className="text-gray-700">{getRoleName(record)}</span>
       ),
     },
+
     {
       title: "Status",
-      render: (_, record) => {
-        const status = record.is_active ? "Active" : "Inactive";
-        return (
-          <span
-            style={{
-              backgroundColor: record.is_active ? "#3EB780" : "#d63031",
-              color: "#fff",
-              padding: "4px 6px",
-              borderRadius: "4px",
-              fontSize: "12px",
-              width: "60px",
-              display: "inline-block",
-              textAlign: "center",
-            }}
-          >
-            {status}
-          </span>
-        );
-      },
+      render: (_, record) => (
+        <span
+          style={{
+            backgroundColor: record.is_active ? "#3EB780" : "#d63031",
+            color: "#fff",
+            padding: "4px 6px",
+            borderRadius: "4px",
+            fontSize: "12px",
+            width: "60px",
+            display: "inline-block",
+            textAlign: "center",
+          }}
+        >
+          {record.is_active ? "Active" : "Inactive"}
+        </span>
+      ),
     },
+
     {
       title: "",
       render: (_, record) => (
@@ -201,6 +185,7 @@ const Users = () => {
     },
   ];
 
+  // =============== DELETE USER ===============
   const handleDelete = (id) => {
     Modal.confirm({
       title: "Delete User?",
@@ -217,15 +202,17 @@ const Users = () => {
     });
   };
 
+  // =============== ADD USER ===============
   const showModal = () => {
     setIsEditMode(false);
     setEditingUser(null);
-    form.resetFields();
     setImagePreview(null);
     setModalImageFile(null);
+    form.resetFields();
     setIsModalVisible(true);
   };
 
+  // =============== EDIT USER ===============
   const handleEdit = (user) => {
     setIsEditMode(true);
     setEditingUser(user);
@@ -239,49 +226,53 @@ const Users = () => {
     });
 
     if (user.profile_picture) {
-      const preview = user.profile_picture.startsWith("http")
-        ? user.profile_picture
-        : `${import.meta.env.VITE_API_URL}/${user.profile_picture}`;
-      setImagePreview(preview);
-    } else {
-      setImagePreview(null);
+      setImagePreview(user.profile_picture);
     }
 
+    setModalImageFile(null);
     setIsModalVisible(true);
   };
 
+  // =============== IMAGE UPLOAD FIXED ===============
   const handleImageUpload = (info) => {
-    const possibleFile = info?.file?.originFileObj ?? info?.file;
+    const file = info.file.originFileObj; // <-- FIX HERE
 
-    if (!possibleFile) return;
+    if (!file) return;
 
-    if (possibleFile instanceof Blob) {
-      setModalImageFile(possibleFile);
-      const reader = new FileReader();
-      reader.onload = () => setImagePreview(reader.result);
-      reader.readAsDataURL(possibleFile);
-    } else if (typeof possibleFile === "string") {
-      const preview = possibleFile.startsWith("http")
-        ? possibleFile
-        : `${import.meta.env.VITE_API_URL}/${possibleFile}`;
-      setImagePreview(preview);
-      setModalImageFile(null);
-    }
+    setModalImageFile(file);
+
+    const reader = new FileReader();
+    reader.onload = (e) => setImagePreview(e.target.result);
+    reader.readAsDataURL(file);
   };
 
+  const removeImageField = () => {
+    setImagePreview(null);
+    setModalImageFile(null);
+  };
+
+  // =============== SUBMIT FORM ===============
   const handleSubmit = async () => {
     try {
       const values = await form.validateFields();
-      const formData = new FormData();
 
+      const formData = new FormData();
       formData.append("username", values.username);
       formData.append("email", values.email);
       formData.append("phone", values.phone);
       formData.append("role_id", values.role_id);
-      formData.append("is_active", values.is_active);
+      formData.append("is_active", values.is_active ? true : false);
+      formData.append("created_by", "92d252aa-4911-4961-a771-0706112c4d8a");
 
-      if (!isEditMode) formData.append("password", values.password);
-      if (modalImageFile) formData.append("profile_picture", modalImageFile);
+      // Add password only on create
+      if (!isEditMode && values.password) {
+        formData.append("password", values.password);
+      }
+
+      // Add image only if selected
+      if (modalImageFile) {
+        formData.append("profile_picture", modalImageFile);
+      }
 
       if (isEditMode) {
         await userService.updateUser(editingUser.id, formData);
@@ -293,17 +284,17 @@ const Users = () => {
 
       setIsModalVisible(false);
       fetchUsers();
-    } catch {
+    } catch (err) {
       messageApi.error("Check required fields");
+      console.error(err);
     }
   };
-
-  const onPageChange = (page) => setCurrent(page);
 
   return (
     <div className="bg-white rounded-xl shadow-sm p-6">
       {contextHolder}
 
+      {/* HEADER */}
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-semibold text-gray-900">Users</h1>
         <div className="flex gap-2">
@@ -319,6 +310,7 @@ const Users = () => {
         </div>
       </div>
 
+      {/* SEARCH + FILTER */}
       <div className="flex gap-3 mb-6">
         <Input
           placeholder="Search"
@@ -340,6 +332,7 @@ const Users = () => {
         </Select>
       </div>
 
+      {/* TABLE */}
       <Table
         dataSource={filteredData}
         columns={columns}
@@ -347,14 +340,16 @@ const Users = () => {
         rowKey="id"
       />
 
+      {/* PAGINATION */}
       <Pagination
         current={current}
         pageSize={pageSize}
         total={filteredData.length}
         className="mt-6"
-        onChange={onPageChange}
+        onChange={(page) => setCurrent(page)}
       />
 
+      {/* ADD/EDIT MODAL */}
       <Modal
         title={isEditMode ? "Edit User" : "Add User"}
         open={isModalVisible}
@@ -363,6 +358,7 @@ const Users = () => {
         width={600}
       >
         <Form form={form} layout="vertical" onFinish={handleSubmit}>
+          {/* IMAGE UPLOAD */}
           <div className="flex items-center gap-4 mb-4">
             <div className="w-28 h-28 border rounded-lg overflow-hidden">
               {imagePreview ? (
@@ -378,11 +374,19 @@ const Users = () => {
               showUploadList={false}
               beforeUpload={() => false}
               onChange={handleImageUpload}
+              accept="image/*"
             >
               <Button icon={<UploadOutlined />}>Upload</Button>
             </Upload>
+
+            {imagePreview && (
+              <Button danger onClick={removeImageField}>
+                Remove
+              </Button>
+            )}
           </div>
 
+          {/* FORM FIELDS */}
           <Form.Item name="username" label="User Name" rules={[{ required: true }]}>
             <Input placeholder="Enter user name" />
           </Form.Item>
@@ -390,8 +394,8 @@ const Users = () => {
           <Form.Item name="role_id" label="Role" rules={[{ required: true }]}>
             <Select placeholder="Select Role">
               {roles.map((role) => (
-                <Option key={role.id || role._id} value={role.id || role._id}>
-                  {role.role_name || role.roleName || "—"}
+                <Option key={role.id} value={role.id}>
+                  {role.role_name}
                 </Option>
               ))}
             </Select>
@@ -422,7 +426,8 @@ const Users = () => {
                   { required: true },
                   ({ getFieldValue }) => ({
                     validator(_, value) {
-                      if (!value || value === getFieldValue("password")) return Promise.resolve();
+                      if (!value || value === getFieldValue("password"))
+                        return Promise.resolve();
                       return Promise.reject("Passwords do not match!");
                     },
                   }),
@@ -436,10 +441,16 @@ const Users = () => {
             </>
           )}
 
-          <Form.Item name="is_active" label="Status" valuePropName="checked">
-            <Switch defaultChecked />
+          <Form.Item
+            name="is_active"
+            label="Status"
+            valuePropName="checked"
+            initialValue={true}
+          >
+            <Switch />
           </Form.Item>
 
+          {/* FOOTER */}
           <div className="flex justify-end gap-3">
             <Button onClick={() => setIsModalVisible(false)}>Cancel</Button>
             <Button type="primary" htmlType="submit" className="bg-purple-500 text-white">
