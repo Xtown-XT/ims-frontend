@@ -118,7 +118,7 @@ import PurchaseOrder from "./pages/purchases/PurchaseOrder";
 import PurchaseReturn from "./pages/purchases/PurchaseReturn";
 
 // Stock Pages
-import ManageStock from "./pages/stock/ManageStock";
+import ManageStock from "./pages/Stock/manageStock";
 import StockAdjustment from "./pages/stock/StockAdjustment";
 import StockTransfer from "./pages/stock/StockTransfer";
 

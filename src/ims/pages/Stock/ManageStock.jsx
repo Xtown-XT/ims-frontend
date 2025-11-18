@@ -28,6 +28,7 @@ import "jspdf-autotable";
 import * as XLSX from "xlsx";
 import { Plus } from "lucide-react";
 import manageStockService from "./manageStockService.js";
+import warehouseService from "../peoples/WarehouseService";
 
 const ManageStock = () => {
   const [searchText, setSearchText] = useState("");
@@ -41,14 +42,7 @@ const ManageStock = () => {
   const [dataSource, setDataSource] = useState([]);
   const [loading, setLoading] = useState(false);
   const [total, setTotal] = useState(0);
-
-  const warehouses = [
-    "Lavish Warehouse",
-    "Quaint Warehouse",
-    "Traditional Warehouse",
-    "Cool Warehouse",
-    "Retail Supply Hub",
-  ];
+  const [warehouses, setWarehouses] = useState([]);
 
   const stores = [
     "Electro Mart",
@@ -68,10 +62,23 @@ const ManageStock = () => {
 
   const persons = ["James Kirwin", "Francis Chang", "Steven", "Gravely", "Kevin"];
 
-  // Fetch stocks from API
+  // Fetch stocks and warehouses from API
   useEffect(() => {
     fetchStocks();
+    fetchWarehouses();
   }, []);
+
+  const fetchWarehouses = async () => {
+    try {
+      const res = await warehouseService.getWarehouses(1, 100, "");
+      const rows = res?.data?.data?.rows ?? [];
+      const warehouseNames = rows.map(w => w.warehouse_name || w.warehouse);
+      setWarehouses(warehouseNames);
+    } catch (err) {
+      console.error("Failed to fetch warehouses:", err);
+      message.error("Failed to load warehouses");
+    }
+  };
 
   const fetchStocks = async () => {
     try {
