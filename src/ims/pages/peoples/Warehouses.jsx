@@ -37,6 +37,7 @@ const Warehouses = () => {
   const [pageSize, setPageSize] = useState(10);
   const [form] = Form.useForm();
 
+  // phone local state not required; using form.setFieldsValue to sanitize
   const [warehouses, setWarehouses] = useState([
     {
       key: "1",
@@ -159,7 +160,13 @@ const Warehouses = () => {
     });
   }, [searchText, statusFilter, warehouses]);
 
-
+  // Phone input sanitizer — allows only digits and max length 10
+  const handlePhoneChange = (e) => {
+    const raw = e.target.value || "";
+    const digitsOnly = raw.replace(/\D/g, "").slice(0, 10);
+    // update form field value (keeps form controlled value clean)
+    form.setFieldsValue({ phone: digitsOnly });
+  };
 
   // EXPORT TO CSV
   const handleExportCSV = () => {
@@ -318,87 +325,87 @@ const Warehouses = () => {
 
 
   const handleSubmit = async (values) => {
-  const payload = {
-    warehouse_name: values.warehouse,
-    Contact_person: values.contactPerson,
-    email: values.email,
-    phone_number: values.phone,
-    phone_work: values.phone, // since the form doesn't have separate work phone
-    address: values.address,
-    city: values.city,
-    state: values.state,
-    country: values.country,
-  };
+    const payload = {
+      warehouse_name: values.warehouse,
+      Contact_person: values.contactPerson,
+      email: values.email,
+      phone_number: values.phone,
+      phone_work: values.phone, // since the form doesn't have separate work phone
+      address: values.address,
+      city: values.city,
+      state: values.state,
+      country: values.country,
+    };
 
-  try {
-    if (!isEditMode) {
-      // CREATE API CALL
-      const res = await warehouseService.createWarehouse(payload);
+    try {
+      if (!isEditMode) {
+        // CREATE API CALL
+        const res = await warehouseService.createWarehouse(payload);
 
-      message.success("Warehouse created successfully!");
+        message.success("Warehouse created successfully!");
 
-      // Add new item to table without refreshing the page (optimistic)
-      const newItem = {
-        key: res.data?.data?.id ?? String(Math.random()),
-        warehouse: res.data?.data?.warehouse_name ?? payload.warehouse_name,
-        contact: res.data?.data?.Contact_person ?? payload.Contact_person,
-        phone: res.data?.data?.phone_number ?? payload.phone_number,
-        email: res.data?.data?.email ?? payload.email,
-        address: res.data?.data?.address ?? payload.address,
-        city: res.data?.data?.city ?? payload.city,
-        state: res.data?.data?.state ?? payload.state,
-        country: res.data?.data?.country ?? payload.country,
-        created: res.data?.data?.createdAt ? new Date(res.data.data.createdAt).toLocaleDateString() : new Date().toLocaleDateString(),
-        status: "Active",
-        products: [],
-      };
+        // Add new item to table without refreshing the page (optimistic)
+        const newItem = {
+          key: res.data?.data?.id ?? String(Math.random()),
+          warehouse: res.data?.data?.warehouse_name ?? payload.warehouse_name,
+          contact: res.data?.data?.Contact_person ?? payload.Contact_person,
+          phone: res.data?.data?.phone_number ?? payload.phone_number,
+          email: res.data?.data?.email ?? payload.email,
+          address: res.data?.data?.address ?? payload.address,
+          city: res.data?.data?.city ?? payload.city,
+          state: res.data?.data?.state ?? payload.state,
+          country: res.data?.data?.country ?? payload.country,
+          created: res.data?.data?.createdAt ? new Date(res.data.data.createdAt).toLocaleDateString() : new Date().toLocaleDateString(),
+          status: "Active",
+          products: [],
+        };
 
-      setWarehouses((prev) => [newItem, ...prev]);
+        setWarehouses((prev) => [newItem, ...prev]);
 
-      // THEN fetch fresh data from backend to keep everything consistent
-      await fetchWarehouses();
-    } else {
-      // UPDATE API CALL
-      const res = await warehouseService.updateWarehouse(selectedWarehouse.key, payload);
+        // THEN fetch fresh data from backend to keep everything consistent
+        await fetchWarehouses();
+      } else {
+        // UPDATE API CALL
+        const res = await warehouseService.updateWarehouse(selectedWarehouse.key, payload);
 
-      message.success("Warehouse updated successfully!");
+        message.success("Warehouse updated successfully!");
 
-      // Update the local state optimistically
-      const updatedWarehouse = {
-        key: selectedWarehouse.key,
-        warehouse: res.data?.data?.warehouse_name ?? payload.warehouse_name,
-        contact: res.data?.data?.Contact_person ?? payload.Contact_person,
-        phone: res.data?.data?.phone_number ?? payload.phone_number,
-        email: res.data?.data?.email ?? payload.email,
-        address: res.data?.data?.address ?? payload.address,
-        city: res.data?.data?.city ?? payload.city,
-        state: res.data?.data?.state ?? payload.state,
-        country: res.data?.data?.country ?? payload.country,
-        postalCode: selectedWarehouse?.postalCode,
-        totalProducts: selectedWarehouse?.totalProducts || 0,
-        stock: selectedWarehouse?.stock || 0,
-        qty: selectedWarehouse?.qty || 0,
-        created: selectedWarehouse?.created,
-        status: values.status ? "Active" : "Inactive",
-        products: selectedWarehouse?.products || [],
-      };
+        // Update the local state optimistically
+        const updatedWarehouse = {
+          key: selectedWarehouse.key,
+          warehouse: res.data?.data?.warehouse_name ?? payload.warehouse_name,
+          contact: res.data?.data?.Contact_person ?? payload.Contact_person,
+          phone: res.data?.data?.phone_number ?? payload.phone_number,
+          email: res.data?.data?.email ?? payload.email,
+          address: res.data?.data?.address ?? payload.address,
+          city: res.data?.data?.city ?? payload.city,
+          state: res.data?.data?.state ?? payload.state,
+          country: res.data?.data?.country ?? payload.country,
+          postalCode: selectedWarehouse?.postalCode,
+          totalProducts: selectedWarehouse?.totalProducts || 0,
+          stock: selectedWarehouse?.stock || 0,
+          qty: selectedWarehouse?.qty || 0,
+          created: selectedWarehouse?.created,
+          status: values.status ? "Active" : "Inactive",
+          products: selectedWarehouse?.products || [],
+        };
 
-      setWarehouses((prev) =>
-        prev.map((w) => (w.key === selectedWarehouse.key ? updatedWarehouse : w))
-      );
+        setWarehouses((prev) =>
+          prev.map((w) => (w.key === selectedWarehouse.key ? updatedWarehouse : w))
+        );
 
-      // THEN fetch fresh data from backend to keep everything consistent
-      await fetchWarehouses();
+        // THEN fetch fresh data from backend to keep everything consistent
+        await fetchWarehouses();
+      }
+    } catch (err) {
+      console.error("Create Warehouse Error:", err);
+      message.error("Failed to create warehouse");
+    } finally {
+      form.resetFields();
+      setIsModalVisible(false);
+      setIsEditMode(false);
     }
-  } catch (err) {
-    console.error("Create Warehouse Error:", err);
-    message.error("Failed to create warehouse");
-  } finally {
-    form.resetFields();
-    setIsModalVisible(false);
-    setIsEditMode(false);
-  }
-};
+  };
 
   // 🆕 Delete Modal Logic
   const openDeleteModal = (record) => {
@@ -560,6 +567,7 @@ const Warehouses = () => {
             onChange={handleSearch}
             style={{ width: 260 }}
             allowClear
+            autoComplete="off"
           />
           <Dropdown overlay={menu}>
             <Button size="small">
@@ -610,24 +618,22 @@ const Warehouses = () => {
         width={600}
         centered
       >
-        <Form layout="vertical" form={form} onFinish={handleSubmit}>
+        <Form layout="vertical" form={form} onFinish={handleSubmit} autoComplete="off">
           <Form.Item
             name="warehouse"
             label="Warehouse"
             rules={[{ required: true, message: "Please enter warehouse name" }]}
           >
-            <Input />
+            <Input autoComplete="off" />
           </Form.Item>
 
+          {/* REPLACED: contactPerson Select -> Input (no suggestions / no dropdown) */}
           <Form.Item
             name="contactPerson"
             label="Contact Person"
-            rules={[{ required: true, message: "Please select contact person" }]}
+            rules={[{ required: true, message: "Please enter contact person" }]}
           >
-            <Select>
-              <Select.Option value="Chad Taylor">Chad Taylor</Select.Option>
-              <Select.Option value="Jennifer Lopez">Jennifer Lopez</Select.Option>
-            </Select>
+            <Input autoComplete="off" />
           </Form.Item>
 
           <Form.Item
@@ -635,15 +641,21 @@ const Warehouses = () => {
             label="Email"
             rules={[{ required: true, message: "Please enter email" }]}
           >
-            <Input />
+            <Input autoComplete="off" />
           </Form.Item>
 
+          {/* PHONE: only digits allowed, max 10 */}
           <Form.Item
             name="phone"
             label="Phone"
             rules={[{ required: true, message: "Please enter phone" }]}
           >
-            <Input />
+            <Input
+              onChange={handlePhoneChange}
+              maxLength={10}
+              placeholder="Enter 10 digit phone number"
+              autoComplete="off"
+            />
           </Form.Item>
 
           <Form.Item
@@ -651,45 +663,39 @@ const Warehouses = () => {
             label="Address"
             rules={[{ required: true, message: "Please enter address" }]}
           >
-            <Input />
+            <Input autoComplete="off" />
           </Form.Item>
 
           <div className="flex gap-3">
+            {/* REPLACED: city Select -> Input */}
             <Form.Item
               name="city"
               label="City"
-              rules={[{ required: true, message: "Please select city" }]}
+              rules={[{ required: true, message: "Please enter city" }]}
               className="flex-1"
             >
-              <Select>
-                <Select.Option value="Chennai">Chennai</Select.Option>
-                <Select.Option value="Mumbai">Mumbai</Select.Option>
-              </Select>
+              <Input autoComplete="off" />
             </Form.Item>
+            {/* REPLACED: state Select -> Input */}
             <Form.Item
               name="state"
               label="State"
-              rules={[{ required: true, message: "Please select state" }]}
+              rules={[{ required: true, message: "Please enter state" }]}
               className="flex-1"
             >
-              <Select>
-                <Select.Option value="Tamil Nadu">Tamil Nadu</Select.Option>
-                <Select.Option value="Maharashtra">Maharashtra</Select.Option>
-              </Select>
+              <Input autoComplete="off" />
             </Form.Item>
           </div>
 
           <div className="flex gap-3">
+            {/* REPLACED: country Select -> Input */}
             <Form.Item
               name="country"
               label="Country"
-              rules={[{ required: true, message: "Please select country" }]}
+              rules={[{ required: true, message: "Please enter country" }]}
               className="flex-1"
             >
-              <Select>
-                <Select.Option value="India">India</Select.Option>
-                <Select.Option value="USA">USA</Select.Option>
-              </Select>
+              <Input autoComplete="off" />
             </Form.Item>
             <Form.Item
               name="postalCode"
@@ -697,7 +703,7 @@ const Warehouses = () => {
               rules={[{ required: true, message: "Please enter postal code" }]}
               className="flex-1"
             >
-              <Input />
+              <Input autoComplete="off" />
             </Form.Item>
           </div>
 
