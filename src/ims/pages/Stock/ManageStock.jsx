@@ -2,7 +2,7 @@
 
 
 
-import React, { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Table,
   Input,
@@ -27,17 +27,7 @@ import jsPDF from "jspdf";
 import "jspdf-autotable";
 import * as XLSX from "xlsx";
 import { Plus } from "lucide-react";
-
-import LenovoIdeaPad3 from "../Stock/assets/LenovoIdeaPad3.jpg";
-import BeatsPro from "../Stock/assets/BeatsPro.jpg";
-import NikeJordan from "../Stock/assets/NikeJordan.jpg";
-import AppleSeries5Watch from "../Stock/assets/AppleSeries5Watch.jpg";
-import AmazonEchoDot from "../Stock/assets/AmazonEchoDot.jpg";
-import JamesKirwin from "../Stock/assets/JamesKirwin.png";
-import FrancisChang from "../Stock/assets/FrancisChang.png";
-import Steven from "../Stock/assets/Steven.png";
-import Gravely from "../Stock/assets/Gravely.png";
-import Kevin from "../Stock/assets/Kevin.png";
+import manageStockService from "./manageStockService.js";
 
 const ManageStock = () => {
   const [searchText, setSearchText] = useState("");
@@ -48,6 +38,9 @@ const ManageStock = () => {
   const [filterStore, setFilterStore] = useState("");
   const [filterProduct, setFilterProduct] = useState("");
   const [form] = Form.useForm();
+  const [dataSource, setDataSource] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [total, setTotal] = useState(0);
 
   const warehouses = [
     "Lavish Warehouse",
@@ -75,42 +68,42 @@ const ManageStock = () => {
 
   const persons = ["James Kirwin", "Francis Chang", "Steven", "Gravely", "Kevin"];
 
-  const [dataSource, setDataSource] = useState([
-    {
-      key: "1",
-      warehouse: "Lavish Warehouse",
-      store: "Electro Mart",
-      product: { name: "Lenovo IdeaPad 3", img: LenovoIdeaPad3 },
-      date: "24 Dec 2024",
-      person: { name: "James Kirwin", img: JamesKirwin },
-      qty: 100,
-    },
-    {
-      key: "2",
-      warehouse: "Quaint Warehouse",
-      store: "Quantum Gadgets",
-      product: { name: "Beats Pro", img: BeatsPro },
-      date: "10 Dec 2024",
-      person: { name: "Francis Chang", img: FrancisChang },
-      qty: 140,
-    },
-    {
-      key: "3",
-      warehouse: "Lobar Handy",
-      store: "Prime Bazaar",
-      product: { name: "Nike Jordan", img: NikeJordan },
-      date: "25 Jul 2023",
-      person: { name: "Steven", img: Steven },
-      qty: 120,
-    },
-  ]);
+  // Fetch stocks from API
+  useEffect(() => {
+    fetchStocks();
+  }, []);
+
+  const fetchStocks = async () => {
+    try {
+      setLoading(true);
+      const res = await manageStockService.getStocks();
+      const fetchedStocks = res.data.rows || [];
+      setDataSource(fetchedStocks.map(item => ({
+        key: item.id,
+        id: item.id,
+        warehouse: item.warehouse,
+        store: item.store,
+        product: item.product,
+        date: item.createdAt,
+        person: item.Responsible_Person,
+        qty: item.quantity,
+      })));
+      setTotal(res.data.count || fetchedStocks.length);
+    } catch (err) {
+      console.error("Failed to fetch stocks:", err);
+      message.error(err.response?.data?.message || "Failed to fetch stocks");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // ✅ Filtered data based on search and dropdowns
   const filteredData = dataSource.filter((item) => {
-    const searchMatch = item.product.name.toLowerCase().includes(searchText.toLowerCase());
+    const productName = typeof item.product === 'string' ? item.product : item.product?.name || '';
+    const searchMatch = productName.toLowerCase().includes(searchText.toLowerCase());
     const warehouseMatch = filterWarehouse ? item.warehouse === filterWarehouse : true;
     const storeMatch = filterStore ? item.store === filterStore : true;
-    const productMatch = filterProduct ? item.product.name === filterProduct : true;
+    const productMatch = filterProduct ? productName === filterProduct : true;
     return searchMatch && warehouseMatch && storeMatch && productMatch;
   });
 
@@ -124,8 +117,8 @@ const ManageStock = () => {
       body: filteredData.map((item) => [
         item.warehouse,
         item.store,
-        item.product.name,
-        item.person.name,
+        typeof item.product === 'string' ? item.product : item.product?.name || '',
+        typeof item.person === 'string' ? item.person : item.person?.name || '',
         item.date,
         item.qty,
       ]),
@@ -140,8 +133,8 @@ const ManageStock = () => {
       filteredData.map((item) => ({
         Warehouse: item.warehouse,
         Store: item.store,
-        Product: item.product.name,
-        Person: item.person.name,
+        Product: typeof item.product === 'string' ? item.product : item.product?.name || '',
+        Person: typeof item.person === 'string' ? item.person : item.person?.name || '',
         Date: item.date,
         Quantity: item.qty,
       }))
@@ -158,7 +151,8 @@ const ManageStock = () => {
     setFilterWarehouse("");
     setFilterStore("");
     setFilterProduct("");
-    message.info("Filters cleared");
+    fetchStocks();
+    message.info("Refreshed");
   };
 
   // ✅ Modal open/close
@@ -168,8 +162,8 @@ const ManageStock = () => {
       form.setFieldsValue({
         warehouse: record.warehouse,
         store: record.store,
-        product: record.product.name,
-        person: record.person.name,
+        product: typeof record.product === 'string' ? record.product : record.product?.name || '',
+        person: typeof record.person === 'string' ? record.person : record.person?.name || '',
         qty: record.qty,
       });
     } else {
@@ -185,41 +179,47 @@ const ManageStock = () => {
   };
 
   // ✅ Add/Edit Stock (same form)
-  const handleAddOrEditStock = (values) => {
-    if (editingRecord) {
-      const updatedData = dataSource.map((item) =>
-        item.key === editingRecord.key
-          ? {
-              ...item,
-              warehouse: values.warehouse,
-              store: values.store,
-              product: { name: values.product, img: item.product.img },
-              person: { name: values.person, img: item.person.img },
-              qty: values.qty,
-            }
-          : item
-      );
-      setDataSource(updatedData);
-      message.success("Stock updated successfully!");
-    } else {
-      const newItem = {
-        key: Date.now().toString(),
-        warehouse: values.warehouse,
-        store: values.store,
-        product: { name: values.product, img: LenovoIdeaPad3 },
-        person: { name: values.person, img: JamesKirwin },
-        qty: values.qty,
-        date: new Date().toLocaleDateString(),
-      };
-      setDataSource([...dataSource, newItem]);
-      message.success("New stock added successfully!");
+  const handleAddOrEditStock = async (values) => {
+    try {
+      if (editingRecord) {
+        // Update payload (without Responsible_Person)
+        const updateData = {
+          warehouse: values.warehouse,
+          store: values.store,
+          product: values.product,
+          quantity: values.qty,
+        };
+        await manageStockService.updateStock(editingRecord.id, updateData);
+        message.success("Stock updated successfully!");
+      } else {
+        // Create payload (with Responsible_Person)
+        const createData = {
+          warehouse: values.warehouse,
+          store: values.store,
+          product: values.product,
+          Responsible_Person: values.person,
+          quantity: values.qty,
+        };
+        await manageStockService.createStock(createData);
+        message.success("New stock added successfully!");
+      }
+      handleCloseModal();
+      fetchStocks();
+    } catch (err) {
+      console.error("Failed to save stock:", err);
+      message.error(err.response?.data?.message || "Failed to save stock");
     }
-    handleCloseModal();
   };
 
-  const handleDelete = (key) => {
-    setDataSource(dataSource.filter((item) => item.key !== key));
-    message.success("Stock deleted successfully!");
+  const handleDelete = async (key) => {
+    try {
+      await manageStockService.deleteStock(key);
+      message.success("Stock deleted successfully!");
+      fetchStocks();
+    } catch (err) {
+      console.error("Failed to delete stock:", err);
+      message.error(err.response?.data?.message || "Failed to delete stock");
+    }
   };
 
   const columns = [
@@ -228,23 +228,33 @@ const ManageStock = () => {
     {
       title: "Product",
       key: "product",
-      render: (_, record) => (
-        <Space>
-          <Avatar shape="square" src={record.product.img} />
-          <span>{record.product.name}</span>
-        </Space>
-      ),
+      render: (_, record) => {
+        const productName = typeof record.product === 'string' ? record.product : record.product?.name || '';
+        return <span>{productName}</span>;
+      },
     },
-    { title: "Date", dataIndex: "date", key: "date" },
+    { 
+      title: "Date", 
+      dataIndex: "date", 
+      key: "date",
+      render: (date) => {
+        if (!date) return '';
+        if (typeof date === 'string' && date.includes(' ') && !date.includes('T')) return date;
+        const dateObj = new Date(date);
+        return dateObj.toLocaleDateString('en-GB', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric'
+        });
+      }
+    },
     {
       title: "Person",
       key: "person",
-      render: (_, record) => (
-        <Space>
-          <Avatar src={record.person.img} />
-          <span>{record.person.name}</span>
-        </Space>
-      ),
+      render: (_, record) => {
+        const personName = typeof record.person === 'string' ? record.person : record.person?.name || '';
+        return <span>{personName}</span>;
+      },
     },
     { title: "Qty", dataIndex: "qty", key: "qty" },
     {
@@ -253,7 +263,7 @@ const ManageStock = () => {
       render: (_, record) => (
         <Space>
           <Button icon={<EditOutlined />} onClick={() => handleOpenModal(record)} />
-          <Button icon={<DeleteOutlined />} onClick={() => handleDelete(record.key)} />
+          <Button icon={<DeleteOutlined />} onClick={() => handleDelete(record.id)} />
         </Space>
       ),
     },
@@ -352,6 +362,7 @@ const ManageStock = () => {
           columns={columns}
           pagination={false}
           rowSelection={{}}
+          loading={loading}
         />
 
         {/* Pagination */}
