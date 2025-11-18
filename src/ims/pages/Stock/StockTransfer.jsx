@@ -329,43 +329,16 @@ const StockTransfer = () => {
         <Table
           dataSource={filteredData}
           columns={columns}
-          pagination={false}
-          rowSelection={{}}
+          rowKey="key"
+          pagination={{
+            pageSize: pageSize,
+            showSizeChanger: false,
+            showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} items`,
+          }}
+          className="bg-white"
+          bordered={false}
+          rowClassName={() => "hover:bg-gray-50"}
         />
-
-        {/* Pagination */}
-        <div className="flex justify-between items-center mt-4">
-          <div className="flex items-center gap-2">
-            <span className="text-gray-600 text-sm">Row Per Page</span>
-            <Select
-              value={pageSize}
-              style={{ width: 80 }}
-              onChange={(value) => setPageSize(value)}
-              options={[
-                { value: 5, label: "5" },
-                { value: 10, label: "10" },
-                { value: 20, label: "20" },
-              ]}
-            />
-            <span className="text-gray-600 text-sm">Entries</span>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Button shape="circle" size="small">
-              {"<"}
-            </Button>
-            <Button
-              shape="circle"
-              size="small"
-              className="bg-orange-500 text-white border-none"
-            >
-              1
-            </Button>
-            <Button shape="circle" size="small">
-              {">"}
-            </Button>
-          </div>
-        </div>
       </div>
 
       {/* ✅ Add Transfer Modal (Fixed Size & Position) */}
