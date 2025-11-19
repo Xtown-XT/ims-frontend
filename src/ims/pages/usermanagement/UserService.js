@@ -4,7 +4,11 @@ const userService = {
   // Create Employee
   createUser: async (data) => {
     try {
-      const res = await api.post("employee/createEmployee", data);
+      const res = await api.post("employee/createEmployee", data, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
       return res.data;
     } catch (error) {
       throw error.response?.data || error;
@@ -34,7 +38,11 @@ const userService = {
   // Update Employee
   updateUser: async (id, data) => {
     try {
-      const res = await api.put(`employee/updateEmployee/${id}`, data);
+      const res = await api.put(`employee/updateEmployee/${id}`, data, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
       return res.data;
     } catch (error) {
       throw error.response?.data || error;

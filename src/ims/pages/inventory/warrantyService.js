@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 
 import api from "../../services/api.js"; 
 
@@ -11,3 +12,14 @@ const warrantyService = {
 
 export default warrantyService;
 
+=======
+import React from 'react'
+
+function warrantyService() {
+  return (
+    <div>warrantyService</div>
+  )
+}
+
+export default warrantyService
+>>>>>>> poonjothi

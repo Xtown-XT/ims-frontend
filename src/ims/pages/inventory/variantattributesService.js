@@ -1,12 +1,14 @@
+<<<<<<< HEAD
 
 import api from "../../services/api.js"; 
+=======
+import React from 'react'
 
-const variantAttributesService = {
-  createVariantAttribute: (data) => api.post("/varrient/createVariant", data),
-  getVariantAttributes: (page = 1, limit = 10, search = "") => api.get(`/varrient/getAllvariants?page=${page}&limit=${limit}&search=${search}`),
-  getVariantAttributeById: (id) => api.get(`/varrient/getVariantById/${id}`),
-  updateVariantAttribute: (id, data) => api.put(`/varrient/updateVariant/${id}`, data),
-  deleteVariantAttribute: (id) => api.delete(`/varrient/deleteVariant/${id}`), 
-};
+function variantattributesService() {
+  return (
+    <div>variantattributesService</div>
+  )
+}
+>>>>>>> poonjothi
 
-export default variantAttributesService;
+export default variantattributesService
