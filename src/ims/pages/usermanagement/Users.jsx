@@ -47,17 +47,11 @@ const Users = () => {
   const [isEditMode, setIsEditMode] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
 
-  // =============== FETCH ROLES ===============
+  // FETCH ROLES (FIXED FOR YOUR API RESPONSE)
   const fetchRoles = async () => {
     try {
       const res = await RoleService.getAllRoles();
-      const rolesArray =
-        Array.isArray(res.data)
-          ? res.data
-          : Array.isArray(res?.data?.data)
-          ? res.data.data
-          : [];
-
+      const rolesArray = res?.data?.rows ?? [];
       setRoles(rolesArray);
     } catch (err) {
       console.error("Failed to load roles:", err);
@@ -65,7 +59,7 @@ const Users = () => {
     }
   };
 
-  // =============== FETCH USERS ===============
+  // FETCH USERS
   const fetchUsers = async () => {
     try {
       const res = await userService.getAllUsers();
@@ -82,24 +76,23 @@ const Users = () => {
     fetchUsers();
   }, []);
 
-  // =============== FILTER USERS ===============
+  // FILTER USERS
   useEffect(() => {
     let filtered = [...allUsers];
 
     if (searchText) {
       filtered = filtered.filter(
-        (user) =>
-          user.username?.toLowerCase().includes(searchText.toLowerCase()) ||
-          user.email?.toLowerCase().includes(searchText.toLowerCase()) ||
-          user.phone?.includes(searchText)
+        (u) =>
+          u.username?.toLowerCase().includes(searchText.toLowerCase()) ||
+          u.email?.toLowerCase().includes(searchText.toLowerCase()) ||
+          u.phone?.includes(searchText)
       );
     }
 
     if (statusFilter) {
       filtered = filtered.filter(
-        (user) =>
-          (user.is_active ? "Active" : "Inactive").toLowerCase() ===
-          statusFilter.toLowerCase()
+        (u) =>
+          (u.is_active ? "active" : "inactive") === statusFilter.toLowerCase()
       );
     }
 
@@ -107,13 +100,13 @@ const Users = () => {
     setCurrent(1);
   }, [searchText, statusFilter, allUsers]);
 
-  // =============== ROLE NAME ===============
+  // GET ROLE NAME
   const getRoleName = (record) => {
-    if (record.role?.role_name) return record.role.role_name;
     const role = roles.find((r) => r.id === record.role_id);
     return role?.role_name || "—";
   };
 
+  // TABLE COLUMNS
   const columns = [
     {
       title: "User Name",
@@ -123,10 +116,10 @@ const Users = () => {
           <img
             src={
               record.profile_picture
-                ? record.profile_picture.startsWith("http")
-                  ? record.profile_picture
-                  : `${import.meta.env.VITE_API_URL}/${record.profile_picture}`
-                : "/img/noimg.png"
+                ? (record.profile_picture.startsWith('http') 
+                    ? record.profile_picture 
+                    : `http://192.168.1.18:5000${record.profile_picture}`)
+                : "https://via.placeholder.com/40x40?text=User"
             }
             alt={record.username}
             className="w-10 h-10 rounded-full object-cover"
@@ -185,7 +178,7 @@ const Users = () => {
     },
   ];
 
-  // =============== DELETE USER ===============
+  // DELETE USER
   const handleDelete = (id) => {
     Modal.confirm({
       title: "Delete User?",
@@ -202,7 +195,7 @@ const Users = () => {
     });
   };
 
-  // =============== ADD USER ===============
+  // ADD USER
   const showModal = () => {
     setIsEditMode(false);
     setEditingUser(null);
@@ -212,7 +205,7 @@ const Users = () => {
     setIsModalVisible(true);
   };
 
-  // =============== EDIT USER ===============
+  // EDIT USER
   const handleEdit = (user) => {
     setIsEditMode(true);
     setEditingUser(user);
@@ -225,25 +218,43 @@ const Users = () => {
       is_active: user.is_active,
     });
 
-    if (user.profile_picture) {
-      setImagePreview(user.profile_picture);
-    }
-
+    setImagePreview(
+      user.profile_picture 
+        ? (user.profile_picture.startsWith('http') 
+            ? user.profile_picture 
+            : `http://192.168.1.18:5000${user.profile_picture}`)
+        : null
+    );
     setModalImageFile(null);
     setIsModalVisible(true);
   };
 
-  // =============== IMAGE UPLOAD FIXED ===============
+  // IMAGE UPLOAD FIXED
   const handleImageUpload = (info) => {
-    const file = info.file.originFileObj; // <-- FIX HERE
-
-    if (!file) return;
-
-    setModalImageFile(file);
-
-    const reader = new FileReader();
-    reader.onload = (e) => setImagePreview(e.target.result);
-    reader.readAsDataURL(file);
+    console.log("Upload info:", info);
+    const file = info.file.originFileObj || info.file;
+    console.log("Selected file:", file);
+    
+    if (file) {
+      // Check if it's a valid image file
+      if (!file.type || !file.type.startsWith('image/')) {
+        messageApi.error('Please select a valid image file (JPEG or PNG)');
+        return;
+      }
+      
+      try {
+        const imageUrl = URL.createObjectURL(file);
+        console.log("Created image URL:", imageUrl);
+        setImagePreview(imageUrl);
+        setModalImageFile(file);
+        messageApi.success('Image selected successfully');
+      } catch (error) {
+        console.error("Error creating image URL:", error);
+        messageApi.error('Failed to load image preview');
+      }
+    } else {
+      console.error("No file found in upload info");
+    }
   };
 
   const removeImageField = () => {
@@ -251,7 +262,7 @@ const Users = () => {
     setModalImageFile(null);
   };
 
-  // =============== SUBMIT FORM ===============
+  // SUBMIT FORM
   const handleSubmit = async () => {
     try {
       const values = await form.validateFields();
@@ -264,21 +275,29 @@ const Users = () => {
       formData.append("is_active", values.is_active ? true : false);
       formData.append("created_by", "92d252aa-4911-4961-a771-0706112c4d8a");
 
-      // Add password only on create
       if (!isEditMode && values.password) {
         formData.append("password", values.password);
       }
 
-      // Add image only if selected
       if (modalImageFile) {
         formData.append("profile_picture", modalImageFile);
+        console.log("Image file to upload:", modalImageFile.name, modalImageFile.type);
+      } else {
+        console.log("No image file selected");
+      }
+
+      console.log("FormData contents:");
+      for (let pair of formData.entries()) {
+        console.log(pair[0], pair[1]);
       }
 
       if (isEditMode) {
-        await userService.updateUser(editingUser.id, formData);
+        const res = await userService.updateUser(editingUser.id, formData);
+        console.log("Update user response:", res.data);
         messageApi.success("User updated");
       } else {
-        await userService.createUser(formData);
+        const res = await userService.createUser(formData);
+        console.log("Create user response:", res.data);
         messageApi.success("User created");
       }
 
@@ -286,7 +305,8 @@ const Users = () => {
       fetchUsers();
     } catch (err) {
       messageApi.error("Check required fields");
-      console.error(err);
+      console.error("Submit error:", err);
+      console.error("Error response:", err.response?.data);
     }
   };
 
@@ -310,7 +330,7 @@ const Users = () => {
         </div>
       </div>
 
-      {/* SEARCH + FILTER */}
+      {/* SEARCH */}
       <div className="flex gap-3 mb-6">
         <Input
           placeholder="Search"
@@ -340,7 +360,6 @@ const Users = () => {
         rowKey="id"
       />
 
-      {/* PAGINATION */}
       <Pagination
         current={current}
         pageSize={pageSize}
@@ -349,7 +368,7 @@ const Users = () => {
         onChange={(page) => setCurrent(page)}
       />
 
-      {/* ADD/EDIT MODAL */}
+      {/* MODAL */}
       <Modal
         title={isEditMode ? "Edit User" : "Add User"}
         open={isModalVisible}
@@ -362,7 +381,14 @@ const Users = () => {
           <div className="flex items-center gap-4 mb-4">
             <div className="w-28 h-28 border rounded-lg overflow-hidden">
               {imagePreview ? (
-                <img src={imagePreview} className="w-full h-full object-cover" />
+                <img 
+                  src={imagePreview} 
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    console.error("Image failed to load:", imagePreview);
+                    e.target.src = "https://via.placeholder.com/120x120?text=Error";
+                  }}
+                />
               ) : (
                 <div className="flex items-center justify-center text-gray-400 h-full">
                   No Image
@@ -376,7 +402,7 @@ const Users = () => {
               onChange={handleImageUpload}
               accept="image/*"
             >
-              <Button icon={<UploadOutlined />}>Upload</Button>
+              <Button icon={<UploadOutlined />}>{isEditMode ? "Change Image" : "Upload Image"}</Button>
             </Upload>
 
             {imagePreview && (
@@ -386,16 +412,16 @@ const Users = () => {
             )}
           </div>
 
-          {/* FORM FIELDS */}
+          {/* FORM */}
           <Form.Item name="username" label="User Name" rules={[{ required: true }]}>
             <Input placeholder="Enter user name" />
           </Form.Item>
 
           <Form.Item name="role_id" label="Role" rules={[{ required: true }]}>
             <Select placeholder="Select Role">
-              {roles.map((role) => (
-                <Option key={role.id} value={role.id}>
-                  {role.role_name}
+              {roles.map((r) => (
+                <Option key={r.id} value={r.id}>
+                  {r.role_name}
                 </Option>
               ))}
             </Select>
@@ -450,7 +476,6 @@ const Users = () => {
             <Switch />
           </Form.Item>
 
-          {/* FOOTER */}
           <div className="flex justify-end gap-3">
             <Button onClick={() => setIsModalVisible(false)}>Cancel</Button>
             <Button type="primary" htmlType="submit" className="bg-purple-500 text-white">
