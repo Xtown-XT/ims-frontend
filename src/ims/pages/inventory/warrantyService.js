@@ -8,5 +8,5 @@ const warrantyService = {
   deleteWarranty: (id) => api.delete(`/warranty/deleteWarranty/${id}`), 
 };
 
-export default warrantyService;
 
+export default warrantyService;
