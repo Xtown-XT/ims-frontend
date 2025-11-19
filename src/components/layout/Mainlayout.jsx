@@ -157,6 +157,7 @@ const MainLayout = ({ menuItems }) => {
             menuItems={menuItems}
             selectedParent={selectedParent}
             setSelectedParent={setSelectedParent}
+            user={null}
           />
         </Sider>
 

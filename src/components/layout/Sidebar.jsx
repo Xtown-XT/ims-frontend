@@ -23,6 +23,7 @@ const SubSidebar = ({ parentItem, collapsed }) => {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const { theme, primaryColor } = useTheme();
+
   const [openSubSubMenuKey, setOpenSubSubMenuKey] = useState(null);
   const [hoveredKey, setHoveredKey] = useState(null);
 
@@ -53,19 +54,16 @@ const SubSidebar = ({ parentItem, collapsed }) => {
   };
 
   const getMenuItemStyles = (itemKey, hasChildren) => {
-    const isActivePath = pathname === itemKey;
+    const isActive = pathname === itemKey;
     const isHovered = hoveredKey === itemKey;
-    const isDropdownOpen = openSubSubMenuKey === itemKey && hasChildren;
+    const isOpen = openSubSubMenuKey === itemKey && hasChildren;
 
     let styles = { ...baseMenuItemStyles };
 
-    if (isActivePath) {
+    if (isActive || isHovered || isOpen) {
       styles.backgroundColor = theme === "dark" ? "#4b5563" : "#e5e7eb";
       styles.color = theme === "dark" ? "#ffffff" : primaryColor;
       styles.fontWeight = "bold";
-    } else if (isHovered || isDropdownOpen) {
-      styles.backgroundColor = theme === "dark" ? "#4b5563" : "#e5e7eb";
-      styles.color = theme === "dark" ? "#ffffff" : primaryColor;
     }
 
     return styles;
@@ -92,9 +90,9 @@ const SubSidebar = ({ parentItem, collapsed }) => {
   };
 
   const handleSubItemClick = (subItem) => {
-    if (subItem.children && subItem.children.length > 0) {
+    if (subItem.children?.length > 0) {
       setOpenSubSubMenuKey(openSubSubMenuKey === subItem.key ? null : subItem.key);
-    } else if (subItem.key !== "sales") {
+    } else {
       navigate(subItem.key);
     }
   };
@@ -108,7 +106,6 @@ const SubSidebar = ({ parentItem, collapsed }) => {
           justifyContent: "center",
           alignItems: "center",
           borderBottom: `1px solid ${theme === "dark" ? "#374151" : "#e5e7eb"}`,
-          flexShrink: 0,
         }}
       >
         <span
@@ -121,6 +118,7 @@ const SubSidebar = ({ parentItem, collapsed }) => {
           {parentItem.label}
         </span>
       </div>
+
       <div style={{ padding: "0.5rem", overflowY: "auto", flexGrow: 1 }}>
         {parentItem.children.map((subItem) => (
           <div key={subItem.key}>
@@ -145,6 +143,7 @@ const SubSidebar = ({ parentItem, collapsed }) => {
                 </span>
               )}
               <span>{subItem.label}</span>
+
               {subItem.children?.length > 0 && (
                 <span
                   style={{
@@ -157,7 +156,8 @@ const SubSidebar = ({ parentItem, collapsed }) => {
                 </span>
               )}
             </div>
-            {openSubSubMenuKey === subItem.key && subItem.children && (
+
+            {openSubSubMenuKey === subItem.key && (
               <div
                 style={{
                   paddingTop: "0.25rem",
@@ -173,16 +173,6 @@ const SubSidebar = ({ parentItem, collapsed }) => {
                     onMouseEnter={() => setHoveredKey(subSubItem.key)}
                     onMouseLeave={() => setHoveredKey(null)}
                   >
-                    {subSubItem.icon && (
-                      <span
-                        style={{
-                          marginRight: collapsed ? "0.25rem" : "0.5rem",
-                          color: pathname === subSubItem.key ? primaryColor : "inherit",
-                        }}
-                      >
-                        {subSubItem.icon}
-                      </span>
-                    )}
                     <span>{subSubItem.label}</span>
                   </div>
                 ))}
@@ -195,25 +185,44 @@ const SubSidebar = ({ parentItem, collapsed }) => {
   );
 };
 
+// ----------------------------------------------------------
 // MAIN SIDEBAR
+// ----------------------------------------------------------
+
 const Sidebar = ({
   collapsed,
   menuItems = [],
   selectedParent,
   setSelectedParent,
-  role = "employee", // default role; pass current user role
+  user, // <-- GET FULL USER HERE
 }) => {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const { theme, primaryColor, sidebarBgColor } = useTheme();
+
   const [hoveredKey, setHoveredKey] = useState(null);
 
-  // Filter menu items based on role
-  const filteredMenuItems = menuItems.filter((item) => {
-    if (item.key === "usermanagement") {
-      return role === "user"; // only show User Management for users
+  // Get user from localStorage
+  const getStoredUser = () => {
+    try {
+      const userStr = localStorage.getItem("user");
+      return userStr ? JSON.parse(userStr) : null;
+    } catch {
+      return null;
     }
-    return true; // show everything else
+  };
+
+  const storedUser = user || getStoredUser();
+
+  // Determine user type (EMPLOYEE has role_id, USER has role: "user")
+  const userType = storedUser?.role_id ? "employee" : "user";
+
+  // Filter menu (HIDE User Management for employees with role_id)
+  const filteredMenuItems = menuItems.filter((item) => {
+    if (item.key === "/ims/user-management") {
+      return userType === "user"; // only normal users (without role_id) can see
+    }
+    return true;
   });
 
   const containerStyles = {
@@ -290,8 +299,8 @@ const Sidebar = ({
           style={{
             position: "absolute",
             bottom: "20px",
-            left: "0",
-            right: "0",
+            left: 0,
+            right: 0,
             display: "flex",
             justifyContent: "center",
             padding: "0.5rem",
@@ -300,42 +309,28 @@ const Sidebar = ({
           <div
             style={{
               ...getMenuItemStyles("settings"),
+              width: collapsed ? "50px" : "80%",
               display: "flex",
               justifyContent: collapsed ? "center" : "flex-start",
-              alignItems: "center",
-              cursor: "pointer",
-              width: collapsed ? "50px" : "80%",
-              padding: collapsed ? "0.5rem 0.25rem" : "0.5rem 1rem",
             }}
             onClick={() => navigate("/settings")}
             onMouseEnter={() => setHoveredKey("settings")}
             onMouseLeave={() => setHoveredKey(null)}
           >
-            <span
+            <img
+              src={settings}
+              alt="Settings"
               style={{
-                marginRight: collapsed ? "0" : "0.5rem",
-                color: hoveredKey === "settings" ? primaryColor : "inherit",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
+                width: collapsed ? "24px" : "26px",
+                height: collapsed ? "24px" : "26px",
               }}
-            >
-              <img
-                src={settings}
-                alt="Settings"
-                style={{
-                  width: collapsed ? "24px" : "26px",
-                  height: collapsed ? "24px" : "26px",
-                }}
-              />
-            </span>
-            {!collapsed && <span>Settings</span>}
+            />
+            {!collapsed && <span style={{ marginLeft: "0.5rem" }}>Settings</span>}
           </div>
         </div>
       </div>
 
-      {/* SubSidebar */}
-      {selectedParent && selectedParent.children && (
+      {selectedParent?.children && (
         <SubSidebar parentItem={selectedParent} collapsed={collapsed} />
       )}
     </div>
