@@ -4,7 +4,6 @@ import { useNavigate, useLocation } from "react-router-dom";
 
 import logo from "../assets/Dark Logo.png";
 import settings from "../assets/technology.png";
-import salesIcon from "../assets/sales.png";
 import { useTheme } from "../../context/ThemeContext";
 import {
   UpOutlined,
@@ -15,7 +14,6 @@ import {
   DeleteOutlined,
   ShoppingCartOutlined,
   FileTextOutlined,
-  EditOutlined,
 } from "@ant-design/icons";
 
 // SubSidebar Component
@@ -53,13 +51,12 @@ const SubSidebar = ({ parentItem, collapsed }) => {
   };
 
   const getMenuItemStyles = (itemKey, hasChildren) => {
-    const isActivePath = pathname === itemKey;
+    const isActive = pathname === itemKey;
     const isHovered = hoveredKey === itemKey;
     const isDropdownOpen = openSubSubMenuKey === itemKey && hasChildren;
 
     let styles = { ...baseMenuItemStyles };
-
-    if (isActivePath) {
+    if (isActive) {
       styles.backgroundColor = theme === "dark" ? "#4b5563" : "#e5e7eb";
       styles.color = theme === "dark" ? "#ffffff" : primaryColor;
       styles.fontWeight = "bold";
@@ -67,7 +64,6 @@ const SubSidebar = ({ parentItem, collapsed }) => {
       styles.backgroundColor = theme === "dark" ? "#4b5563" : "#e5e7eb";
       styles.color = theme === "dark" ? "#ffffff" : primaryColor;
     }
-
     return styles;
   };
 
@@ -94,7 +90,7 @@ const SubSidebar = ({ parentItem, collapsed }) => {
   const handleSubItemClick = (subItem) => {
     if (subItem.children && subItem.children.length > 0) {
       setOpenSubSubMenuKey(openSubSubMenuKey === subItem.key ? null : subItem.key);
-    } else if (subItem.key !== "sales") {
+    } else {
       navigate(subItem.key);
     }
   };
@@ -210,10 +206,10 @@ const Sidebar = ({
 
   // Filter menu items based on role
   const filteredMenuItems = menuItems.filter((item) => {
-    if (item.key === "usermanagement") {
-      return role === "user"; // only show User Management for users
+    if (item.key === "/ims/user-management") {
+      return role === "user"; // only show User Management for "user" role
     }
-    return true; // show everything else
+    return true;
   });
 
   const containerStyles = {
@@ -238,7 +234,7 @@ const Sidebar = ({
       display: "flex",
       alignItems: "center",
       fontSize: collapsed ? "0.875rem" : "1rem",
-      fontWeight: "semibold",
+      fontWeight: "500",
     };
 
     if (isActive || isHovered) {
@@ -285,7 +281,7 @@ const Sidebar = ({
           ))}
         </div>
 
-        {/* ⚙️ Settings */}
+        {/* Settings Button */}
         <div
           style={{
             position: "absolute",
