@@ -1,5 +1,5 @@
 // src/pages/peoples/warehouses.jsx
-import React, { useState, useMemo, useEffect } from "react"; // added useEffect
+import React, { useState, useMemo, useEffect } from "react";
 import {
   Table,
   Input,
@@ -27,7 +27,8 @@ import { FaFilePdf, FaFileExcel, FaAngleUp } from "react-icons/fa6";
 import { IoReloadOutline } from "react-icons/io5";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import warehouseService from "../peoples/WarehouseService.js"; 
+
+import warehouseService from "../peoples/WarehouseService.js";
 
 const Warehouses = () => {
   const [searchText, setSearchText] = useState("");
@@ -37,7 +38,6 @@ const Warehouses = () => {
   const [pageSize, setPageSize] = useState(10);
   const [form] = Form.useForm();
 
-  // phone local state not required; using form.setFieldsValue to sanitize
   const [warehouses, setWarehouses] = useState([
     {
       key: "1",
@@ -89,13 +89,10 @@ const Warehouses = () => {
   const [isViewModalVisible, setIsViewModalVisible] = useState(false);
   const [viewWarehouse, setViewWarehouse] = useState(null);
 
-  // 🆕 Delete Confirmation Modal States
   const [isDeleteModalVisible, setIsDeleteModalVisible] = useState(false);
   const [deleteWarehouse, setDeleteWarehouse] = useState(null);
 
-  // ---------------------------
-  // fetch function declared so other handlers (create/update) can call it
-  // ---------------------------
+  // 🔥 FIXED FETCH FUNCTION: correct mappings + id usage
   const fetchWarehouses = async () => {
     try {
       const res = await warehouseService.getWarehouses(
@@ -107,29 +104,37 @@ const Warehouses = () => {
       const rows = res?.data?.data?.rows ?? [];
 
       const mapped = rows.map((r) => ({
-        key: r.id || r.key || String(Math.random()),
-        warehouse: r.warehouse_name || r.warehouse || "",
-        contact: r.Contact_person || r.contact || "",
-        phone: r.phone_number || r.phone || r.phone_work || "",
-        email: r.email || "",
-        totalProducts: r.totalProducts || 0,
-        stock: r.stock || 0,
-        qty: r.qty || 0,
+        key: r.id,
+        id: r.id,
+
+        warehouse: r.warehouse_name ?? "",
+        contact: r.contact_person ?? "",
+        phone: r.phone_number ?? "",
+        email: r.email ?? "",
+
+        totalProducts: r.total_products ?? 0,
+        stock: r.stock ?? 0,
+        qty: r.qty ?? 0,
+
         created: r.createdAt
           ? new Date(r.createdAt).toLocaleDateString()
-          : r.created || "",
-        status: r.status || "Active",
-        address: r.address || "",
-        city: r.city || "",
-        state: r.state || "",
-        country: r.country || "",
-        postalCode: r.postalCode || r.postal_code || "",
-        products: r.products || [],
+          : "",
+
+        status: r.status ?? "Active",
+
+        address: r.address ?? "",
+        city: r.city ?? "",
+        state: r.state ?? "",
+        country: r.country ?? "",
+        postalCode: r.postal_code ?? "",
+
+        products: r.products ?? [],
       }));
 
       setWarehouses(mapped);
     } catch (err) {
-      console.error("Failed to fetch warehouses from API:", err);
+      console.error("Failed to fetch warehouses:", err);
+      message.error("Failed to load warehouses!");
     }
   };
 
@@ -160,15 +165,12 @@ const Warehouses = () => {
     });
   }, [searchText, statusFilter, warehouses]);
 
-  // Phone input sanitizer — allows only digits and max length 10
   const handlePhoneChange = (e) => {
     const raw = e.target.value || "";
     const digitsOnly = raw.replace(/\D/g, "").slice(0, 10);
-    // update form field value (keeps form controlled value clean)
     form.setFieldsValue({ phone: digitsOnly });
   };
 
-  // EXPORT TO CSV
   const handleExportCSV = () => {
     if (!filteredData.length) return message.info("No data to export");
     const headers = [
@@ -213,7 +215,6 @@ const Warehouses = () => {
     message.success("Excel exported successfully");
   };
 
-  // EXPORT TO PDF
   const handleExportPDF = () => {
     if (!filteredData.length) return message.info("No data to export");
     const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "A4" });
@@ -223,7 +224,9 @@ const Warehouses = () => {
 
     autoTable(doc, {
       startY: 60,
-      head: [["Warehouse", "Contact", "Phone", "Email", "Stock", "Qty", "Created On", "Status"]],
+      head: [
+        ["Warehouse", "Contact", "Phone", "Email", "Stock", "Qty", "Created On", "Status"],
+      ],
       body: filteredData.map((b) => [
         b.warehouse,
         b.contact,
@@ -254,6 +257,7 @@ const Warehouses = () => {
   const showEditModal = (record) => {
     setIsEditMode(true);
     setSelectedWarehouse(record);
+
     form.setFieldsValue({
       warehouse: record.warehouse,
       contactPerson: record.contact,
@@ -266,48 +270,53 @@ const Warehouses = () => {
       postalCode: record.postalCode,
       status: record.status === "Active",
     });
+
     setIsModalVisible(true);
   };
 
   const showViewModal = async (record) => {
     try {
       setIsViewModalVisible(true);
-      setViewWarehouse(null); // Show loading state
+      setViewWarehouse(null);
 
-      // Fetch warehouse by ID from API
-      const res = await warehouseService.getWarehouseById(record.key);
+      const res = await warehouseService.getWarehouseById(record.id ?? record.key);
       const data = res?.data?.data;
 
       if (data) {
         const warehouseDetails = {
-          key: data.id || record.key,
-          warehouse: data.warehouse_name || record.warehouse,
-          contact: data.Contact_person || record.contact,
-          phone: data.phone_number || record.phone,
-          email: data.email || record.email,
-          address: data.address || record.address,
-          city: data.city || record.city,
-          state: data.state || record.state,
-          country: data.country || record.country,
-          postalCode: data.postalCode || data.postal_code || record.postalCode,
-          status: data.status || record.status,
-          totalProducts: data.totalProducts || record.totalProducts,
-          stock: data.stock || record.stock,
-          qty: data.qty || record.qty,
+          key: data.id,
+          id: data.id,
+
+          warehouse: data.warehouse_name ?? record.warehouse,
+          contact: data.contact_person ?? record.contact,
+          phone: data.phone_number ?? record.phone,
+          email: data.email ?? record.email,
+
+          address: data.address ?? record.address,
+          city: data.city ?? record.city,
+          state: data.state ?? record.state,
+          country: data.country ?? record.country,
+          postalCode: data.postal_code ?? record.postalCode,
+
+          status: data.status ?? record.status,
+          totalProducts: data.total_products ?? record.totalProducts,
+          stock: data.stock ?? record.stock,
+          qty: data.qty ?? record.qty,
+
           created: data.createdAt
             ? new Date(data.createdAt).toLocaleDateString()
             : record.created,
-          products: data.products || record.products || [],
+
+          products: data.products ?? record.products ?? [],
         };
+
         setViewWarehouse(warehouseDetails);
       } else {
-        // Fallback to local data if API doesn't return data
         setViewWarehouse(record);
       }
     } catch (err) {
       console.error("Failed to fetch warehouse by ID:", err);
       message.error("Failed to load warehouse details");
-      // Fallback to local data on error
       setViewWarehouse(record);
     }
   };
@@ -323,83 +332,44 @@ const Warehouses = () => {
     setIsEditMode(false);
   };
 
-
+  // 🚀 FIXED SUBMIT (CREATE + UPDATE)
   const handleSubmit = async (values) => {
     const payload = {
       warehouse_name: values.warehouse,
-      Contact_person: values.contactPerson,
+      contact_person: values.contactPerson,
       email: values.email,
       phone_number: values.phone,
-      phone_work: values.phone, // since the form doesn't have separate work phone
       address: values.address,
       city: values.city,
       state: values.state,
       country: values.country,
+      postal_code: values.postalCode,
+      status: values.status ? "Active" : "Inactive",
     };
 
     try {
+      // CREATE
       if (!isEditMode) {
-        // CREATE API CALL
         const res = await warehouseService.createWarehouse(payload);
-
         message.success("Warehouse created successfully!");
 
-        // Add new item to table without refreshing the page (optimistic)
-        const newItem = {
-          key: res.data?.data?.id ?? String(Math.random()),
-          warehouse: res.data?.data?.warehouse_name ?? payload.warehouse_name,
-          contact: res.data?.data?.Contact_person ?? payload.Contact_person,
-          phone: res.data?.data?.phone_number ?? payload.phone_number,
-          email: res.data?.data?.email ?? payload.email,
-          address: res.data?.data?.address ?? payload.address,
-          city: res.data?.data?.city ?? payload.city,
-          state: res.data?.data?.state ?? payload.state,
-          country: res.data?.data?.country ?? payload.country,
-          created: res.data?.data?.createdAt ? new Date(res.data.data.createdAt).toLocaleDateString() : new Date().toLocaleDateString(),
-          status: "Active",
-          products: [],
-        };
+        await fetchWarehouses(); // refresh
 
-        setWarehouses((prev) => [newItem, ...prev]);
-
-        // THEN fetch fresh data from backend to keep everything consistent
-        await fetchWarehouses();
-      } else {
-        // UPDATE API CALL
-        const res = await warehouseService.updateWarehouse(selectedWarehouse.key, payload);
-
-        message.success("Warehouse updated successfully!");
-
-        // Update the local state optimistically
-        const updatedWarehouse = {
-          key: selectedWarehouse.key,
-          warehouse: res.data?.data?.warehouse_name ?? payload.warehouse_name,
-          contact: res.data?.data?.Contact_person ?? payload.Contact_person,
-          phone: res.data?.data?.phone_number ?? payload.phone_number,
-          email: res.data?.data?.email ?? payload.email,
-          address: res.data?.data?.address ?? payload.address,
-          city: res.data?.data?.city ?? payload.city,
-          state: res.data?.data?.state ?? payload.state,
-          country: res.data?.data?.country ?? payload.country,
-          postalCode: selectedWarehouse?.postalCode,
-          totalProducts: selectedWarehouse?.totalProducts || 0,
-          stock: selectedWarehouse?.stock || 0,
-          qty: selectedWarehouse?.qty || 0,
-          created: selectedWarehouse?.created,
-          status: values.status ? "Active" : "Inactive",
-          products: selectedWarehouse?.products || [],
-        };
-
-        setWarehouses((prev) =>
-          prev.map((w) => (w.key === selectedWarehouse.key ? updatedWarehouse : w))
-        );
-
-        // THEN fetch fresh data from backend to keep everything consistent
-        await fetchWarehouses();
+        form.resetFields();
+        setIsModalVisible(false);
+        return;
       }
+
+      // UPDATE
+      const id = selectedWarehouse.id ?? selectedWarehouse.key;
+
+      await warehouseService.updateWarehouse(id, payload);
+
+      message.success("Warehouse updated successfully!");
+      await fetchWarehouses(); // refresh
     } catch (err) {
-      console.error("Create Warehouse Error:", err);
-      message.error("Failed to create warehouse");
+      console.error("Create/Update Warehouse Error:", err);
+      message.error("Failed to save warehouse");
     } finally {
       form.resetFields();
       setIsModalVisible(false);
@@ -407,7 +377,7 @@ const Warehouses = () => {
     }
   };
 
-  // 🆕 Delete Modal Logic
+  // DELETE MODAL
   const openDeleteModal = (record) => {
     setDeleteWarehouse(record);
     setIsDeleteModalVisible(true);
@@ -415,16 +385,13 @@ const Warehouses = () => {
 
   const handleConfirmDelete = async () => {
     try {
-      // DELETE API CALL
-      await warehouseService.deleteWarehouse(deleteWarehouse.key);
+      const id = deleteWarehouse.id ?? deleteWarehouse.key;
+
+      await warehouseService.deleteWarehouse(id);
 
       message.success(`Warehouse "${deleteWarehouse?.warehouse}" deleted successfully!`);
 
-      // Remove from local state
-      setWarehouses((prev) => prev.filter((w) => w.key !== deleteWarehouse.key));
-
-      // Fetch fresh data from backend to keep everything consistent
-      await fetchWarehouses();
+      await fetchWarehouses(); // refresh
     } catch (err) {
       console.error("Delete Warehouse Error:", err);
       message.error("Failed to delete warehouse");
@@ -478,7 +445,7 @@ const Warehouses = () => {
             type="text"
             icon={<DeleteOutlined style={{ color: "black" }} />}
             title="Delete"
-            onClick={() => openDeleteModal(record)} // ✅ Updated
+            onClick={() => openDeleteModal(record)}
           />
         </Space>
       ),
@@ -500,7 +467,6 @@ const Warehouses = () => {
       <Menu.Item key="100">100</Menu.Item>
     </Menu>
   );
-
   return (
     <div className="p-6 bg-white rounded-lg shadow-sm">
       {/* Header */}
@@ -569,6 +535,7 @@ const Warehouses = () => {
             allowClear
             autoComplete="off"
           />
+
           <Dropdown overlay={menu}>
             <Button size="small">
               Status <DownOutlined style={{ fontSize: 10, marginLeft: 6 }} />
@@ -593,13 +560,16 @@ const Warehouses = () => {
       <div className="flex justify-between items-center mt-4">
         <div className="flex items-center gap-2 text-gray-600 text-sm">
           <span>Row Per Page</span>
+
           <Dropdown overlay={pageSizeMenu} placement="top">
             <Button className="border border-gray-300 rounded-md px-2 py-1">
               {pageSize} <DownOutlined style={{ marginLeft: 6 }} />
             </Button>
           </Dropdown>
+
           <span>Entries</span>
         </div>
+
         <Pagination
           current={currentPage}
           total={filteredData.length}
@@ -627,7 +597,6 @@ const Warehouses = () => {
             <Input autoComplete="off" />
           </Form.Item>
 
-          {/* REPLACED: contactPerson Select -> Input (no suggestions / no dropdown) */}
           <Form.Item
             name="contactPerson"
             label="Contact Person"
@@ -644,7 +613,6 @@ const Warehouses = () => {
             <Input autoComplete="off" />
           </Form.Item>
 
-          {/* PHONE: only digits allowed, max 10 */}
           <Form.Item
             name="phone"
             label="Phone"
@@ -667,7 +635,6 @@ const Warehouses = () => {
           </Form.Item>
 
           <div className="flex gap-3">
-            {/* REPLACED: city Select -> Input */}
             <Form.Item
               name="city"
               label="City"
@@ -676,7 +643,7 @@ const Warehouses = () => {
             >
               <Input autoComplete="off" />
             </Form.Item>
-            {/* REPLACED: state Select -> Input */}
+
             <Form.Item
               name="state"
               label="State"
@@ -688,7 +655,6 @@ const Warehouses = () => {
           </div>
 
           <div className="flex gap-3">
-            {/* REPLACED: country Select -> Input */}
             <Form.Item
               name="country"
               label="Country"
@@ -697,6 +663,7 @@ const Warehouses = () => {
             >
               <Input autoComplete="off" />
             </Form.Item>
+
             <Form.Item
               name="postalCode"
               label="Postal Code"
@@ -738,45 +705,52 @@ const Warehouses = () => {
             <h3 className="text-lg font-semibold mb-3">
               {viewWarehouse.warehouse}
             </h3>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
               <div>
                 <p className="text-xs text-gray-400">Contact Person</p>
                 <p className="text-sm">{viewWarehouse.contact}</p>
               </div>
+
               <div>
                 <p className="text-xs text-gray-400">Email</p>
                 <p className="text-sm">{viewWarehouse.email}</p>
               </div>
+
               <div>
                 <p className="text-xs text-gray-400">Phone</p>
                 <p className="text-sm">{viewWarehouse.phone}</p>
               </div>
+
               <div>
                 <p className="text-xs text-gray-400">Address</p>
                 <p className="text-sm">{viewWarehouse.address}</p>
               </div>
+
               <div>
                 <p className="text-xs text-gray-400">City</p>
                 <p className="text-sm">{viewWarehouse.city}</p>
               </div>
+
               <div>
                 <p className="text-xs text-gray-400">State</p>
                 <p className="text-sm">{viewWarehouse.state}</p>
               </div>
+
               <div>
                 <p className="text-xs text-gray-400">Country</p>
                 <p className="text-sm">{viewWarehouse.country}</p>
               </div>
+
               <div>
                 <p className="text-xs text-gray-400">Postal Code</p>
                 <p className="text-sm">{viewWarehouse.postalCode}</p>
               </div>
+
               <div>
                 <p className="text-xs text-gray-400">Status</p>
                 <Tag
-                  color={
-                    viewWarehouse.status === "Active" ? "green" : "red"
-                  }
+                  color={viewWarehouse.status === "Active" ? "green" : "red"}
                 >
                   {viewWarehouse.status}
                 </Tag>
@@ -786,6 +760,7 @@ const Warehouses = () => {
             <h4 className="font-semibold text-gray-700 mt-4 mb-2">
               Product Details
             </h4>
+
             <Table
               dataSource={viewWarehouse.products}
               columns={[
