@@ -1,6 +1,6 @@
 
 import { useState, useMemo, useEffect } from "react";
-import { Table, Input, Select, Button, Modal, Form, Switch, message, Checkbox } from "antd";
+import { Tale, Input, Select, Button, Modal, Form, Switch, message, Checkbox } from "antd";
 import {
   SearchOutlined,
   PlusOutlined,
@@ -15,6 +15,7 @@ import jsPDF from "jspdf";
 import variantAttributesService from "./variantattributesService.js";
 
 import autoTable from "jspdf-autotable";
+
 
 const { Option } = Select;
 

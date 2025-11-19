@@ -753,3 +753,4 @@ const Warranties = () => {
 };
 
 export default Warranties;
+

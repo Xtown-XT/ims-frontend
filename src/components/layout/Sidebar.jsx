@@ -196,11 +196,25 @@ const SubSidebar = ({ parentItem, collapsed }) => {
 };
 
 // MAIN SIDEBAR
-const Sidebar = ({ collapsed, menuItems = [], selectedParent, setSelectedParent }) => {
+const Sidebar = ({
+  collapsed,
+  menuItems = [],
+  selectedParent,
+  setSelectedParent,
+  role = "employee", // default role; pass current user role
+}) => {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const { theme, primaryColor, sidebarBgColor } = useTheme();
   const [hoveredKey, setHoveredKey] = useState(null);
+
+  // Filter menu items based on role
+  const filteredMenuItems = menuItems.filter((item) => {
+    if (item.key === "usermanagement") {
+      return role === "user"; // only show User Management for users
+    }
+    return true; // show everything else
+  });
 
   const containerStyles = {
     height: "100%",
@@ -239,7 +253,7 @@ const Sidebar = ({ collapsed, menuItems = [], selectedParent, setSelectedParent 
     <div style={{ position: "relative", height: "100%" }}>
       <div style={containerStyles}>
         <div style={{ padding: "0.5rem", height: "calc(100% - 100px)", fontWeight: "500" }}>
-          {menuItems.map((item) => (
+          {filteredMenuItems.map((item) => (
             <div
               key={item.key}
               style={getMenuItemStyles(item.key)}
