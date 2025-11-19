@@ -78,6 +78,8 @@ import ProductSubCategory from "./pages/inventory/productsubcategory";
 import Brands from "./pages/inventory/brands";
 import Units from "./pages/inventory/units";
 import Tax from "./pages/inventory/tax";
+
+
 import VariantAttributes from "./pages/inventory/variantattributes";
 import Warranty from "./pages/inventory/warranty";
 import PrintBarcode from "./pages/inventory/printbarcode";
@@ -116,7 +118,7 @@ import PurchaseOrder from "./pages/purchases/PurchaseOrder";
 import PurchaseReturn from "./pages/purchases/PurchaseReturn";
 
 // Stock Pages
-import ManageStock from "./pages/stock/ManageStock";
+import ManageStock from "./pages/Stock/manageStock";
 import StockAdjustment from "./pages/stock/StockAdjustment";
 import StockTransfer from "./pages/stock/StockTransfer";
 
@@ -224,6 +226,7 @@ export const imsMenuItems = [
         label: "Units",
         icon: <DeploymentUnitOutlined />,
       },
+
       {
         key: "/ims/inventory/tax",
         label: "Tax",
@@ -535,7 +538,9 @@ const IMSRoutes = () => {
       <Route path="inventory/ProductSubCategory" element={<ProductSubCategory />} />
       <Route path="inventory/brands" element={<Brands />} />
       <Route path="inventory/units" element={<Units />} />
-      <Route path="inventory/tax" element={<Tax />} />
+
+       <Route path="inventory/tax" element={<Tax />} />
+
       <Route path="inventory/variantattributes" element={<VariantAttributes />} />
       <Route path="inventory/warranty" element={<Warranty />} />
       <Route path="inventory/print-barcode" element={<PrintBarcode />} />

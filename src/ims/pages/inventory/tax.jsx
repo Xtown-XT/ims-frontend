@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from "react";
 import { Table, Input, Select, Button, Modal, Form, Switch, message } from "antd";
 import {
@@ -19,7 +20,7 @@ const Tax = () => {
   const [form] = Form.useForm();
   const [showForm, setShowForm] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
-  const [searchText, setSearchText] = useState("");
+
   const [filterStatus, setFilterStatus] = useState(null);
   const [checked, setChecked] = useState(true);
   const [editRecord, setEditRecord] = useState(null);
@@ -32,10 +33,9 @@ const Tax = () => {
 
   const [taxes, setTaxes] = useState([]);
 
-  const [page, setPage] = useState(1)
 
+  const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
-
   const [limit] = useState(10);
   const [total, setTotal] = useState(0);
 
@@ -57,21 +57,12 @@ const Tax = () => {
       }
     };
     fetchData();
-  }, [page, limit, search]);
 
-  // Client-side filtering for search and status
+  }, [page, search]);
+
+  // Client-side filtering for status only (search is handled server-side)
   const filteredData = useMemo(() => {
     let filtered = [...taxes];
-    
-    // Search filter
-    if (searchText.trim()) {
-      const lowerSearch = searchText.toLowerCase();
-      filtered = filtered.filter(
-        (item) =>
-          item.tax_name?.toLowerCase().includes(lowerSearch) ||
-          item.tax_type?.toLowerCase().includes(lowerSearch)
-      );
-    }
     
     // Status filter
     if (filterStatus) {
@@ -80,13 +71,15 @@ const Tax = () => {
     }
     
     return filtered;
-  }, [searchText, filterStatus, taxes]);
+
+  }, [filterStatus, taxes]);
 
   // Refetch taxes
   const refetchTaxes = async () => {
     try {
       setLoading(true);
-      const res = await taxService.getTaxes();
+
+      const res = await taxService.getTaxes(page, limit, search);
       const fetchedTaxes = res.data.rows || [];
       setTaxes(fetchedTaxes);
       setTotal(res.data.count || fetchedTaxes.length);
@@ -103,6 +96,7 @@ const Tax = () => {
   };
 
   const openAddModal = () => {
+    console.log("Opening Add Modal");
     setIsEditMode(false);
     setEditRecord(null);
     setChecked(true);
@@ -115,6 +109,8 @@ const Tax = () => {
       is_active: true,
     });
     setShowForm(true);
+
+    console.log("showForm set to true");
   };
 
   const handleAddTax = async () => {
@@ -139,6 +135,7 @@ const Tax = () => {
   };
 
   const handleEdit = (record) => {
+    console.log("Opening Edit Modal for:", record);
     setIsEditMode(true);
     setEditRecord(record);
     form.setFieldsValue({
@@ -150,6 +147,7 @@ const Tax = () => {
     });
     setChecked(record.is_active);
     setShowForm(true);
+    console.log("showForm set to true for edit");
   };
 
   const handleSaveChanges = async () => {
@@ -169,12 +167,19 @@ const Tax = () => {
         is_active: checked,
       };
 
-      await taxService.updateTax(editRecord.id, updateTax);
+
+      console.log("Updating tax with ID:", editRecord.id);
+      console.log("Update payload:", updateTax);
+      const response = await taxService.updateTax(editRecord.id, updateTax);
+      console.log("Update response:", response);
       message.success("Tax updated successfully");
       handleCloseModal();
       await refetchTaxes();
     } catch (err) {
       console.error("Failed to update tax:", err);
+
+      console.error("Error response:", err.response);
+      console.error("Error config:", err.config);
       message.error(err.response?.data?.message || "Failed to update tax");
     }
   };
@@ -186,7 +191,10 @@ const Tax = () => {
 
   const confirmDelete = async () => {
     try {
-      await taxService.deleteTax(deleteRecord.id);
+
+      console.log("Deleting tax with ID:", deleteRecord.id);
+      const response = await taxService.deleteTax(deleteRecord.id);
+      console.log("Delete response:", response);
       message.success("Tax deleted successfully");
       setShowDeleteModal(false);
       setDeleteRecord(null);
@@ -194,6 +202,10 @@ const Tax = () => {
       await refetchTaxes();
     } catch (err) {
       console.error("Failed to delete tax:", err);
+
+      console.error("Error response:", err.response);
+      console.error("Error config:", err.config);
+      console.error("Request URL:", err.config?.url);
       message.error(err.response?.data?.message || "Failed to delete tax");
       setShowDeleteModal(false);
       setDeleteRecord(null);
@@ -213,9 +225,11 @@ const Tax = () => {
   };
 
   const handleRefresh = () => {
-    setSearchText("");
+
+    setSearch("");
     setFilterStatus(null);
     setSelectedRowKeys([]);
+    setPage(1);
     message.success("Refreshed");
   };
 
@@ -431,8 +445,12 @@ const Tax = () => {
               placeholder="Search by tax name or type"
               prefix={<SearchOutlined />}
               style={{ width: 250 }}
-              value={searchText}
-              onChange={(e) => setSearchText(e.target.value)}
+
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage(1);
+              }}
               allowClear
             />
             <div className="flex gap-3">
@@ -468,7 +486,11 @@ const Tax = () => {
           loading={loading}
           rowKey="id"
           pagination={{
+
+            current: page,
             pageSize: limit,
+            total: total,
+            onChange: (newPage) => setPage(newPage),
             showSizeChanger: false,
             showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} items`,
           }}
@@ -479,6 +501,28 @@ const Tax = () => {
             borderRadius: 12,
             overflow: "hidden",
             background: "#fff",
+          }}
+
+          components={{
+            header: {
+              cell: (props) => (
+                <th
+                  {...props}
+                  className="bg-gray-100 text-gray-600 font-bold text-sm px-6 py-3"
+                />
+              ),
+            },
+            body: {
+              cell: (props) => (
+                <td {...props} className="px-6 py-3" />
+              ),
+              row: (props) => (
+                <tr
+                  {...props}
+                  className="border-t border-gray-100 hover:bg-gray-50 transition"
+                />
+              ),
+            },
           }}
         />
       </div>
