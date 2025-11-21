@@ -1,4 +1,5 @@
 <<<<<<< HEAD
+<<<<<<< HEAD
 // import React from 'react'
 =======
 >>>>>>> 9bfe49312e904b8bd8d6562b9f7e1babd4b282ee
@@ -8,6 +9,10 @@
 //     <div>warrantyService</div>
 //   )
 // }
+=======
+
+import api from "../../services/api.js"; 
+>>>>>>> poonjothi
 
 <<<<<<< HEAD
 // export default warrantyService
@@ -19,5 +24,9 @@ const warrantyService = {
   deleteWarranty: (id) => api.delete(`/warranty/deleteWarranty/${id}`), 
 };
 
+<<<<<<< HEAD
 export default warrantyService;
 >>>>>>> 9bfe49312e904b8bd8d6562b9f7e1babd4b282ee
+=======
+export default warrantyService;
+>>>>>>> poonjothi

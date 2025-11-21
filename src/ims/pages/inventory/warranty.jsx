@@ -1,4 +1,5 @@
 <<<<<<< HEAD
+<<<<<<< HEAD
 // import React from 'react'
 
 // function warranty() {
@@ -9,6 +10,8 @@
 
 // export default warranty
 =======
+=======
+>>>>>>> poonjothi
 
 import { useState, useMemo, useEffect } from "react";
 import { Table, Input, Select, Button, Modal, Form, Switch, message } from "antd";
@@ -763,6 +766,10 @@ const Warranties = () => {
   );
 };
 
+<<<<<<< HEAD
 export default Warranties;
 
 >>>>>>> 9bfe49312e904b8bd8d6562b9f7e1babd4b282ee
+=======
+export default Warranties;
+>>>>>>> poonjothi

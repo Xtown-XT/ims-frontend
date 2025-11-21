@@ -4,16 +4,65 @@ import {
   MenuFoldOutlined,
   MenuUnfoldOutlined,
   UserOutlined,
+  EditOutlined,
 } from "@ant-design/icons";
-import { Dropdown, message } from "antd";
+import { Dropdown, message, Modal, Input, Button } from "antd";
 import { useTheme } from "../../context/ThemeContext";
 import { useNavigate } from "react-router-dom";
+import { useState } from "react";
+import { userService } from "../../ims/services/Userservice"; // ✅ Import service
 
 const HeaderBar = ({ collapsed, toggleCollapsed }) => {
   const { theme, headerBgColor, headerGradient } = useTheme();
   const navigate = useNavigate();
 
+  // Example logged user (replace with your auth user)
+  const loggedUser = {
+    name: "John Doe",
+    identifier: "john@example.com",
+  };
+
+  // Change Password Modal State
+  const [passwordModalVisible, setPasswordModalVisible] = useState(false);
+  const [oldPassword, setOldPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  // ---------------- CHANGE PASSWORD FUNCTION ----------------
+  const handleChangePassword = async () => {
+    if (!oldPassword || !newPassword) {
+      return message.error("Please fill all fields");
+    }
+
+    const reqBody = {
+      oldPassword: oldPassword,
+      newPassword: newPassword,
+    };
+
+    try {
+      setLoading(true);
+
+      const response = await userService.changePassword(reqBody); // ✅ Final API call
+
+      message.success(response.data?.message || "Password changed successfully!");
+
+      // Reset fields
+      setOldPassword("");
+      setNewPassword("");
+      setPasswordModalVisible(false);
+
+    } catch (error) {
+      message.error(error.response?.data?.message || "Failed to change password");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleMenuClick = ({ key }) => {
+    if (key === "edit") {
+      setPasswordModalVisible(true);
+    }
+
     if (key === "logout") {
       message.success("Logged out");
       navigate("/");
@@ -23,8 +72,26 @@ const HeaderBar = ({ collapsed, toggleCollapsed }) => {
   const userMenuItems = [
     {
       key: "profile",
-      icon: <UserOutlined />,
-      label: "Profile",
+      label: (
+        <div className="px-2 py-2">
+          <p className="font-semibold text-sm">{loggedUser.name}</p>
+          <p className="text-gray-500 text-xs">{loggedUser.identifier}</p>
+
+          <Button
+            type="primary"
+            size="small"
+            icon={<EditOutlined />}
+            className="mt-2 w-full"
+            onClick={() => setPasswordModalVisible(true)}
+          >
+            Edit / Change Password
+          </Button>
+        </div>
+      ),
+      disabled: true,
+    },
+    {
+      type: "divider",
     },
     {
       key: "logout",
@@ -34,17 +101,9 @@ const HeaderBar = ({ collapsed, toggleCollapsed }) => {
     },
   ];
 
-  const isGradient = headerGradient && headerGradient.includes("gradient");
+  const isGradient = headerGradient?.includes("gradient");
   const textColor =
     theme === "dark" || isGradient ? "text-white" : "text-black";
-  const hoverColor =
-    theme === "dark" || isGradient
-      ? "hover:text-gray-300"
-      : "hover:text-gray-600";
-
-  const iconBgColor = theme === "dark" ? "bg-gray-700" : "bg-gray-200";
-  const iconHoverColor =
-    theme === "dark" ? "hover:bg-gray-600" : "hover:bg-gray-300";
 
   const headerStyle = isGradient
     ? { background: headerGradient }
@@ -60,28 +119,57 @@ const HeaderBar = ({ collapsed, toggleCollapsed }) => {
         zIndex: 99,
       }}
     >
-      <div className="flex items-center">
-        <button
-          onClick={toggleCollapsed}
-          className={`text-lg ${textColor} transition-transform duration-200 p-2 
-    ${hoverColor} transform
-    ${collapsed ? "hover:translate-x-1" : "hover:-translate-x-1"}`}
-        >
-          {collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
-        </button>
-      </div>
+      {/* SIDEBAR TOGGLE */}
+      <button
+        onClick={toggleCollapsed}
+        className={`text-lg ${textColor} transition-transform duration-200 p-2`}
+      >
+        {collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+      </button>
 
-      <div className="flex items-center">
-        <Dropdown
-          menu={{ items: userMenuItems, onClick: handleMenuClick }}
-          placement="bottomRight"
-          trigger={["click"]}
-        >
-          <UserOutlined
-            className={`cursor-pointer text-ms ${iconBgColor} p-2 rounded-3xl ${iconHoverColor} transition-colors`}
+      {/* PROFILE DROPDOWN */}
+      <Dropdown
+        menu={{ items: userMenuItems, onClick: handleMenuClick }}
+        placement="bottomRight"
+        trigger={["click"]}
+      >
+        <div className="cursor-pointer w-10 h-10 bg-white shadow-md rounded-full flex items-center justify-center hover:shadow-lg transition-all">
+          <UserOutlined className="text-lg" />
+        </div>
+      </Dropdown>
+
+      {/* CHANGE PASSWORD MODAL */}
+      <Modal
+        title="Change Password"
+        open={passwordModalVisible}
+        onCancel={() => setPasswordModalVisible(false)}
+        footer={null}
+        centered
+      >
+        <div className="space-y-3">
+          <Input.Password
+            placeholder="Old Password"
+            value={oldPassword}
+            onChange={(e) => setOldPassword(e.target.value)}
           />
-        </Dropdown>
-      </div>
+
+          <Input.Password
+            placeholder="New Password"
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+          />
+
+          <Button
+            type="primary"
+            block
+            loading={loading}
+            onClick={handleChangePassword}
+            style={{ marginTop: "1rem" }}
+          >
+            Update Password
+          </Button>
+        </div>
+      </Modal>
     </div>
   );
 };
