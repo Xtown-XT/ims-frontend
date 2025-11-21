@@ -22,12 +22,14 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
   const [loginError, setLoginError] = useState("");
 
+  // Forgot Password States
   const [forgotModalVisible, setForgotModalVisible] = useState(false);
   const [forgotEmailOrMobile, setForgotEmailOrMobile] = useState("");
   const [otp, setOtp] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [step, setStep] = useState(1);
 
+  // ---------------- LOGIN FUNCTION ----------------
   const handleSubmit = async (roleType) => {
     setLoginError("");
 
@@ -38,53 +40,30 @@ const Login = () => {
     }
 
     let payload;
-
-    // Build payload according to backend expectation
-    if (roleType === "user") {
-      payload = {
-        identifier, // email or mobile
-        password,
-        role: roleType,
-      };
-    } else {
-      payload = {
-        username: identifier, // backend expects "username"
-        password,
-      };
-    }
+    if (roleType === "user") payload = { identifier, password, role: roleType };
+    else payload = { username: identifier, password };
 
     try {
       setLoading(true);
       let response;
 
-      if (roleType === "user") {
-        response = await userService.login(payload);
-      } else {
-        response = await employeeService.login(payload);
-      }
+      if (roleType === "user") response = await userService.login(payload);
+      else response = await employeeService.login(payload);
 
-      // Backend success check
-      const success = response.data?.message?.toLowerCase().includes("login") || response.data?.status === true;
+      const success =
+        response.data?.message?.toLowerCase().includes("login") ||
+        response.data?.status === true;
 
       if (success) {
         antdMessage.success(`${roleType} Login Successful`);
 
-        // Store token & user for employee
         if (roleType === "employee") {
-          setAuthData({
-            token: response.data.token,
-            user: response.data.user,
-          });
+          setAuthData({ token: response.data.token, user: response.data.user });
         } else {
           setAuthData(response.data);
         }
 
-        // Navigate
-        if (roleType === "user") {
-          navigate("/user/dashboard");
-        } else {
-          navigate("/employee/dashboard");
-        }
+        navigate(roleType === "user" ? "/user/dashboard" : "/employee/dashboard");
       } else {
         setLoginError(response.data?.message || "Invalid credentials!");
       }
@@ -92,6 +71,65 @@ const Login = () => {
       setLoginError(error.response?.data?.message || error.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // ---------------- FORGOT PASSWORD FLOW (EMAIL ONLY) ----------------
+
+  // Step 1: Send OTP
+  const handleSendOTP = async () => {
+    if (!forgotEmailOrMobile) {
+      return antdMessage.error("Please enter registered Email");
+    }
+
+    try {
+      await userService.forgetPassword({
+        identifier: forgotEmailOrMobile,
+      });
+
+      antdMessage.success("OTP sent to your registered email");
+      setStep(2);
+    } catch (err) {
+      antdMessage.error(err.response?.data?.message || "Failed to send OTP");
+    }
+  };
+
+  // Step 2: Verify OTP
+  const handleVerifyOTP = async () => {
+    if (!otp) return antdMessage.error("Enter OTP");
+
+    try {
+      await userService.verifyOTP({
+        identifier: forgotEmailOrMobile,
+        otp: otp,
+      });
+
+      antdMessage.success("OTP Verified Successfully!");
+      setStep(3);
+    } catch (err) {
+      antdMessage.error(err.response?.data?.message || "OTP Verification failed");
+    }
+  };
+
+  // Step 3: Reset Password
+  const handleResetPassword = async () => {
+    if (!newPassword) return antdMessage.error("Enter new password");
+
+    try {
+      await userService.resetPassword({
+        identifier: forgotEmailOrMobile,
+        newPassword: newPassword,
+      });
+
+      antdMessage.success("Password Changed Successfully!");
+
+      setForgotModalVisible(false);
+      setStep(1);
+      setOtp("");
+      setNewPassword("");
+      setForgotEmailOrMobile("");
+    } catch (err) {
+      antdMessage.error(err.response?.data?.message || "Password reset failed");
     }
   };
 
@@ -105,6 +143,8 @@ const Login = () => {
 
   return (
     <div className="login-container">
+
+      {/* LEFT SIDE */}
       <div className="login-left">
         <div className="welcome-container">
           <h3 className="welcome-heading">
@@ -118,6 +158,7 @@ const Login = () => {
         </div>
       </div>
 
+      {/* RIGHT SIDE */}
       <div className="login-right">
         <img src={logo} alt="Company Logo" className="logo" />
 
@@ -140,7 +181,6 @@ const Login = () => {
                     value={mobile}
                     onChange={(e) => setMobile(e.target.value)}
                     maxLength={10}
-                    className={mobile ? "filled" : ""}
                   />
                   <label>Mobile Number</label>
                   <FaEnvelope className="input-icon toggle-icon" onClick={toggleLoginMode} />
@@ -151,7 +191,6 @@ const Login = () => {
                     type="text"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className={email ? "filled" : ""}
                   />
                   <label>Email</label>
                   <FaPhone className="input-icon toggle-icon" onClick={toggleLoginMode} />
@@ -167,7 +206,6 @@ const Login = () => {
                 type={showPassword ? "text" : "password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className={password ? "filled" : ""}
               />
               <label>Password</label>
               {showPassword ? (
@@ -180,21 +218,11 @@ const Login = () => {
 
           {/* Buttons */}
           <div style={{ display: "flex", justifyContent: "center", gap: "20px" }}>
-            <button
-              type="button"
-              className="log-button"
-              disabled={loading}
-              onClick={() => handleSubmit("user")}
-            >
+            <button type="button" className="log-button" disabled={loading} onClick={() => handleSubmit("user")}>
               {loading ? <Loading /> : "User Login"}
             </button>
 
-            <button
-              type="button"
-              className="log-button"
-              disabled={loading}
-              onClick={() => handleSubmit("employee")}
-            >
+            <button type="button" className="log-button" disabled={loading} onClick={() => handleSubmit("employee")}>
               {loading ? <Loading /> : "Employee Login"}
             </button>
           </div>
@@ -208,7 +236,6 @@ const Login = () => {
               Forgot Password?
             </span>
             <br />
-
             <span>Don't have an account?</span>
             <span
               style={{
@@ -225,34 +252,54 @@ const Login = () => {
         </form>
       </div>
 
-      {/* Forgot Modal */}
+      {/* ---------------- FORGOT PASSWORD MODAL ---------------- */}
       <Modal open={forgotModalVisible} footer={null} centered closable={false} title="Forgot Password">
+
+        {/* STEP 1: ENTER EMAIL */}
         {step === 1 && (
-          <Input
-            placeholder="Enter Email or Mobile"
-            value={forgotEmailOrMobile}
-            onChange={(e) => setForgotEmailOrMobile(e.target.value)}
-          />
-        )}
-        {step === 2 && (
-          <Input placeholder="Enter OTP" value={otp} onChange={(e) => setOtp(e.target.value)} />
-        )}
-        {step === 3 && (
-          <Input.Password
-            placeholder="Enter New Password"
-            value={newPassword}
-            onChange={(e) => setNewPassword(e.target.value)}
-          />
+          <div>
+            <Input
+              placeholder="Enter Registered Email"
+              value={forgotEmailOrMobile}
+              onChange={(e) => setForgotEmailOrMobile(e.target.value)}
+            />
+            <Button type="primary" block style={{ marginTop: "1rem" }} onClick={handleSendOTP}>
+              Send OTP
+            </Button>
+          </div>
         )}
 
-        <div style={{ marginTop: "1rem", textAlign: "center" }}>
-          <Button type="primary" onClick={() => setStep(step + 1)}>
-            {step === 3 ? "Reset Password" : "Next"}
-          </Button>
-          <Button style={{ marginLeft: "10px" }} onClick={() => setForgotModalVisible(false)}>
-            Cancel
-          </Button>
-        </div>
+        {/* STEP 2: OTP */}
+        {step === 2 && (
+          <div>
+            <Input
+              placeholder="Enter OTP"
+              value={otp}
+              onChange={(e) => setOtp(e.target.value)}
+            />
+            <Button type="primary" block style={{ marginTop: "1rem" }} onClick={handleVerifyOTP}>
+              Verify OTP
+            </Button>
+          </div>
+        )}
+
+        {/* STEP 3: NEW PASSWORD */}
+        {step === 3 && (
+          <div>
+            <Input.Password
+              placeholder="Enter New Password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+            />
+            <Button type="primary" block style={{ marginTop: "1rem" }} onClick={handleResetPassword}>
+              Reset Password
+            </Button>
+          </div>
+        )}
+
+        <Button style={{ marginTop: "10px" }} block onClick={() => setForgotModalVisible(false)}>
+          Cancel
+        </Button>
       </Modal>
     </div>
   );
