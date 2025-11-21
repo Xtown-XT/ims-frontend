@@ -4,10 +4,12 @@ import logo from "../components/assets/Company_logo.png";
 import x_logo from "../components/assets/Dark Logo.png";
 import { FaEnvelope, FaEye, FaEyeSlash, FaPhone } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
-import { message as antdMessage, Modal, Button } from "antd";
+import { message as antdMessage, Modal, Button, Input } from "antd";
 import Loading from "../utils/Loading";
+import { setAuthData } from "../ims/services/auth";
+
 import { userService } from "../ims/services/Userservice";
-import { setAuthData } from "../ims/services/auth"; 
+import { employeeService } from "../ims/pages/usermanagement/employeeService";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -15,92 +17,119 @@ const Login = () => {
   const [email, setEmail] = useState("");
   const [mobile, setMobile] = useState("");
   const [isMobileLogin, setIsMobileLogin] = useState(false);
-  const [emailError, setEmailError] = useState("");
-  const [mobileError, setMobileError] = useState("");
   const [password, setPassword] = useState("");
-  const [passwordError, setPasswordError] = useState("");
-  const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [loginError, setLoginError] = useState("");
-  const [showRegisterPopup, setShowRegisterPopup] = useState(false);
 
-  // 🧠 Validators
-  const isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-  const isValidMobile = (mobile) => /^\d{10}$/.test(mobile);
+  // Forgot Password States
+  const [forgotModalVisible, setForgotModalVisible] = useState(false);
+  const [forgotEmailOrMobile, setForgotEmailOrMobile] = useState("");
+  const [otp, setOtp] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [step, setStep] = useState(1);
 
-  // 🧩 Handle Login Submit
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setEmailError("");
-    setMobileError("");
-    setPasswordError("");
+  // ---------------- LOGIN FUNCTION ----------------
+  const handleSubmit = async (roleType) => {
     setLoginError("");
 
-    let hasError = false;
-
-    if (isMobileLogin) {
-      if (!mobile.trim()) {
-        setMobileError("Mobile number is required");
-        hasError = true;
-      } else if (!isValidMobile(mobile)) {
-        setMobileError("Please enter a valid 10-digit mobile number");
-        hasError = true;
-      }
-    } else {
-      if (!email.trim()) {
-        setEmailError("Email is required");
-        hasError = true;
-      } else if (!isValidEmail(email)) {
-        setEmailError("Please enter a valid email address");
-        hasError = true;
-      }
+    const identifier = isMobileLogin ? mobile.trim() : email.trim();
+    if (!identifier || !password) {
+      setLoginError("Please fill all required fields.");
+      return;
     }
 
-    if (!password.trim()) {
-      setPasswordError("Password is required");
-      hasError = true;
-    }
-
-    if (hasError) return;
-
-    setLoading(true);
+    let payload;
+    if (roleType === "user") payload = { identifier, password, role: roleType };
+    else payload = { username: identifier, password };
 
     try {
-      // ✅ FIXED PAYLOAD — backend expects `identifier`
-      const payload = {
-        identifier: isMobileLogin ? mobile.trim() : email.trim(),
-        password,
-      };
+      setLoading(true);
+      let response;
 
-      console.log("📦 Login payload:", payload);
+      if (roleType === "user") response = await userService.login(payload);
+      else response = await employeeService.login(payload);
 
-      const response = await userService.login(payload);
-      console.log("✅ Login API Response:", response.data);
+      const success =
+        response.data?.message?.toLowerCase().includes("login") ||
+        response.data?.status === true;
 
-      if (response.data?.message === "Login successful") {
-        antdMessage.success({
-          content: "Login successful!",
-          duration: 3,
-        });
+      if (success) {
+        antdMessage.success(`${roleType} Login Successful`);
 
-        // ✅ Use auth helper
-        setAuthData(response.data);
+        if (roleType === "employee") {
+          setAuthData({ token: response.data.token, user: response.data.user });
+        } else {
+          setAuthData(response.data);
+        }
 
-        navigate("/hrms/pages/dashboard");
+        navigate(roleType === "user" ? "/user/dashboard" : "/employee/dashboard");
       } else {
-        throw new Error(response.data?.message || "Invalid credentials!");
+        setLoginError(response.data?.message || "Invalid credentials!");
       }
     } catch (error) {
-      console.error("❌ Login API Error:", error.response?.data || error);
-      const errorMessage =
-        error.response?.data?.message ||
-        error.message ||
-        "Login failed. Please try again.";
-
-      setLoginError(errorMessage);
-      setShowRegisterPopup(true);
+      setLoginError(error.response?.data?.message || error.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // ---------------- FORGOT PASSWORD FLOW (EMAIL ONLY) ----------------
+
+  // Step 1: Send OTP
+  const handleSendOTP = async () => {
+    if (!forgotEmailOrMobile) {
+      return antdMessage.error("Please enter registered Email");
+    }
+
+    try {
+      await userService.forgetPassword({
+        identifier: forgotEmailOrMobile,
+      });
+
+      antdMessage.success("OTP sent to your registered email");
+      setStep(2);
+    } catch (err) {
+      antdMessage.error(err.response?.data?.message || "Failed to send OTP");
+    }
+  };
+
+  // Step 2: Verify OTP
+  const handleVerifyOTP = async () => {
+    if (!otp) return antdMessage.error("Enter OTP");
+
+    try {
+      await userService.verifyOTP({
+        identifier: forgotEmailOrMobile,
+        otp: otp,
+      });
+
+      antdMessage.success("OTP Verified Successfully!");
+      setStep(3);
+    } catch (err) {
+      antdMessage.error(err.response?.data?.message || "OTP Verification failed");
+    }
+  };
+
+  // Step 3: Reset Password
+  const handleResetPassword = async () => {
+    if (!newPassword) return antdMessage.error("Enter new password");
+
+    try {
+      await userService.resetPassword({
+        identifier: forgotEmailOrMobile,
+        newPassword: newPassword,
+      });
+
+      antdMessage.success("Password Changed Successfully!");
+
+      setForgotModalVisible(false);
+      setStep(1);
+      setOtp("");
+      setNewPassword("");
+      setForgotEmailOrMobile("");
+    } catch (err) {
+      antdMessage.error(err.response?.data?.message || "Password reset failed");
     }
   };
 
@@ -109,227 +138,170 @@ const Login = () => {
     setIsMobileLogin(!isMobileLogin);
     setEmail("");
     setMobile("");
-    setEmailError("");
-    setMobileError("");
     setLoginError("");
   };
 
   return (
-    <>
-      <div className="login-container">
-        {/* Left side */}
-        <div className="login-left">
-          <div className="welcome-container">
-            <h3 className="welcome-heading">
-              Welcome to &nbsp;
-              <img src={x_logo} alt="XTOWN" />
-              town..!
-            </h3>
-            <span className="welcome-tagline">
-              We’re here to turn your ideas into reality.
-            </span>
-          </div>
-        </div>
+    <div className="login-container">
 
-        {/* Right side */}
-        <div className="login-right">
-          <img src={logo} alt="Company Logo" className="logo" />
-
-          <form className="login-form" onSubmit={handleSubmit}>
-            <h3>LOGIN TO YOUR ACCOUNT</h3>
-
-            {loginError && (
-              <div
-                className="login-error-message"
-                style={{ marginBottom: "1rem", textAlign: "center" }}
-              >
-                {loginError}
-              </div>
-            )}
-
-            {/* Email or Mobile */}
-            <div
-              className={`form-group ${isMobileLogin ? "mobile" : "email"} ${
-                (isMobileLogin && mobileError) ||
-                (!isMobileLogin && emailError)
-                  ? "error-border"
-                  : ""
-              } mb-4`}
-            >
-              <div className="input-wrapper">
-                {isMobileLogin ? (
-                  <>
-                    <input
-                      id="mobile"
-                      type="tel"
-                      value={mobile}
-                      onChange={(e) => setMobile(e.target.value)}
-                      className={mobile ? "filled" : ""}
-                      maxLength={10}
-                      style={{
-                        borderColor: mobileError ? "red" : "#ccc",
-                        boxShadow: mobileError
-                          ? "0 0 4px rgba(255, 0, 0, 0.5)"
-                          : "none",
-                      }}
-                    />
-                    <label htmlFor="mobile">Mobile Number</label>
-                    <FaEnvelope
-                      className="input-icon toggle-icon"
-                      onClick={toggleLoginMode}
-                      title="Use Email instead"
-                    />
-                  </>
-                ) : (
-                  <>
-                    <input
-                      id="email"
-                      type="text"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      className={email ? "filled" : ""}
-                      style={{
-                        borderColor: emailError ? "red" : "#ccc",
-                        boxShadow: emailError
-                          ? "0 0 4px rgba(255, 0, 0, 0.5)"
-                          : "none",
-                      }}
-                    />
-                    <label htmlFor="email">Email</label>
-                    <FaPhone
-                      className="input-icon toggle-icon"
-                      onClick={toggleLoginMode}
-                      title="Use Mobile Number instead"
-                    />
-                  </>
-                )}
-              </div>
-              {isMobileLogin && mobileError && (
-                <div className="login-error-message">{mobileError}</div>
-              )}
-              {!isMobileLogin && emailError && (
-                <div className="login-error-message">{emailError}</div>
-              )}
-            </div>
-
-            {/* Password */}
-            <div
-              className={`form-group password ${
-                passwordError ? "error-border" : ""
-              }`}
-            >
-              <div className="input-wrapper">
-                <input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className={password ? "filled" : ""}
-                  style={{
-                    borderColor: passwordError ? "red" : "#ccc",
-                    boxShadow: passwordError
-                      ? "0 0 4px rgba(255, 0, 0, 0.5)"
-                      : "none",
-                  }}
-                />
-                <label htmlFor="password">Password</label>
-                {showPassword ? (
-                  <FaEyeSlash
-                    className="input-icon toggle-icon"
-                    onClick={togglePasswordVisibility}
-                    title="Hide Password"
-                  />
-                ) : (
-                  <FaEye
-                    className="input-icon toggle-icon"
-                    onClick={togglePasswordVisibility}
-                    title="Show Password"
-                  />
-                )}
-              </div>
-              {passwordError && (
-                <div className="login-error-message">{passwordError}</div>
-              )}
-            </div>
-
-            {/* Submit */}
-            <button type="submit" className="log-button" disabled={loading}>
-              {loading ? <Loading /> : "LOGIN"}
-            </button>
-
-            {/* Register link */}
-            <div style={{ marginTop: "1rem", textAlign: "center" }}>
-              <span>Don't have an account?</span>
-              <span
-                style={{
-                  color: "#3d2c8bff",
-                  fontWeight: "bold",
-                  marginLeft: "4px",
-                  cursor: "pointer",
-                }}
-                onClick={() => navigate("/register")}
-              >
-                Register here
-              </span>
-            </div>
-          </form>
+      {/* LEFT SIDE */}
+      <div className="login-left">
+        <div className="welcome-container">
+          <h3 className="welcome-heading">
+            Welcome to &nbsp;
+            <img src={x_logo} alt="XTOWN" />
+            town..!
+          </h3>
+          <span className="welcome-tagline">
+            We’re here to turn your ideas into reality.
+          </span>
         </div>
       </div>
 
-      {/* 🎨 Custom Styled Popup */}
-      <Modal
-        open={showRegisterPopup}
-        footer={null}
-        centered
-        closable={false}
-        className="custom-popup"
-      >
-        <div
-          style={{
-            textAlign: "center",
-            padding: "30px 20px",
-            borderRadius: "16px",
-          }}
-        >
-          <h2 style={{ color: "#333", marginBottom: "10px" }}>
-            User Not Found 😕
-          </h2>
-          <p style={{ color: "#666", marginBottom: "25px", fontSize: "15px" }}>
-            We couldn't find an account with those credentials.
-            <br />
-            Would you like to register a new one?
-          </p>
+      {/* RIGHT SIDE */}
+      <div className="login-right">
+        <img src={logo} alt="Company Logo" className="logo" />
 
-          <div
-            style={{ display: "flex", justifyContent: "center", gap: "10px" }}
-          >
-            <Button
-              type="primary"
-              style={{
-                background: "#3d2c8b",
-                borderRadius: "8px",
-                fontWeight: "bold",
-              }}
-              onClick={() => {
-                setShowRegisterPopup(false);
-                navigate("/register");
-              }}
+        <form className="login-form">
+          <h3>LOGIN TO YOUR ACCOUNT</h3>
+
+          {loginError && (
+            <div className="login-error-message" style={{ marginBottom: "1rem" }}>
+              {loginError}
+            </div>
+          )}
+
+          {/* Email / Mobile */}
+          <div className={`form-group ${isMobileLogin ? "mobile" : "email"} mb-4`}>
+            <div className="input-wrapper">
+              {isMobileLogin ? (
+                <>
+                  <input
+                    type="tel"
+                    value={mobile}
+                    onChange={(e) => setMobile(e.target.value)}
+                    maxLength={10}
+                  />
+                  <label>Mobile Number</label>
+                  <FaEnvelope className="input-icon toggle-icon" onClick={toggleLoginMode} />
+                </>
+              ) : (
+                <>
+                  <input
+                    type="text"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                  />
+                  <label>Email</label>
+                  <FaPhone className="input-icon toggle-icon" onClick={toggleLoginMode} />
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* Password */}
+          <div className="form-group password mb-4">
+            <div className="input-wrapper">
+              <input
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+              <label>Password</label>
+              {showPassword ? (
+                <FaEyeSlash className="input-icon toggle-icon" onClick={togglePasswordVisibility} />
+              ) : (
+                <FaEye className="input-icon toggle-icon" onClick={togglePasswordVisibility} />
+              )}
+            </div>
+          </div>
+
+          {/* Buttons */}
+          <div style={{ display: "flex", justifyContent: "center", gap: "20px" }}>
+            <button type="button" className="log-button" disabled={loading} onClick={() => handleSubmit("user")}>
+              {loading ? <Loading /> : "User Login"}
+            </button>
+
+            <button type="button" className="log-button" disabled={loading} onClick={() => handleSubmit("employee")}>
+              {loading ? <Loading /> : "Employee Login"}
+            </button>
+          </div>
+
+          {/* Links */}
+          <div style={{ marginTop: "1rem", textAlign: "center" }}>
+            <span
+              style={{ cursor: "pointer", color: "#3d2c8bff", fontWeight: "bold" }}
+              onClick={() => setForgotModalVisible(true)}
             >
-              Register Now
-            </Button>
-            <Button
+              Forgot Password?
+            </span>
+            <br />
+            <span>Don't have an account?</span>
+            <span
               style={{
-                borderRadius: "8px",
+                color: "#3d2c8bff",
                 fontWeight: "bold",
+                marginLeft: "4px",
+                cursor: "pointer",
               }}
-              onClick={() => setShowRegisterPopup(false)}
+              onClick={() => navigate("/register")}
             >
-              Try Again
+              Register here
+            </span>
+          </div>
+        </form>
+      </div>
+
+      {/* ---------------- FORGOT PASSWORD MODAL ---------------- */}
+      <Modal open={forgotModalVisible} footer={null} centered closable={false} title="Forgot Password">
+
+        {/* STEP 1: ENTER EMAIL */}
+        {step === 1 && (
+          <div>
+            <Input
+              placeholder="Enter Registered Email"
+              value={forgotEmailOrMobile}
+              onChange={(e) => setForgotEmailOrMobile(e.target.value)}
+            />
+            <Button type="primary" block style={{ marginTop: "1rem" }} onClick={handleSendOTP}>
+              Send OTP
             </Button>
           </div>
-        </div>
+        )}
+
+        {/* STEP 2: OTP */}
+        {step === 2 && (
+          <div>
+            <Input
+              placeholder="Enter OTP"
+              value={otp}
+              onChange={(e) => setOtp(e.target.value)}
+            />
+            <Button type="primary" block style={{ marginTop: "1rem" }} onClick={handleVerifyOTP}>
+              Verify OTP
+            </Button>
+          </div>
+        )}
+
+        {/* STEP 3: NEW PASSWORD */}
+        {step === 3 && (
+          <div>
+            <Input.Password
+              placeholder="Enter New Password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+            />
+            <Button type="primary" block style={{ marginTop: "1rem" }} onClick={handleResetPassword}>
+              Reset Password
+            </Button>
+          </div>
+        )}
+
+        <Button style={{ marginTop: "10px" }} block onClick={() => setForgotModalVisible(false)}>
+          Cancel
+        </Button>
       </Modal>
-    </>
+    </div>
   );
 };
 
