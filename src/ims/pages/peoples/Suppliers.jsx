@@ -1,5 +1,5 @@
 // src/pages/peoples/suppliers.jsx
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   Table,
   Input,
@@ -30,6 +30,7 @@ import { FaFilePdf, FaFileExcel, FaAngleUp } from "react-icons/fa6";
 import { IoReloadOutline } from "react-icons/io5";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import SupplierService from "../peoples/SuppliersService"; 
 
 const Suppliers = () => {
   const [searchText, setSearchText] = useState("");
@@ -39,36 +40,8 @@ const Suppliers = () => {
   const [pageSize, setPageSize] = useState(10);
   const [form] = Form.useForm();
 
-  const [suppliers, setSuppliers] = useState([
-    {
-      key: "1",
-      code: "SU001",
-      name: "Apex Computers",
-      email: "apexcomputers@example.com",
-      phone: "+15964712634",
-      country: "Germany",
-      image: "https://cdn-icons-png.flaticon.com/512/3050/3050525.png",
-      status: "Active",
-      address: "45 Industrial Area",
-      city: "Berlin",
-      state: "Berlin",
-      postalCode: "10115",
-    },
-    {
-      key: "2",
-      code: "SU002",
-      name: "Beats Headphones",
-      email: "beatsheadphone@example.com",
-      phone: "+16372895190",
-      country: "Japan",
-      image: "https://cdn-icons-png.flaticon.com/512/9111/9111624.png",
-      status: "Active",
-      address: "12 Sakura Street",
-      city: "Tokyo",
-      state: "Tokyo",
-      postalCode: "100-0001",
-    },
-  ]);
+  const [suppliers, setSuppliers] = useState([]);
+  const [loading, setLoading] = useState(false);
 
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
@@ -87,19 +60,240 @@ const Suppliers = () => {
     setSearchText("");
     setStatusFilter("All");
     message.success("Refreshed");
+    // also reload from API
+    loadSuppliers();
   };
 
   const toggleFilters = () => setFiltersCollapsed((prev) => !prev);
 
+  const getValue = (obj, keys, fallback = "") => {
+    for (const key of keys) {
+      if (obj?.[key] !== undefined && obj?.[key] !== null && obj?.[key] !== "") {
+        return obj[key];
+      }
+    }
+    return fallback;
+  };
+
+  const resolveList = (data) => {
+    if (!data) return [];
+    if (Array.isArray(data)) return data;
+
+    const candidateKeys = ["data", "suppliers", "result", "items", "rows", "records", "list"];
+    for (const key of candidateKeys) {
+      if (Array.isArray(data?.[key])) {
+        return data[key];
+      }
+      if (data?.[key] && typeof data[key] === "object") {
+        const nested = resolveList(data[key]);
+        if (Array.isArray(nested) && nested.length >= 0) {
+          return nested;
+        }
+      }
+    }
+
+    for (const value of Object.values(data)) {
+      if (Array.isArray(value)) {
+        return value;
+      }
+    }
+
+    for (const value of Object.values(data)) {
+      if (value && typeof value === "object") {
+        const nested = resolveList(value);
+        if (nested.length || Array.isArray(nested)) {
+          return nested;
+        }
+      }
+    }
+
+    return [];
+  };
+
+  const normalizeStatus = (value) => {
+    if (typeof value === "boolean") {
+      return value ? "Active" : "Inactive";
+    }
+    if (typeof value === "number") {
+      return value === 1 ? "Active" : "Inactive";
+    }
+    const str = String(value || "").toLowerCase();
+    if (["active", "1", "true", "enabled"].includes(str)) return "Active";
+    if (["inactive", "0", "false", "disabled"].includes(str)) return "Inactive";
+    return "Active";
+  };
+
+  const mapServerSupplier = (item, idx) => {
+    const id =
+      getValue(item, ["id", "_id", "supplier_id", "supplierId", "uuid", "key"]) ||
+      String(idx + 1);
+    const firstName = getValue(item, ["firstName", "first_name"]);
+    const lastName = getValue(item, ["lastName", "last_name"]);
+    const companyName = getValue(item, ["supplier_name", "supplierName", "name", "company", "company_name"]);
+    const displayName =
+      companyName || [firstName, lastName].filter(Boolean).join(" ") || "Unknown";
+
+    return {
+      key: id,
+      id,
+      code:
+        getValue(item, ["code", "supplierCode", "supplier_code"]) ||
+        `SU${String(idx + 1).padStart(3, "0")}`,
+      name: displayName,
+      email: getValue(item, ["email", "contactEmail", "contact_email", "supplier_email"], ""),
+      phone: getValue(
+        item,
+        ["phone", "phone_number", "contactNumber", "contact_number", "mobile", "mobile_number"],
+        ""
+      ),
+      country: getValue(item, ["country", "countryName", "country_name"], ""),
+      image:
+        getValue(item, ["image", "avatar", "profile_image"]) ||
+        "https://cdn-icons-png.flaticon.com/512/3050/3050525.png",
+      status: normalizeStatus(getValue(item, ["status", "supplier_status", "isActive"], "Active")),
+      address: getValue(item, ["address", "street", "address_line"], ""),
+      city: getValue(item, ["city", "town"], ""),
+      state: getValue(item, ["state", "region", "province"], ""),
+      postalCode: getValue(item, ["postalCode", "postal_code", "zip", "zip_code"], ""),
+      raw: item,
+    };
+  };
+
+  const buildSupplierPayload = (values, existingSupplier, baseCode) => {
+    const fullName = `${values.firstName || ""} ${values.lastName || ""}`.trim();
+    const codeValue =
+      (existingSupplier && (existingSupplier.code || existingSupplier.raw?.code)) || baseCode;
+    const statusText = values.status ? "Active" : "Inactive";
+
+    return {
+      // canonical
+      name: fullName || values.company || "",
+      code: codeValue,
+      email: values.email,
+      phone: values.phone,
+      country: values.country,
+      address: values.address,
+      city: values.city,
+      state: values.state,
+      postalCode: values.postalCode,
+      status: statusText,
+      image:
+        (existingSupplier && existingSupplier.image) ||
+        "https://cdn-icons-png.flaticon.com/512/3050/3050525.png",
+      // snake_case / alternative keys for API compatibility
+      supplier_name: fullName || values.company || "",
+      supplier_code: codeValue,
+      first_name: values.firstName,
+      last_name: values.lastName,
+      phone_number: values.phone,
+      contact_number: values.phone,
+      mobile_number: values.phone,
+      contact_email: values.email,
+      country_name: values.country,
+      postal_code: values.postalCode,
+      zip_code: values.postalCode,
+      isActive: values.status,
+    };
+  };
+
+  // ---------- API integration ----------
+  // loadSuppliers: GET all suppliers
+  const loadSuppliers = async () => {
+    try {
+      setLoading(true);
+      const res = await SupplierService.getSuppliers();
+      const payload = res?.data ?? res;
+
+      const list = resolveList(payload);
+
+      const mapped = list.map((item, idx) => mapServerSupplier(item, idx));
+
+      setSuppliers(mapped);
+      message.success("Suppliers loaded");
+    } catch (err) {
+      console.error("loadSuppliers error:", err);
+      message.error("Unable to load suppliers from server");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // createSupplier: POST
+  const createSupplier = async (payload) => {
+    try {
+      const res = await SupplierService.createSupplier(payload);
+      const data = res?.data ?? res;
+      message.success("Supplier created successfully");
+      await loadSuppliers();
+      return data;
+    } catch (err) {
+      console.error("createSupplier error:", err);
+      const errorMsg =
+        err?.response?.data?.message ||
+        err?.message ||
+        "Failed to create supplier";
+      message.error(errorMsg);
+      throw err;
+    }
+  };
+
+  // updateSupplier: PUT
+  const updateSupplier = async (id, payload) => {
+    try {
+      const res = await SupplierService.updateSupplier(id, payload);
+      const data = res?.data ?? res;
+      message.success("Supplier updated successfully");
+      await loadSuppliers();
+      return data;
+    } catch (err) {
+      console.error("updateSupplier error:", err);
+      const errorMsg =
+        err?.response?.data?.message ||
+        err?.message ||
+        "Failed to update supplier";
+      message.error(errorMsg);
+      throw err;
+    }
+  };
+
+  // deleteSupplierById: DELETE
+  const deleteSupplierById = async (id) => {
+    try {
+      const res = await SupplierService.deleteSupplier(id);
+      const data = res?.data ?? res;
+      message.success("Supplier deleted successfully");
+      await loadSuppliers();
+      return data;
+    } catch (err) {
+      console.error("deleteSupplierById error:", err);
+      const errorMsg =
+        err?.response?.data?.message ||
+        err?.message ||
+        "Failed to delete supplier";
+      message.error(errorMsg);
+      throw err;
+    }
+  };
+
+  // Load suppliers on mount
+  useEffect(() => {
+    loadSuppliers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ---------- End API integration ----------
+
   const filteredData = useMemo(() => {
     return suppliers.filter((item) => {
       const s = searchText.toLowerCase();
+      const name = (item.name || "").toLowerCase();
+      const email = (item.email || "").toLowerCase();
+      const country = (item.country || "").toLowerCase();
+      const status = item.status || "Active";
       const matchesSearch =
-        item.name.toLowerCase().includes(s) ||
-        item.email.toLowerCase().includes(s) ||
-        item.country.toLowerCase().includes(s);
+        name.includes(s) || email.includes(s) || country.includes(s);
       const matchesStatus =
-        statusFilter === "All" || item.status === statusFilter;
+        statusFilter === "All" || status === statusFilter;
       return matchesSearch && matchesStatus;
     });
   }, [searchText, statusFilter, suppliers]);
@@ -166,6 +360,7 @@ const Suppliers = () => {
     setIsEditMode(false);
     setSelectedSupplier(null);
     form.resetFields();
+    form.setFieldsValue({ status: true });
     setIsModalVisible(true);
   };
 
@@ -205,43 +400,27 @@ const Suppliers = () => {
     setIsEditMode(false);
   };
 
-  const handleSubmit = (values) => {
-    const newSupplier = {
-      key:
-        isEditMode && selectedSupplier
-          ? selectedSupplier.key
-          : Date.now().toString(),
-      code:
-        isEditMode && selectedSupplier
-          ? selectedSupplier.code
-          : `SU${String(suppliers.length + 1).padStart(3, "0")}`,
-      name: `${values.firstName} ${values.lastName}`,
-      email: values.email,
-      phone: values.phone,
-      country: values.country,
-      image:
-        (isEditMode && selectedSupplier && selectedSupplier.image) ||
-        "https://cdn-icons-png.flaticon.com/512/3050/3050525.png",
-      status: values.status ? "Active" : "Inactive",
-      address: values.address,
-      city: values.city,
-      state: values.state,
-      postalCode: values.postalCode,
-    };
+  const handleSubmit = async (values) => {
+    const baseCode = `SU${String(suppliers.length + 1).padStart(3, "0")}`;
+    const payload = buildSupplierPayload(values, selectedSupplier, baseCode);
 
-    if (isEditMode && selectedSupplier) {
-      setSuppliers((prev) =>
-        prev.map((s) => (s.key === selectedSupplier.key ? newSupplier : s))
-      );
-      message.success(`Supplier "${newSupplier.name}" updated successfully!`);
-    } else {
-      setSuppliers((prev) => [newSupplier, ...prev]);
-      message.success(`Supplier "${newSupplier.name}" added successfully!`);
+    try {
+      if (isEditMode && selectedSupplier) {
+        const id = selectedSupplier.id || selectedSupplier.key;
+        if (!id) {
+          message.error("Unable to update supplier without a valid ID");
+          return;
+        }
+        await updateSupplier(id, payload);
+      } else {
+        await createSupplier(payload);
+      }
+      form.resetFields();
+      setIsModalVisible(false);
+      setIsEditMode(false);
+    } catch (err) {
+      console.error("handleSubmit error:", err);
     }
-
-    form.resetFields();
-    setIsModalVisible(false);
-    setIsEditMode(false);
   };
 
   // 🆕 Updated delete logic
@@ -250,11 +429,21 @@ const Suppliers = () => {
     setIsDeleteModalVisible(true);
   };
 
-  const handleConfirmDelete = () => {
-    setSuppliers((prev) => prev.filter((s) => s.key !== deleteSupplier.key));
-    message.success(`Supplier "${deleteSupplier?.name}" deleted successfully!`);
-    setIsDeleteModalVisible(false);
-    setDeleteSupplier(null);
+  const handleConfirmDelete = async () => {
+    if (!deleteSupplier) return;
+    try {
+      const id = deleteSupplier.id || deleteSupplier.key;
+      if (!id) {
+        message.error("Unable to delete supplier without a valid ID");
+        return;
+      }
+      await deleteSupplierById(id);
+    } catch (err) {
+      console.error("Error deleting supplier on server:", err);
+    } finally {
+      setIsDeleteModalVisible(false);
+      setDeleteSupplier(null);
+    }
   };
 
   const handleCancelDelete = () => {
@@ -413,6 +602,7 @@ const Suppliers = () => {
           currentPage * pageSize
         )}
         pagination={false}
+        loading={loading}
         bordered={false}
         className="rounded-md"
       />
