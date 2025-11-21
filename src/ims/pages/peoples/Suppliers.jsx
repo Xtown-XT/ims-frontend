@@ -1,5 +1,5 @@
 // src/pages/peoples/suppliers.jsx
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   Table,
   Input,
@@ -30,6 +30,7 @@ import { FaFilePdf, FaFileExcel, FaAngleUp } from "react-icons/fa6";
 import { IoReloadOutline } from "react-icons/io5";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import supplierService from "../peoples/SuppliersService";
 
 const Suppliers = () => {
   const [searchText, setSearchText] = useState("");
@@ -39,36 +40,7 @@ const Suppliers = () => {
   const [pageSize, setPageSize] = useState(10);
   const [form] = Form.useForm();
 
-  const [suppliers, setSuppliers] = useState([
-    {
-      key: "1",
-      code: "SU001",
-      name: "Apex Computers",
-      email: "apexcomputers@example.com",
-      phone: "+15964712634",
-      country: "Germany",
-      image: "https://cdn-icons-png.flaticon.com/512/3050/3050525.png",
-      status: "Active",
-      address: "45 Industrial Area",
-      city: "Berlin",
-      state: "Berlin",
-      postalCode: "10115",
-    },
-    {
-      key: "2",
-      code: "SU002",
-      name: "Beats Headphones",
-      email: "beatsheadphone@example.com",
-      phone: "+16372895190",
-      country: "Japan",
-      image: "https://cdn-icons-png.flaticon.com/512/9111/9111624.png",
-      status: "Active",
-      address: "12 Sakura Street",
-      city: "Tokyo",
-      state: "Tokyo",
-      postalCode: "100-0001",
-    },
-  ]);
+  const [suppliers, setSuppliers] = useState([]);
 
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
@@ -79,6 +51,42 @@ const Suppliers = () => {
   // 🆕 Added for delete confirmation modal
   const [isDeleteModalVisible, setIsDeleteModalVisible] = useState(false);
   const [deleteSupplier, setDeleteSupplier] = useState(null);
+
+  // Fetch suppliers from API
+  const fetchSuppliers = async () => {
+    try {
+      const res = await supplierService.getSuppliers(
+        currentPage,
+        pageSize,
+        searchText
+      );
+
+      const rows = res?.data?.data?.rows ?? [];
+
+      const mapped = rows.map((r) => ({
+        key: r.id || r.key || String(Math.random()),
+        code: r.supplier_code || r.code || "",
+        name: r.supplier_name || r.name || "",
+        email: r.email || "",
+        phone: r.phone_number || r.phone || "",
+        country: r.country || "",
+        image: r.image || "https://cdn-icons-png.flaticon.com/512/3050/3050525.png",
+        status: r.status || "Active",
+        address: r.address || "",
+        city: r.city || "",
+        state: r.state || "",
+        postalCode: r.postalCode || r.postal_code || "",
+      }));
+
+      setSuppliers(mapped);
+    } catch (err) {
+      console.error("Failed to fetch suppliers from API:", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchSuppliers();
+  }, [currentPage, pageSize, searchText]);
 
   const handleSearch = (e) => setSearchText(e.target.value);
   const handleMenuClick = (e) => setStatusFilter(e.key);
@@ -189,9 +197,38 @@ const Suppliers = () => {
     setIsModalVisible(true);
   };
 
-  const showViewModal = (record) => {
-    setViewSupplier(record);
-    setIsViewModalVisible(true);
+  const showViewModal = async (record) => {
+    try {
+      setIsViewModalVisible(true);
+      setViewSupplier(null);
+
+      const res = await supplierService.getSupplierById(record.key);
+      const data = res?.data?.data;
+
+      if (data) {
+        const supplierDetails = {
+          key: data.id || record.key,
+          code: data.supplier_code || record.code,
+          name: data.supplier_name || record.name,
+          email: data.email || record.email,
+          phone: data.phone_number || record.phone,
+          country: data.country || record.country,
+          image: data.image || record.image,
+          status: data.status || record.status,
+          address: data.address || record.address,
+          city: data.city || record.city,
+          state: data.state || record.state,
+          postalCode: data.postalCode || data.postal_code || record.postalCode,
+        };
+        setViewSupplier(supplierDetails);
+      } else {
+        setViewSupplier(record);
+      }
+    } catch (err) {
+      console.error("Failed to fetch supplier by ID:", err);
+      message.error("Failed to load supplier details");
+      setViewSupplier(record);
+    }
   };
 
   const handleCloseViewModal = () => {
@@ -205,43 +242,73 @@ const Suppliers = () => {
     setIsEditMode(false);
   };
 
-  const handleSubmit = (values) => {
-    const newSupplier = {
-      key:
-        isEditMode && selectedSupplier
-          ? selectedSupplier.key
-          : Date.now().toString(),
-      code:
-        isEditMode && selectedSupplier
-          ? selectedSupplier.code
-          : `SU${String(suppliers.length + 1).padStart(3, "0")}`,
-      name: `${values.firstName} ${values.lastName}`,
+  const handleSubmit = async (values) => {
+    const payload = {
+      supplier_name: `${values.firstName} ${values.lastName}`,
       email: values.email,
-      phone: values.phone,
-      country: values.country,
-      image:
-        (isEditMode && selectedSupplier && selectedSupplier.image) ||
-        "https://cdn-icons-png.flaticon.com/512/3050/3050525.png",
-      status: values.status ? "Active" : "Inactive",
+      phone_number: values.phone,
       address: values.address,
       city: values.city,
       state: values.state,
-      postalCode: values.postalCode,
+      country: values.country,
+      postal_code: values.postalCode,
+      status: values.status ? "Active" : "Inactive",
     };
 
-    if (isEditMode && selectedSupplier) {
-      setSuppliers((prev) =>
-        prev.map((s) => (s.key === selectedSupplier.key ? newSupplier : s))
-      );
-      message.success(`Supplier "${newSupplier.name}" updated successfully!`);
-    } else {
-      setSuppliers((prev) => [newSupplier, ...prev]);
-      message.success(`Supplier "${newSupplier.name}" added successfully!`);
-    }
+    try {
+      if (!isEditMode) {
+        const res = await supplierService.createSupplier(payload);
+        message.success("Supplier created successfully!");
 
-    form.resetFields();
-    setIsModalVisible(false);
-    setIsEditMode(false);
+        const newItem = {
+          key: res.data?.data?.id ?? String(Math.random()),
+          code: res.data?.data?.supplier_code ?? "",
+          name: res.data?.data?.supplier_name ?? payload.supplier_name,
+          email: res.data?.data?.email ?? payload.email,
+          phone: res.data?.data?.phone_number ?? payload.phone_number,
+          country: res.data?.data?.country ?? payload.country,
+          image: "https://cdn-icons-png.flaticon.com/512/3050/3050525.png",
+          status: res.data?.data?.status ?? payload.status,
+          address: res.data?.data?.address ?? payload.address,
+          city: res.data?.data?.city ?? payload.city,
+          state: res.data?.data?.state ?? payload.state,
+          postalCode: res.data?.data?.postal_code ?? payload.postal_code,
+        };
+
+        setSuppliers((prev) => [newItem, ...prev]);
+        await fetchSuppliers();
+      } else {
+        const res = await supplierService.updateSupplier(selectedSupplier.key, payload);
+        message.success("Supplier updated successfully!");
+
+        const updatedSupplier = {
+          key: selectedSupplier.key,
+          code: selectedSupplier.code,
+          name: res.data?.data?.supplier_name ?? payload.supplier_name,
+          email: res.data?.data?.email ?? payload.email,
+          phone: res.data?.data?.phone_number ?? payload.phone_number,
+          country: res.data?.data?.country ?? payload.country,
+          image: selectedSupplier.image,
+          status: res.data?.data?.status ?? payload.status,
+          address: res.data?.data?.address ?? payload.address,
+          city: res.data?.data?.city ?? payload.city,
+          state: res.data?.data?.state ?? payload.state,
+          postalCode: res.data?.data?.postal_code ?? payload.postal_code,
+        };
+
+        setSuppliers((prev) =>
+          prev.map((s) => (s.key === selectedSupplier.key ? updatedSupplier : s))
+        );
+        await fetchSuppliers();
+      }
+    } catch (err) {
+      console.error("Supplier Error:", err);
+      message.error(err.response?.data?.message || err.message || "Failed to save supplier");
+    } finally {
+      form.resetFields();
+      setIsModalVisible(false);
+      setIsEditMode(false);
+    }
   };
 
   // 🆕 Updated delete logic
@@ -250,11 +317,19 @@ const Suppliers = () => {
     setIsDeleteModalVisible(true);
   };
 
-  const handleConfirmDelete = () => {
-    setSuppliers((prev) => prev.filter((s) => s.key !== deleteSupplier.key));
-    message.success(`Supplier "${deleteSupplier?.name}" deleted successfully!`);
-    setIsDeleteModalVisible(false);
-    setDeleteSupplier(null);
+  const handleConfirmDelete = async () => {
+    try {
+      await supplierService.deleteSupplier(deleteSupplier.key);
+      message.success(`Supplier "${deleteSupplier?.name}" deleted successfully!`);
+      setSuppliers((prev) => prev.filter((s) => s.key !== deleteSupplier.key));
+      await fetchSuppliers();
+    } catch (err) {
+      console.error("Delete Supplier Error:", err);
+      message.error("Failed to delete supplier");
+    } finally {
+      setIsDeleteModalVisible(false);
+      setDeleteSupplier(null);
+    }
   };
 
   const handleCancelDelete = () => {
