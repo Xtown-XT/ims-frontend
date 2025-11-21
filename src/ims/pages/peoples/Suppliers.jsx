@@ -30,7 +30,7 @@ import { FaFilePdf, FaFileExcel, FaAngleUp } from "react-icons/fa6";
 import { IoReloadOutline } from "react-icons/io5";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import supplierService from "../peoples/SuppliersService";
+import SupplierService from "./SuppliersService";
 
 const Suppliers = () => {
   const [searchText, setSearchText] = useState("");
@@ -41,6 +41,7 @@ const Suppliers = () => {
   const [form] = Form.useForm();
 
   const [suppliers, setSuppliers] = useState([]);
+  const [loading, setLoading] = useState(false);
 
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
@@ -54,33 +55,92 @@ const Suppliers = () => {
 
   // Fetch suppliers from API
   const fetchSuppliers = async () => {
+    setLoading(true);
     try {
-      const res = await supplierService.getSuppliers(
+      console.log("Fetching suppliers...");
+      const res = await SupplierService.getSuppliers(
         currentPage,
         pageSize,
         searchText
       );
 
-      const rows = res?.data?.data?.rows ?? [];
+      console.log("Full API Response:", res);
+      console.log("Response data:", res?.data);
 
-      const mapped = rows.map((r) => ({
-        key: r.id || r.key || String(Math.random()),
-        code: r.supplier_code || r.code || "",
-        name: r.supplier_name || r.name || "",
-        email: r.email || "",
-        phone: r.phone_number || r.phone || "",
-        country: r.country || "",
-        image: r.image || "https://cdn-icons-png.flaticon.com/512/3050/3050525.png",
-        status: r.status || "Active",
-        address: r.address || "",
-        city: r.city || "",
-        state: r.state || "",
-        postalCode: r.postalCode || r.postal_code || "",
-      }));
+      // Handle different response structures
+      let rows = [];
+      
+      // Try different possible response structures
+      if (res?.data?.data?.suppliers) {
+        // For suppliers endpoint
+        rows = res.data.data.suppliers;
+      } else if (res?.data?.suppliers) {
+        rows = res.data.suppliers;
+      } else if (res?.data?.data?.rows) {
+        rows = res.data.data.rows;
+      } else if (res?.data?.data) {
+        // If data is directly an array
+        rows = Array.isArray(res.data.data) ? res.data.data : [res.data.data];
+      } else if (res?.data?.rows) {
+        rows = res.data.rows;
+      } else if (res?.data) {
+        // If data is directly an array
+        rows = Array.isArray(res.data) ? res.data : [res.data];
+      }
 
+      console.log("Extracted rows:", rows);
+      console.log("Number of suppliers:", rows.length);
+
+      const mapped = rows.map((r, index) => {
+        console.log("=== RAW SUPPLIER DATA ===");
+        console.log("Full object:", JSON.stringify(r, null, 2));
+        console.log("Available fields:", Object.keys(r));
+        console.log("Field values:");
+        Object.keys(r).forEach(key => {
+          console.log(`  ${key}:`, r[key]);
+        });
+        console.log("========================");
+        
+        // Construct full name from first_name and last_name
+        const fullName = r.first_name && r.last_name 
+          ? `${r.first_name} ${r.last_name}`.trim()
+          : r.supplier_name || r.name || "";
+        
+        // Generate supplier code if not provided by API
+        const supplierCode = r.supplier_code || r.code || `SUP${String(index + 1).padStart(3, "0")}`;
+        
+        return {
+          key: r.id || r.key || String(Math.random()),
+          code: supplierCode,
+          name: fullName,
+          email: r.email || "",
+          phone: r.phone || r.phone_number || "",
+          country: r.country || "",
+          image: r.image || "https://cdn-icons-png.flaticon.com/512/3050/3050525.png",
+          status: r.status || "Active",
+          address: r.address || "",
+          city: r.city || "",
+          state: r.state || "",
+          postalCode: r.postal_code || r.postalCode || "",
+          // Store original first/last names for editing
+          firstName: r.first_name || "",
+          lastName: r.last_name || "",
+        };
+      });
+
+      console.log("Mapped suppliers:", mapped);
       setSuppliers(mapped);
+      
+      if (mapped.length === 0) {
+        console.warn("No suppliers found in the response");
+      }
     } catch (err) {
       console.error("Failed to fetch suppliers from API:", err);
+      console.error("Error details:", err.response?.data);
+      console.error("Error status:", err.response?.status);
+      message.error("Failed to load suppliers");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -94,6 +154,8 @@ const Suppliers = () => {
   const handleRefresh = () => {
     setSearchText("");
     setStatusFilter("All");
+    setCurrentPage(1);
+    fetchSuppliers();
     message.success("Refreshed");
   };
 
@@ -200,33 +262,40 @@ const Suppliers = () => {
   const showViewModal = async (record) => {
     try {
       setIsViewModalVisible(true);
-      setViewSupplier(null);
+      setViewSupplier(null); // Show loading state
 
-      const res = await supplierService.getSupplierById(record.key);
+      // Fetch supplier by ID from API
+      const res = await SupplierService.getSupplierById(record.key);
       const data = res?.data?.data;
 
       if (data) {
+        const fullName = data.first_name && data.last_name
+          ? `${data.first_name} ${data.last_name}`.trim()
+          : data.supplier_name || record.name;
+        
         const supplierDetails = {
           key: data.id || record.key,
           code: data.supplier_code || record.code,
-          name: data.supplier_name || record.name,
+          name: fullName,
           email: data.email || record.email,
-          phone: data.phone_number || record.phone,
+          phone: data.phone || data.phone_number || record.phone,
           country: data.country || record.country,
           image: data.image || record.image,
           status: data.status || record.status,
           address: data.address || record.address,
           city: data.city || record.city,
           state: data.state || record.state,
-          postalCode: data.postalCode || data.postal_code || record.postalCode,
+          postalCode: data.postal_code || data.postalCode || record.postalCode,
         };
         setViewSupplier(supplierDetails);
       } else {
+        // Fallback to local data if API doesn't return data
         setViewSupplier(record);
       }
     } catch (err) {
       console.error("Failed to fetch supplier by ID:", err);
       message.error("Failed to load supplier details");
+      // Fallback to local data on error
       setViewSupplier(record);
     }
   };
@@ -244,9 +313,10 @@ const Suppliers = () => {
 
   const handleSubmit = async (values) => {
     const payload = {
-      supplier_name: `${values.firstName} ${values.lastName}`,
+      first_name: values.firstName,
+      last_name: values.lastName,
       email: values.email,
-      phone_number: values.phone,
+      phone: values.phone,
       address: values.address,
       city: values.city,
       state: values.state,
@@ -257,52 +327,73 @@ const Suppliers = () => {
 
     try {
       if (!isEditMode) {
-        const res = await supplierService.createSupplier(payload);
+        // CREATE API CALL
+        const res = await SupplierService.createSupplier(payload);
+
         message.success("Supplier created successfully!");
 
+        // Add new item to table without refreshing the page (optimistic)
         const newItem = {
           key: res.data?.data?.id ?? String(Math.random()),
-          code: res.data?.data?.supplier_code ?? "",
-          name: res.data?.data?.supplier_name ?? payload.supplier_name,
+          code: res.data?.data?.supplier_code ?? `SU${String(suppliers.length + 1).padStart(3, "0")}`,
+          name: res.data?.data?.first_name && res.data?.data?.last_name
+            ? `${res.data.data.first_name} ${res.data.data.last_name}`.trim()
+            : `${payload.first_name} ${payload.last_name}`.trim(),
           email: res.data?.data?.email ?? payload.email,
-          phone: res.data?.data?.phone_number ?? payload.phone_number,
+          phone: res.data?.data?.phone ?? payload.phone,
           country: res.data?.data?.country ?? payload.country,
-          image: "https://cdn-icons-png.flaticon.com/512/3050/3050525.png",
+          image: res.data?.data?.image ?? "https://cdn-icons-png.flaticon.com/512/3050/3050525.png",
           status: res.data?.data?.status ?? payload.status,
           address: res.data?.data?.address ?? payload.address,
           city: res.data?.data?.city ?? payload.city,
           state: res.data?.data?.state ?? payload.state,
           postalCode: res.data?.data?.postal_code ?? payload.postal_code,
+          firstName: res.data?.data?.first_name ?? payload.first_name,
+          lastName: res.data?.data?.last_name ?? payload.last_name,
         };
 
         setSuppliers((prev) => [newItem, ...prev]);
+
+        // THEN fetch fresh data from backend to keep everything consistent
         await fetchSuppliers();
       } else {
-        const res = await supplierService.updateSupplier(selectedSupplier.key, payload);
+        // UPDATE API CALL
+        const res = await SupplierService.updateSupplier(selectedSupplier.key, payload);
+
         message.success("Supplier updated successfully!");
 
+        // Update the local state optimistically
         const updatedSupplier = {
           key: selectedSupplier.key,
           code: selectedSupplier.code,
-          name: res.data?.data?.supplier_name ?? payload.supplier_name,
+          name: res.data?.data?.first_name && res.data?.data?.last_name
+            ? `${res.data.data.first_name} ${res.data.data.last_name}`.trim()
+            : `${payload.first_name} ${payload.last_name}`.trim(),
           email: res.data?.data?.email ?? payload.email,
-          phone: res.data?.data?.phone_number ?? payload.phone_number,
+          phone: res.data?.data?.phone ?? payload.phone,
           country: res.data?.data?.country ?? payload.country,
           image: selectedSupplier.image,
-          status: res.data?.data?.status ?? payload.status,
+          status: payload.status,
           address: res.data?.data?.address ?? payload.address,
           city: res.data?.data?.city ?? payload.city,
           state: res.data?.data?.state ?? payload.state,
           postalCode: res.data?.data?.postal_code ?? payload.postal_code,
+          firstName: res.data?.data?.first_name ?? payload.first_name,
+          lastName: res.data?.data?.last_name ?? payload.last_name,
         };
 
         setSuppliers((prev) =>
           prev.map((s) => (s.key === selectedSupplier.key ? updatedSupplier : s))
         );
+
+        // THEN fetch fresh data from backend to keep everything consistent
         await fetchSuppliers();
       }
     } catch (err) {
       console.error("Supplier Error:", err);
+      console.error("Error response:", err.response);
+      console.error("Error message:", err.message);
+      console.error("Payload sent:", payload);
       message.error(err.response?.data?.message || err.message || "Failed to save supplier");
     } finally {
       form.resetFields();
@@ -319,9 +410,15 @@ const Suppliers = () => {
 
   const handleConfirmDelete = async () => {
     try {
-      await supplierService.deleteSupplier(deleteSupplier.key);
+      // DELETE API CALL
+      await SupplierService.deleteSupplier(deleteSupplier.key);
+
       message.success(`Supplier "${deleteSupplier?.name}" deleted successfully!`);
+
+      // Remove from local state
       setSuppliers((prev) => prev.filter((s) => s.key !== deleteSupplier.key));
+
+      // Fetch fresh data from backend to keep everything consistent
       await fetchSuppliers();
     } catch (err) {
       console.error("Delete Supplier Error:", err);
@@ -490,6 +587,7 @@ const Suppliers = () => {
         pagination={false}
         bordered={false}
         className="rounded-md"
+        loading={loading}
       />
 
       <div className="flex justify-between items-center mt-4">
