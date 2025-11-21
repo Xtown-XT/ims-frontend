@@ -9,4 +9,3 @@ const warrantyService = {
 };
 
 export default warrantyService;
-
