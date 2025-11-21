@@ -1,11 +1,8 @@
 
 import { useState, useMemo, useEffect } from "react";
-<<<<<<< HEAD
-import { Table, Input, Select, Button, Modal, Form, Switch, message, Checkbox } from "antd";
-=======
-import { Tale, Input, Select, Button, Modal, Form, Switch, message, Checkbox } from "antd";
 
->>>>>>> c791e2b0a8129c14450e6a26312fe72e9179ea2e
+import { Table, Input, Select, Button, Modal, Form, Switch, message, Checkbox } from "antd";
+
 import {
   SearchOutlined,
   PlusOutlined,
