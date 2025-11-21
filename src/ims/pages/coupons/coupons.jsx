@@ -115,19 +115,19 @@ const Coupons = () => {
         prev.map((item) =>
           item.key === editingKey
             ? {
-                ...item,
-                name: values.name,
-                code: values.code,
-                type: values.type,
-                discount: values.discount,
-                limit: values.limit,
-                description: values.description || "",
-                startDate: startDateStr,
-                endDate: endDateStr,
-                valid: endDateStr, // maintain your existing 'valid' field logic
-                status: values.status ? "Active" : "Inactive",
-                product: values.product,
-              }
+              ...item,
+              name: values.name,
+              code: values.code,
+              type: values.type,
+              discount: values.discount,
+              limit: values.limit,
+              description: values.description || "",
+              startDate: startDateStr,
+              endDate: endDateStr,
+              valid: endDateStr, // maintain your existing 'valid' field logic
+              status: values.status ? "Active" : "Inactive",
+              product: values.product,
+            }
             : item
         )
       );
@@ -224,10 +224,16 @@ const Coupons = () => {
       render: (status) => (
         <span
           style={{
-            background: status?.toLowerCase() === "active" ? "#3EB780" : "#d63031",
+            background: status?.toLowerCase() === "active" ? "#71d98d" : "#ff9999",
             color: "white",
             borderRadius: "5px",
             padding: "2px 5px",
+            fontSize: "12px",
+            fontWeight: "500",
+            display: "inline-block",
+            textAlign: "center",
+            width: "70px",
+            height: "auto"
           }}
         >
           {status}
