@@ -17,16 +17,26 @@ const { Option } = Select;
 const ExpenseCategory = () => {
   const [form] = Form.useForm();
   const [showForm, setShowForm] = useState(false);
+<<<<<<< HEAD
   const [isEditMode, setIsEditMode] = useState(false);
   const [filterStatus, setFilterStatus] = useState(null);
   const [checked, setChecked] = useState(true);
+=======
+  const [checked, setChecked] = useState(true);
+  const [search, setSearch] = useState('');
+  const [filterStatus, setFilterStatus] = useState(null);
+  const [isEditMode, setIsEditMode] = useState(false);
+>>>>>>> 3fbe18b2f3be4a4ef66ef580865500f50c713a42
   const [editRecord, setEditRecord] = useState(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteRecord, setDeleteRecord] = useState(null);
   const [filtersCollapsed, setFiltersCollapsed] = useState(false);
 
   const [page, setPage] = useState(1);
+<<<<<<< HEAD
   const [search, setSearch] = useState('');
+=======
+>>>>>>> 3fbe18b2f3be4a4ef66ef580865500f50c713a42
   const [limit] = useState(10);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -34,6 +44,7 @@ const ExpenseCategory = () => {
   const [selectedKeys, setSelectedKeys] = useState([]);
   const [categories, setCategories] = useState([]);
 
+<<<<<<< HEAD
   useEffect(() => {
     const fetchData = async () => {
       if (loading) return; // Prevent multiple calls
@@ -42,6 +53,15 @@ const ExpenseCategory = () => {
         setLoading(true);
         const res = await expenseCategoryService.getExpenseCategories(page, limit, search);
         console.log("API response:", res.data);
+=======
+  // Fetch categories
+  useEffect(() => {
+    const fetchData = async () => {
+      if (loading) return;
+      try {
+        setLoading(true);
+        const res = await expenseCategoryService.getExpenseCategories(page, limit, search);
+>>>>>>> 3fbe18b2f3be4a4ef66ef580865500f50c713a42
         setCategories(res.data.rows || []);
         setTotal(res.data.count || 0);
       } catch (err) {
@@ -56,6 +76,7 @@ const ExpenseCategory = () => {
 
   const filteredCategories = useMemo(() => {
     let filtered = [...categories];
+<<<<<<< HEAD
 
     if (filterStatus) {
       filtered = filtered.filter(
@@ -84,6 +105,21 @@ const ExpenseCategory = () => {
     form.setFieldsValue({ status: ch });
   };
 
+=======
+    if (filterStatus) {
+      filtered = filtered.filter(
+        (item) => (item.is_active ? "Active" : "Inactive") === filterStatus
+      );
+    }
+    return filtered;
+  }, [filterStatus, categories]);
+
+  const onChange = (ch) => {
+    setChecked(ch);
+    form.setFieldsValue({ is_active: ch });
+  };
+
+>>>>>>> 3fbe18b2f3be4a4ef66ef580865500f50c713a42
   const openAddModal = () => {
     setIsEditMode(false);
     setEditRecord(null);
@@ -92,6 +128,7 @@ const ExpenseCategory = () => {
     form.setFieldsValue({
       category_name: "",
       description: "",
+<<<<<<< HEAD
       status: true,
     });
     setShowForm(true);
@@ -215,8 +252,14 @@ const ExpenseCategory = () => {
         return `"${safe}"`;
       });
       csvRows.push(values.join(","));
+=======
+      is_active: true,
+>>>>>>> 3fbe18b2f3be4a4ef66ef580865500f50c713a42
     });
+    setShowForm(true);
+  };
 
+<<<<<<< HEAD
     const csvString = csvRows.join("\n");
     const blob = new Blob([csvString], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
@@ -279,6 +322,115 @@ const ExpenseCategory = () => {
       prev.includes(key)
         ? prev.filter((k) => k !== key)
         : [...prev, key]
+=======
+  // Add new category
+  const handleAddCategory = async () => {
+    try {
+      const values = await form.validateFields();
+      const payload = {
+        category_name: values.category_name,
+        description: values.description || "",
+        status: checked,
+      };
+      console.log("Payload sending to backend:", payload);
+
+      await expenseCategoryService.createExpenseCategory(payload);
+      message.success("Expense category added successfully");
+      setShowForm(false);
+      form.resetFields();
+      setIsEditMode(false);
+      setEditRecord(null);
+
+      const res = await expenseCategoryService.getExpenseCategories(page, limit, search);
+      setCategories(res.data.rows || []);
+      setTotal(res.data.count || 0);
+    } catch (err) {
+      console.error("Failed to add expense category:", err);
+      console.error("Error response data:", err.response?.data);
+      console.error("Error status:", err.response?.status);
+      message.error(err.response?.data?.message || "Failed to add expense category");
+    }
+  };
+
+  const handleEdit = (record) => {
+    setIsEditMode(true);
+    setEditRecord(record);
+    form.setFieldsValue({
+      category_name: record.category_name,
+      description: record.description,
+      is_active: record.is_active,
+    });
+    setChecked(record.is_active);
+    setShowForm(true);
+  };
+
+  const handleSaveChanges = async () => {
+    try {
+      const values = await form.validateFields();
+      if (!editRecord) return message.error("No record selected for editing");
+
+      const updateCategory = {
+        category_name: values.category_name,
+        description: values.description || "",
+        status: checked,
+      };
+
+      console.log("Payload for update:", updateCategory);
+
+      await expenseCategoryService.updateExpenseCategory(editRecord.id, updateCategory);
+      message.success("Expense category updated successfully");
+      setShowForm(false);
+      setIsEditMode(false);
+      setEditRecord(null);
+      form.resetFields();
+
+      const res = await expenseCategoryService.getExpenseCategories(page, limit, search);
+      setCategories(res.data.rows || []);
+      setTotal(res.data.count || 0);
+    } catch (err) {
+      console.error("Failed to update expense category:", err);
+      message.error(err.response?.data?.message || "Failed to update expense category");
+    }
+  };
+
+  const handleDelete = (record) => {
+    setDeleteRecord(record);
+    setShowDeleteModal(true);
+  };
+
+  const confirmDelete = async () => {
+    try {
+      await expenseCategoryService.deleteExpenseCategory(deleteRecord.id);
+      message.success("Expense category deleted successfully");
+      setShowDeleteModal(false);
+      setDeleteRecord(null);
+
+      const res = await expenseCategoryService.getExpenseCategories(page, limit, search);
+      setCategories(res.data.rows || []);
+      setTotal(res.data.count || 0);
+    } catch (err) {
+      console.error("Failed to delete expense category:", err);
+      message.error(err.response?.data?.message || "Failed to delete expense category");
+      setShowDeleteModal(false);
+      setDeleteRecord(null);
+    }
+  };
+
+  const cancelDelete = () => {
+    setShowDeleteModal(false);
+    setDeleteRecord(null);
+  };
+
+  const toggleFilters = () => setFiltersCollapsed((s) => !s);
+  const handleRefresh = () => { setSearch(""); setFilterStatus(null); setPage(1); message.success("Refreshed"); };
+
+  const handleSelectAll = (e) => {
+    setSelectedKeys(e.target.checked ? categories.map((item) => item.id) : []);
+  };
+  const handleSelectOne = (key) => {
+    setSelectedKeys((prev) =>
+      prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
+>>>>>>> 3fbe18b2f3be4a4ef66ef580865500f50c713a42
     );
   };
 
@@ -307,12 +459,21 @@ const ExpenseCategory = () => {
     { title: "Description", dataIndex: "description", key: "description" },
     {
       title: "Status",
+<<<<<<< HEAD
       dataIndex: "status",
       key: "status",
       render: (_, record) => (
         <button
           style={{
             backgroundColor: record?.status ? "#3EB780" : "#d63031",
+=======
+      dataIndex: "is_active",
+      key: "is_active",
+      render: (_, record) => (
+        <button
+          style={{
+            backgroundColor: record?.is_active ? "#3EB780" : "#d63031",
+>>>>>>> 3fbe18b2f3be4a4ef66ef580865500f50c713a42
             color: "#fff",
             border: "none",
             borderRadius: "4px",
@@ -323,7 +484,11 @@ const ExpenseCategory = () => {
             cursor: "default",
           }}
         >
+<<<<<<< HEAD
           {record?.status ? "Active" : "Inactive"}
+=======
+          {record?.is_active ? "Active" : "Inactive"}
+>>>>>>> 3fbe18b2f3be4a4ef66ef580865500f50c713a42
         </button>
       ),
     },
@@ -348,6 +513,7 @@ const ExpenseCategory = () => {
           <p className="text-sm text-gray-500">Manage your expense categories</p>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+<<<<<<< HEAD
           <Button
             icon={<FaFilePdf color="red" size={16} />}
             onClick={handleExportPDF}
@@ -372,6 +538,17 @@ const ExpenseCategory = () => {
               transition: "transform 0.2s",
             }}
           />
+=======
+          <Button icon={<FaFilePdf color="red" size={16} />} title="Export PDF" />
+          <Button icon={<FaFileExcel color="green" size={16} />} title="Export Excel" />
+          <Button icon={<IoReloadOutline color="#9333ea" size={18} />} onClick={handleRefresh} title="Refresh" />
+          <Button
+            icon={<FaAngleUp color="#9333ea" size={16} />}
+            onClick={toggleFilters}
+            title={filtersCollapsed ? "Expand filters" : "Collapse filters"}
+            style={{ transform: filtersCollapsed ? "rotate(180deg)" : "rotate(0deg)", transition: "0.2s" }}
+          />
+>>>>>>> 3fbe18b2f3be4a4ef66ef580865500f50c713a42
           <Button type="primary" onClick={openAddModal}>
             <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
               <PlusCircleOutlined style={{ color: "#fff" }} />
@@ -381,6 +558,10 @@ const ExpenseCategory = () => {
         </div>
       </div>
 
+<<<<<<< HEAD
+=======
+      {/* Filters */}
+>>>>>>> 3fbe18b2f3be4a4ef66ef580865500f50c713a42
       {!filtersCollapsed && (
         <div>
           <Form className="flex flex-wrap gap-3 mb-4 justify-between items-center">
@@ -389,10 +570,14 @@ const ExpenseCategory = () => {
               prefix={<SearchOutlined />}
               style={{ width: 250 }}
               value={search}
+<<<<<<< HEAD
               onChange={(e) => {
                 setSearch(e.target.value);
                 setPage(1);
               }}
+=======
+              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+>>>>>>> 3fbe18b2f3be4a4ef66ef580865500f50c713a42
               allowClear
             />
             <div className="flex gap-3">
@@ -413,6 +598,7 @@ const ExpenseCategory = () => {
         </div>
       )}
 
+<<<<<<< HEAD
       <div
         style={{
           border: "1px solid #e5e7eb",
@@ -421,6 +607,10 @@ const ExpenseCategory = () => {
           background: "#fff",
         }}
       >
+=======
+      {/* Table */}
+      <div style={{ border: "1px solid #e5e7eb", borderRadius: 12, overflow: "hidden", background: "#fff" }}>
+>>>>>>> 3fbe18b2f3be4a4ef66ef580865500f50c713a42
         <Table
           columns={columns}
           dataSource={filteredCategories}
@@ -434,6 +624,7 @@ const ExpenseCategory = () => {
             showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} items`,
           }}
           rowKey="id"
+<<<<<<< HEAD
           className="bg-white"
           bordered={false}
           rowClassName={() => "hover:bg-gray-50"}
@@ -463,11 +654,14 @@ const ExpenseCategory = () => {
               ),
             },
           }}
+=======
+>>>>>>> 3fbe18b2f3be4a4ef66ef580865500f50c713a42
         />
       </div>
 
       {/* Add/Edit Modal */}
       <Modal
+<<<<<<< HEAD
         title={
           <span className="font-semibold">
             {isEditMode ? "Edit Expense Category" : "Add Expense Category"}
@@ -479,11 +673,17 @@ const ExpenseCategory = () => {
           setIsEditMode(false);
           form.resetFields();
         }}
+=======
+        title={isEditMode ? "Edit Expense Category" : "Add Expense Category"}
+        open={showForm}
+        onCancel={() => { setShowForm(false); setIsEditMode(false); form.resetFields(); }}
+>>>>>>> 3fbe18b2f3be4a4ef66ef580865500f50c713a42
         footer={null}
         centered
       >
         <Form layout="vertical" form={form}>
           <Form.Item
+<<<<<<< HEAD
             label={
               <span className="text-sm font-medium text-gray-700">
                 Category Name
@@ -505,10 +705,21 @@ const ExpenseCategory = () => {
             name="description"
             className="mb-3"
           >
+=======
+            label="Category"
+            name="category_name"
+            rules={[{ required: true, message: "Please enter category" }]}
+          >
+            <Input placeholder="Category" />
+          </Form.Item>
+
+          <Form.Item label="Description" name="description">
+>>>>>>> 3fbe18b2f3be4a4ef66ef580865500f50c713a42
             <Input.TextArea placeholder="Description" rows={3} />
           </Form.Item>
 
           <div className="flex items-center justify-between mt-2">
+<<<<<<< HEAD
             <span className="text-sm font-medium text-gray-700">
               Status
             </span>
@@ -521,10 +732,16 @@ const ExpenseCategory = () => {
                   form.setFieldsValue({ status: ch });
                 }}
               />
+=======
+            <span>Status</span>
+            <Form.Item name="is_active" valuePropName="checked" noStyle>
+              <Switch size="small" checked={checked} onChange={onChange} />
+>>>>>>> 3fbe18b2f3be4a4ef66ef580865500f50c713a42
             </Form.Item>
           </div>
 
           <div className="flex justify-end gap-3 mt-6">
+<<<<<<< HEAD
             <Button
               onClick={() => {
                 setShowForm(false);
@@ -548,6 +765,10 @@ const ExpenseCategory = () => {
               }}
               onClick={isEditMode ? handleSaveChanges : handleAddCategory}
             >
+=======
+            <Button onClick={() => { setShowForm(false); setIsEditMode(false); form.resetFields(); }} style={{ backgroundColor: "#0A2540", color: "#fff" }}>Cancel</Button>
+            <Button type="primary" style={{ backgroundColor: "#7E57C2", color: "#fff" }} onClick={isEditMode ? handleSaveChanges : handleAddCategory}>
+>>>>>>> 3fbe18b2f3be4a4ef66ef580865500f50c713a42
               {isEditMode ? "Save Changes" : "Add Category"}
             </Button>
           </div>
@@ -557,6 +778,7 @@ const ExpenseCategory = () => {
       {/* Delete Modal */}
       <Modal open={showDeleteModal} onCancel={cancelDelete} footer={null} centered>
         <div style={{ textAlign: "center", padding: "10px 0" }}>
+<<<<<<< HEAD
           <div
             style={{
               width: 60,
@@ -617,6 +839,16 @@ const ExpenseCategory = () => {
             >
               Yes Delete
             </Button>
+=======
+          <div style={{ width: 60, height: 60, borderRadius: "50%", backgroundColor: "#FEE2E2", display: "flex", justifyContent: "center", alignItems: "center", margin: "0 auto 15px" }}>
+            <DeleteOutlined style={{ fontSize: 30, color: "#EF4444" }} />
+          </div>
+          <h2>Delete Expense Category</h2>
+          <p>Are you sure you want to delete this expense category?</p>
+          <div style={{ display: "flex", justifyContent: "center", gap: 10, marginTop: 10 }}>
+            <Button onClick={cancelDelete} style={{ backgroundColor: "#0A2540", color: "#fff", border: "none", height: 38, width: 100 }}>Cancel</Button>
+            <Button type="primary" onClick={confirmDelete} style={{ backgroundColor: "#7E57C2", color: "#fff", height: 38, width: 120 }}>Yes Delete</Button>
+>>>>>>> 3fbe18b2f3be4a4ef66ef580865500f50c713a42
           </div>
         </div>
       </Modal>

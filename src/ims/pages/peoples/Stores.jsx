@@ -37,47 +37,8 @@ const Stores = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [form] = Form.useForm();
-
-  const [stores, setStores] = useState([
-    {
-      key: "1",
-      store: "Electro Mart",
-      username: "johnsmith",
-      email: "electromart@example.com",
-      phone: "+12498345785",
-      status: "Active",
-      password: "john123",
-      products: [
-        { id: 1, name: "Laptop", quantity: 20, price: "$800" },
-        { id: 2, name: "Mouse", quantity: 100, price: "$20" },
-      ],
-    },
-    {
-      key: "2",
-      store: "Quantum Gadgets",
-      username: "janedoe",
-      email: "quantum@example.com",
-      phone: "+13178964582",
-      status: "Active",
-      password: "jane321",
-      products: [
-        { id: 1, name: "Headphones", quantity: 50, price: "$60" },
-        { id: 2, name: "Smartwatch", quantity: 30, price: "$150" },
-      ],
-    },
-    {
-      key: "3",
-      store: "Prime Bazaar",
-      username: "sarahlee",
-      email: "primebazaar@example.com",
-      phone: "+12796183487",
-      status: "Active",
-      password: "prime456",
-      products: [
-        { id: 1, name: "Bluetooth Speaker", quantity: 40, price: "$45" },
-      ],
-    },
-  ]);
+  const [stores, setStores] =useState([])
+  
 
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
@@ -173,56 +134,28 @@ const Stores = () => {
   const fetchStores = async () => {
     try {
       const res = await storesService.getStores();
-
-      // Robust mapping depending on backend response shape:
-      // try common patterns:
-      const raw = res?.data ?? res; // res.data (axios) or direct array
-      // If raw has `data` or `stores` or `rows` or is an array, pick the correct one:
-      let list =
-        (raw && Array.isArray(raw)) // res.data is array
-          ? raw
-          : raw?.data && Array.isArray(raw.data)
-          ? raw.data
-          : raw?.stores && Array.isArray(raw.stores)
-          ? raw.stores
-          : raw?.rows && Array.isArray(raw.rows)
-          ? raw.rows
-          : [];
-
+//Expecting backend to return: res, data.data(array)
+      
+      const apiData = res?.data ?.data || res?.data || []; 
+      
       // If the API returns objects with backend field names, normalize to your frontend shape
-      const normalized = list.map((item) => {
-        return {
-          key: item.id ? String(item.id) : item.key || String(Date.now()) + Math.random(),
-          store:
-            item.store || item.store_name || item.name || item.storeName || "",
-          username: item.username || item.user_name || item.userName || "",
-          email: item.email || "",
-          phone: item.phone || item.contact || "",
-          password: item.password || item.pass || "",
-          status:
-            typeof item.is_active !== "undefined"
-              ? item.is_active
-                ? "Active"
-                : "Inactive"
-              : item.status // maybe already "Active"/"Inactive"
-              ? item.status
-              : "Inactive",
-          products: item.products || [],
-        };
-      });
-
-      // Only set if we got something; otherwise keep existing hardcoded data
-      if (normalized && normalized.length) {
-        setStores(normalized);
-      } else {
-        // If API returned empty array, set to [] to reflect backend
-        if (Array.isArray(list)) setStores([]);
-      }
-    } catch (err) {
-      console.error("Failed to fetch stores:", err);
-      // keep existing local data (hardcoded) if fetch fails
+      const normalized = apiData.map((item) =>( {
+        key: String(item.id),
+        store:item.store_name,
+        userName:item.userName,
+        email: item.email,
+        phone:item.phone,
+        password:item.password,
+        status: item.is_active ? "Active" : "Inactive",        
+        products:item.products || []
+      }));
+      setstore(normalized);
+    } catch (error) {
+      console.error("Error fetching store data:", error);
+      message.error("Failed to load stores");
     }
-  };
+    };
+
 
   // Fetch on mount
   useEffect(() => {
@@ -297,7 +230,7 @@ const Stores = () => {
           email: values.email,
           phone: values.phone,
           password: values.password,
-          is_active: values.status ? true : false,
+          is_active: values.status ? "active" : "inactive",
         };
 
         const res = await storesService.createStore(payload);

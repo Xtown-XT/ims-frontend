@@ -1,13 +1,27 @@
 // src/service/auth.js
 
-// ✅ Save auth data to localStorage
+// ✅ Save auth data to localStorage (supports all backend formats)
 export const setAuthData = (data) => {
-  if (data?.accessToken) {
-    localStorage.setItem("accessToken", data.accessToken);
+  // ---- Access Token ----
+  const access =
+    data?.accessToken ||
+    data?.token ||                 // backend might send "token"
+    data?.access_token;            // some backend use access_token
+
+  if (access) {
+    localStorage.setItem("accessToken", access);
   }
-  if (data?.refreshToken) {
-    localStorage.setItem("refreshToken", data.refreshToken);
+
+  // ---- Refresh Token ----
+  const refresh =
+    data?.refreshToken ||
+    data?.refresh_token;           // backend might send refresh_token
+
+  if (refresh) {
+    localStorage.setItem("refreshToken", refresh);
   }
+
+  // ---- User Info ----
   if (data?.user) {
     localStorage.setItem("user", JSON.stringify(data.user));
   }
@@ -46,8 +60,7 @@ export const clearAuthData = () => {
   localStorage.removeItem("user");
 };
 
-// ✅ Automatically add token to API requests (optional)
-// Import this and attach to axios interceptor if needed
+// ✅ Automatically attach token to API requests
 export const attachAuthHeader = (config) => {
   const token = getAccessToken();
   if (token) {

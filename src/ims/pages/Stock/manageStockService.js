@@ -1,10 +1,10 @@
 import api from "../../services/api.js"
 
 const manageStockService = {
-  createStock: (data) => api.post('/managestock/managestock/create', data),
-  getStocks: (params) => api.get('/managestock/managestock/all', { params }),
-  updateStock: (id, data) => api.put(`/managestock/managestock/${id}`, data),
-  deleteStock: (id) => api.delete(`/managestock/managestock/${id}`)
+  createStock: (data) => api.post('/managestock/create', data),
+  getStocks: (params) => api.get('/managestock/getAllManageStock', { params }),
+  updateStock: (id, data) => api.put(`/managestock/updateManageStock/${id}`, data),
+  deleteStock: (id) => api.delete(`/managestock/deleteManageStock/${id}`)
 }
 
 export default manageStockService;
