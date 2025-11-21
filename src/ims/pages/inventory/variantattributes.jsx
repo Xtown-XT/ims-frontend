@@ -1,23 +1,7 @@
-<<<<<<< HEAD
-<<<<<<< HEAD
-// import React from 'react'
-
-// function variantattributes() {
-//   return (
-//     <div>variantattributes</div>
-//   )
-// }
-
-// export default variantattributes
-=======
 
 import { useState, useMemo, useEffect } from "react";
 import { Tale, Input, Select, Button, Modal, Form, Switch, message, Checkbox } from "antd";
-=======
 
-import { useState, useMemo, useEffect } from "react";
-import {  Input, Select, Button, Modal, Form, Switch, message, Checkbox } from "antd";
->>>>>>> poonjothi
 import {
   SearchOutlined,
   PlusOutlined,
@@ -697,9 +681,5 @@ const VariantAttributes = () => {
   );
 };
 
-<<<<<<< HEAD
 export default VariantAttributes;
->>>>>>> 9bfe49312e904b8bd8d6562b9f7e1babd4b282ee
-=======
-export default VariantAttributes;
->>>>>>> poonjothi
+
