@@ -141,6 +141,25 @@ const Login = () => {
     setLoginError("");
   };
 
+  const buttonStyle = {
+    padding: "10px 20px",
+    fontSize: "14px",
+    fontWeight: "600",
+    minWidth: "145px",
+    height: "44px",
+    border: "none",
+    borderRadius: "8px",
+    cursor: "pointer",
+    transition: "all 0.3s ease",
+    backgroundColor: "#3d2c8bff",
+    color: "white",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    whiteSpace: "nowrap",
+    boxSizing: "border-box"
+  };
+
   return (
     <div className="login-container">
 
@@ -153,7 +172,7 @@ const Login = () => {
             town..!
           </h3>
           <span className="welcome-tagline">
-            We’re here to turn your ideas into reality.
+            We're here to turn your ideas into reality.
           </span>
         </div>
       </div>
@@ -217,18 +236,46 @@ const Login = () => {
           </div>
 
           {/* Buttons */}
-          <div style={{ display: "flex", justifyContent: "center", gap: "20px" }}>
-            <button type="button" className="log-button" disabled={loading} onClick={() => handleSubmit("user")}>
+          <div style={{ display: "flex", justifyContent: "center", gap: "15px" }}>
+            <button 
+              type="button" 
+              className="log-button" 
+              disabled={loading} 
+              onClick={() => handleSubmit("user")}
+              style={{ 
+                padding: "10px 24px", 
+                fontSize: "14px",
+                minWidth: "140px",
+                height: "42px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center"
+              }}
+            >
               {loading ? <Loading /> : "User Login"}
             </button>
 
-            <button type="button" className="log-button" disabled={loading} onClick={() => handleSubmit("employee")}>
+            <button 
+              type="button" 
+              className="log-button" 
+              disabled={loading} 
+              onClick={() => handleSubmit("employee")}
+              style={{ 
+                padding: "10px 20px", 
+                fontSize: "14px",
+                minWidth: "140px",
+                height: "42px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                whiteSpace: "nowrap"
+              }}
+            >
               {loading ? <Loading /> : "Employee Login"}
             </button>
           </div>
-
           {/* Links */}
-          <div style={{ marginTop: "1rem", textAlign: "center" }}>
+          <div style={{ marginTop: "1.5rem", textAlign: "center" }}>
             <span
               style={{ cursor: "pointer", color: "#3d2c8bff", fontWeight: "bold" }}
               onClick={() => setForgotModalVisible(true)}

@@ -22,37 +22,113 @@ const Register = () => {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  // 🔹 Handle input
+  // 🔹 Handle input with real-time validation
   const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-    setErrors({ ...errors, [e.target.name]: "" });
+    const { name, value } = e.target;
+    setFormData({ ...formData, [name]: value });
+    
+    // Clear error for this field and validate in real-time
+    setErrors({ ...errors, [name]: "" });
+    
+    // Real-time validation
+    validateField(name, value);
   };
 
-  // 🔹 Validation
+  // 🔹 Real-time field validation
+  const validateField = (fieldName, value) => {
+    let error = "";
+
+    switch (fieldName) {
+      case "username":
+        if (!value.trim()) {
+          error = "Username is required";
+        } else if (value.trim().length < 3) {
+          error = "Username must be at least 3 characters";
+        } else if (!/^[A-Za-z\s]+$/.test(value)) {
+          error = "Username must contain only alphabets";
+        }
+        break;
+
+      case "email":
+        if (!value.trim()) {
+          error = "Email is required";
+        } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+          error = "Invalid email format";
+        }
+        break;
+
+      case "phone":
+        if (!value.trim()) {
+          error = "Phone number is required";
+        } else if (!/^\d{10}$/.test(value)) {
+          error = "Phone number must be exactly 10 digits";
+        }
+        break;
+
+      case "password":
+        if (!value.trim()) {
+          error = "Password is required";
+        } else if (value.length < 8) {
+          error = "Password must be at least 8 characters";
+        } else if (!/[A-Z]/.test(value)) {
+          error = "Password must contain at least one uppercase letter";
+        } else if (!/[a-z]/.test(value)) {
+          error = "Password must contain at least one lowercase letter";
+        } else if (!/[0-9]/.test(value)) {
+          error = "Password must contain at least one number";
+        } else if (!/[!@#$%^&*(),.?":{}|<>]/.test(value)) {
+          error = "Password must contain at least one special character";
+        }
+        break;
+
+      default:
+        break;
+    }
+
+    setErrors((prev) => ({ ...prev, [fieldName]: error }));
+  };
+
+  // 🔹 Validation for all fields
   const validate = () => {
     const newErrors = {};
 
-    // Username – alphabets only
-    if (!formData.username.trim()) newErrors.username = "Username is required";
-    else if (!/^[A-Za-z\s]+$/.test(formData.username))
+    // Username validation
+    if (!formData.username.trim()) {
+      newErrors.username = "Username is required";
+    } else if (formData.username.trim().length < 3) {
+      newErrors.username = "Username must be at least 3 characters";
+    } else if (!/^[A-Za-z\s]+$/.test(formData.username)) {
       newErrors.username = "Username must contain only alphabets";
+    }
 
     // Email validation
-    if (!formData.email.trim()) newErrors.email = "Email is required";
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email))
+    if (!formData.email.trim()) {
+      newErrors.email = "Email is required";
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
       newErrors.email = "Invalid email format";
+    }
 
     // Phone validation
-    if (!formData.phone.trim()) newErrors.phone = "Phone number is required";
-    else if (!/^\d{10}$/.test(formData.phone))
-      newErrors.phone = "Enter valid 10-digit number";
+    if (!formData.phone.trim()) {
+      newErrors.phone = "Phone number is required";
+    } else if (!/^\d{10}$/.test(formData.phone)) {
+      newErrors.phone = "Phone number must be exactly 10 digits";
+    }
 
     // Password validation
-    if (!formData.password.trim()) newErrors.password = "Password is required";
-    else if (formData.password.length < 6)
-      newErrors.password = "Min 6 characters required";
-    else if (!/[!@#$%^&*(),.?":{}|<>]/.test(formData.password))
+    if (!formData.password.trim()) {
+      newErrors.password = "Password is required";
+    } else if (formData.password.length < 8) {
+      newErrors.password = "Password must be at least 8 characters";
+    } else if (!/[A-Z]/.test(formData.password)) {
+      newErrors.password = "Password must contain at least one uppercase letter";
+    } else if (!/[a-z]/.test(formData.password)) {
+      newErrors.password = "Password must contain at least one lowercase letter";
+    } else if (!/[0-9]/.test(formData.password)) {
+      newErrors.password = "Password must contain at least one number";
+    } else if (!/[!@#$%^&*(),.?":{}|<>]/.test(formData.password)) {
       newErrors.password = "Password must contain at least one special character";
+    }
 
     return newErrors;
   };
@@ -61,8 +137,10 @@ const Register = () => {
   const handleRegister = async (e) => {
     e.preventDefault();
     const validationErrors = validate();
+    
     if (Object.keys(validationErrors).length) {
       setErrors(validationErrors);
+      antdMessage.error("Please fix all validation errors before submitting");
       return;
     }
 
@@ -92,6 +170,16 @@ const Register = () => {
     }
   };
 
+  // 🔹 Handle phone input - only allow numbers
+  const handlePhoneChange = (e) => {
+    const value = e.target.value.replace(/\D/g, ""); // Remove non-digits
+    if (value.length <= 10) {
+      setFormData({ ...formData, phone: value });
+      setErrors({ ...errors, phone: "" });
+      validateField("phone", value);
+    }
+  };
+
   return (
     <div className="flex min-h-screen bg-gray-50">
       {/* Left Section */}
@@ -99,7 +187,7 @@ const Register = () => {
         <h3 className="text-2xl font-semibold mb-2 flex items-center gap-2">
           Welcome to <img src={x_logo} alt="XTOWN" className="w-28 inline" /> town..!
         </h3>
-        <p className="text-gray-300">We’re here to turn your ideas into reality.</p>
+        <p className="text-gray-300">We're here to turn your ideas into reality.</p>
       </div>
 
       {/* Right Section */}
@@ -163,7 +251,8 @@ const Register = () => {
               type="tel"
               name="phone"
               value={formData.phone}
-              onChange={handleChange}
+              onChange={handlePhoneChange}
+              maxLength={10}
               className={`w-full px-4 py-2 rounded-lg bg-gray-100 border ${
                 errors.phone ? "border-red-500" : "border-gray-300"
               } focus:outline-none focus:ring-2 focus:ring-gray-400`}
