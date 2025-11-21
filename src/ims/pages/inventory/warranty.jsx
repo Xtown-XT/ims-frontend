@@ -1,18 +1,3 @@
-<<<<<<< HEAD
-<<<<<<< HEAD
-// import React from 'react'
-
-// function warranty() {
-//   return (
-//     <div>warranty</div>
-//   )
-// }
-
-// export default warranty
-=======
-=======
->>>>>>> poonjothi
-
 import { useState, useMemo, useEffect } from "react";
 import { Table, Input, Select, Button, Modal, Form, Switch, message } from "antd";
 import {
@@ -766,10 +751,6 @@ const Warranties = () => {
   );
 };
 
-<<<<<<< HEAD
+
 export default Warranties;
 
->>>>>>> 9bfe49312e904b8bd8d6562b9f7e1babd4b282ee
-=======
-export default Warranties;
->>>>>>> poonjothi

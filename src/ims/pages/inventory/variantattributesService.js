@@ -1,17 +1,3 @@
-<<<<<<< HEAD
-<<<<<<< HEAD
-// import React from 'react'
-
-// function variantattributesService() {
-//   return (
-//     <div>variantattributesService</div>
-//   )
-// }
-
-// export default variantattributesService
-=======
-=======
->>>>>>> poonjothi
 
 import api from "../../services/api.js"; 
 
@@ -23,9 +9,5 @@ const variantAttributesService = {
   deleteVariantAttribute: (id) => api.delete(`/varrient/deleteVariant/${id}`), 
 };
 
-<<<<<<< HEAD
 export default variantAttributesService;
->>>>>>> 9bfe49312e904b8bd8d6562b9f7e1babd4b282ee
-=======
-export default variantAttributesService;
->>>>>>> poonjothi
+
