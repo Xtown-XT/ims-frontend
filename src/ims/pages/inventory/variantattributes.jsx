@@ -1,6 +1,6 @@
 
 import { useState, useMemo, useEffect } from "react";
-import { Tale, Input, Select, Button, Modal, Form, Switch, message, Checkbox } from "antd";
+import { Table, Input, Select, Button, Modal, Form, Switch, message, Checkbox } from "antd";
 
 import {
   SearchOutlined,

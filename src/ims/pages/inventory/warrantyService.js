@@ -1,22 +1,6 @@
-<<<<<<< HEAD
-<<<<<<< HEAD
-// import React from 'react'
-=======
->>>>>>> 9bfe49312e904b8bd8d6562b9f7e1babd4b282ee
-
-// function warrantyService() {
-//   return (
-//     <div>warrantyService</div>
-//   )
-// }
-=======
 
 import api from "../../services/api.js"; 
->>>>>>> poonjothi
 
-<<<<<<< HEAD
-// export default warrantyService
-=======
 const warrantyService = {
   createWarranty: (data) => api.post("/warranty/createWarranty", data),
   getWarranties: (page = 1, limit = 10, search = "") => api.get(`/warranty/getAllWarranties?page=${page}&limit=${limit}&search=${search}`),
@@ -24,9 +8,4 @@ const warrantyService = {
   deleteWarranty: (id) => api.delete(`/warranty/deleteWarranty/${id}`), 
 };
 
-<<<<<<< HEAD
 export default warrantyService;
->>>>>>> 9bfe49312e904b8bd8d6562b9f7e1babd4b282ee
-=======
-export default warrantyService;
->>>>>>> poonjothi
