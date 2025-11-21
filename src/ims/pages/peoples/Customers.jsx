@@ -44,15 +44,13 @@ const Customers = () => {
       try {
         setLoading(true);
         const res = await customerService.getCustomers(page, limit, search);
-        console.log("API response:", res.data);
-        const customerData = res.data.data?.customers || res.data.customers || [];
-        console.log("Customer data:", customerData);
-        console.log("First customer image:", customerData[0]?.image);
+        console.log("API response:", res);
+        const customerData = res?.data?.customers || res?.customers || [];
         setCustomers(customerData);
-        setTotal(res.data.data?.total || res.data.total || 0);
+        setTotal(res?.data?.total || res?.total || customerData.length);
       } catch (err) {
         console.error("Failed to fetch customers:", err);
-        message.error(err.response?.data?.message || "Failed to fetch customers");
+        message.error(err?.message || "Failed to fetch customers");
       } finally {
         setLoading(false);
       }
@@ -83,18 +81,6 @@ const Customers = () => {
     setChecked(true);
     setFileList([]);
     form.resetFields();
-    form.setFieldsValue({
-      first_name: "",
-      last_name: "",
-      email: "",
-      phone: "",
-      address: "",
-      city: "",
-      state: "",
-      country: "",
-      postal_code: "",
-      status: "active",
-    });
     setShowForm(true);
   };
 
@@ -116,36 +102,23 @@ const Customers = () => {
       
       if (fileList.length > 0) {
         const imageFile = fileList[0].originFileObj || fileList[0];
-        console.log("Uploading image:", imageFile);
-        console.log("Image file type:", imageFile.type);
-        console.log("Image file size:", imageFile.size);
         formData.append('image', imageFile, imageFile.name);
-      } else {
-        console.log("No image selected");
       }
 
-      console.log("FormData entries:");
-      for (let pair of formData.entries()) {
-        console.log(pair[0], pair[1]);
-      }
-
-      const response = await customerService.createCustomer(formData);
-      console.log("Create response:", response);
+      await customerService.createCustomer(formData);
       message.success("Customer added successfully");
       setShowForm(false);
       form.resetFields();
       setFileList([]);
-      setIsEditMode(false);
-      setEditRecord(null);
       
       // Refetch data
       const res = await customerService.getCustomers(page, limit, search);
-      const customerData = res.data.data?.customers || res.data.customers || [];
+      const customerData = res?.data?.customers || res?.customers || [];
       setCustomers(customerData);
-      setTotal(res.data.data?.total || res.data.total || 0);
+      setTotal(res?.data?.total || res?.total || customerData.length);
     } catch (err) {
       console.error("Failed to add customer:", err);
-      message.error(err.response?.data?.message || "Failed to add customer");
+      message.error(err?.message || "Failed to add customer");
     }
   };
 
@@ -162,7 +135,6 @@ const Customers = () => {
       state: record.state,
       country: record.country,
       postal_code: record.postal_code,
-      status: record.status,
     });
     setChecked(record.status?.toLowerCase() === "active");
     
@@ -201,9 +173,8 @@ const Customers = () => {
       formData.append('postal_code', values.postal_code || "");
       formData.append('status', checked ? "active" : "inactive");
       
-      if (fileList.length > 0) {
+      if (fileList.length > 0 && fileList[0].originFileObj) {
         const imageFile = fileList[0].originFileObj || fileList[0];
-        console.log("Updating with image:", imageFile);
         formData.append('image', imageFile, imageFile.name);
       }
 
@@ -217,12 +188,12 @@ const Customers = () => {
       
       // Refetch data
       const res = await customerService.getCustomers(page, limit, search);
-      const customerData = res.data.data?.customers || res.data.customers || [];
+      const customerData = res?.data?.customers || res?.customers || [];
       setCustomers(customerData);
-      setTotal(res.data.data?.total || res.data.total || 0);
+      setTotal(res?.data?.total || res?.total || customerData.length);
     } catch (err) {
       console.error("Failed to update customer:", err);
-      message.error(err.response?.data?.message || "Failed to update customer");
+      message.error(err?.message || "Failed to update customer");
     }
   };
 
@@ -240,12 +211,12 @@ const Customers = () => {
       
       // Refetch data
       const res = await customerService.getCustomers(page, limit, search);
-      const customerData = res.data.data?.customers || res.data.customers || [];
+      const customerData = res?.data?.customers || res?.customers || [];
       setCustomers(customerData);
-      setTotal(res.data.data?.total || res.data.total || 0);
+      setTotal(res?.data?.total || res?.total || customerData.length);
     } catch (err) {
       console.error("Failed to delete customer:", err);
-      message.error(err.response?.data?.message || "Failed to delete customer");
+      message.error(err?.message || "Failed to delete customer");
       setShowDeleteModal(false);
       setDeleteRecord(null);
     }
@@ -367,7 +338,12 @@ const Customers = () => {
         message.error('Image must be smaller than 2MB!');
         return false;
       }
-      setFileList([file]);
+      setFileList([{
+        uid: file.uid,
+        name: file.name,
+        status: 'done',
+        originFileObj: file,
+      }]);
       return false;
     },
     fileList,
@@ -401,19 +377,16 @@ const Customers = () => {
       title: "Customer",
       dataIndex: "first_name",
       key: "first_name",
-      render: (_, record) => {
-        console.log("Rendering customer:", record.first_name, "Image:", record.image);
-        return (
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <Avatar 
-              src={record.image} 
-              icon={<UserOutlined />}
-              size={32}
-            />
-            <span>{`${record.first_name} ${record.last_name}`}</span>
-          </div>
-        );
-      },
+      render: (_, record) => (
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <Avatar 
+            src={record.image} 
+            icon={<UserOutlined />}
+            size={32}
+          />
+          <span>{`${record.first_name} ${record.last_name}`}</span>
+        </div>
+      ),
     },
     { title: "Email", dataIndex: "email", key: "email" },
     { title: "Phone", dataIndex: "phone", key: "phone" },
