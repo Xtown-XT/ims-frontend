@@ -22,7 +22,7 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
   const [loginError, setLoginError] = useState("");
 
-  // Forgot Password States
+  // Forgot Password
   const [forgotModalVisible, setForgotModalVisible] = useState(false);
   const [forgotEmailOrMobile, setForgotEmailOrMobile] = useState("");
   const [otp, setOtp] = useState("");
@@ -39,16 +39,17 @@ const Login = () => {
       return;
     }
 
-    let payload;
-    if (roleType === "user") payload = { identifier, password, role: roleType };
-    else payload = { username: identifier, password };
+    const payload =
+      roleType === "user"
+        ? { identifier, password, role: "user" }
+        : { username: identifier, password };
 
     try {
       setLoading(true);
-      let response;
-
-      if (roleType === "user") response = await userService.login(payload);
-      else response = await employeeService.login(payload);
+      let response =
+        roleType === "user"
+          ? await userService.login(payload)
+          : await employeeService.login(payload);
 
       const success =
         response.data?.message?.toLowerCase().includes("login") ||
@@ -58,7 +59,10 @@ const Login = () => {
         antdMessage.success(`${roleType} Login Successful`);
 
         if (roleType === "employee") {
-          setAuthData({ token: response.data.token, user: response.data.user });
+          setAuthData({
+            token: response.data.token,
+            user: response.data.user,
+          });
         } else {
           setAuthData(response.data);
         }
@@ -67,26 +71,20 @@ const Login = () => {
       } else {
         setLoginError(response.data?.message || "Invalid credentials!");
       }
-    } catch (error) {
-      setLoginError(error.response?.data?.message || error.message);
+    } catch (err) {
+      setLoginError(err.response?.data?.message || err.message);
     } finally {
       setLoading(false);
     }
   };
 
-  // ---------------- FORGOT PASSWORD FLOW (EMAIL ONLY) ----------------
+  // ---------------- FORGOT PASSWORD FLOW ----------------
 
-  // Step 1: Send OTP
   const handleSendOTP = async () => {
-    if (!forgotEmailOrMobile) {
-      return antdMessage.error("Please enter registered Email");
-    }
+    if (!forgotEmailOrMobile) return antdMessage.error("Enter registered Email");
 
     try {
-      await userService.forgetPassword({
-        identifier: forgotEmailOrMobile,
-      });
-
+      await userService.forgetPassword({ identifier: forgotEmailOrMobile });
       antdMessage.success("OTP sent to your registered email");
       setStep(2);
     } catch (err) {
@@ -94,35 +92,31 @@ const Login = () => {
     }
   };
 
-  // Step 2: Verify OTP
   const handleVerifyOTP = async () => {
     if (!otp) return antdMessage.error("Enter OTP");
 
     try {
       await userService.verifyOTP({
         identifier: forgotEmailOrMobile,
-        otp: otp,
+        otp,
       });
-
       antdMessage.success("OTP Verified Successfully!");
       setStep(3);
     } catch (err) {
-      antdMessage.error(err.response?.data?.message || "OTP Verification failed");
+      antdMessage.error(err.response?.data?.message || "OTP verification failed");
     }
   };
 
-  // Step 3: Reset Password
   const handleResetPassword = async () => {
     if (!newPassword) return antdMessage.error("Enter new password");
 
     try {
       await userService.resetPassword({
         identifier: forgotEmailOrMobile,
-        newPassword: newPassword,
+        newPassword,
       });
 
       antdMessage.success("Password Changed Successfully!");
-
       setForgotModalVisible(false);
       setStep(1);
       setOtp("");
@@ -134,6 +128,7 @@ const Login = () => {
   };
 
   const togglePasswordVisibility = () => setShowPassword(!showPassword);
+
   const toggleLoginMode = () => {
     setIsMobileLogin(!isMobileLogin);
     setEmail("");
@@ -143,7 +138,6 @@ const Login = () => {
 
   return (
     <div className="login-container">
-
       {/* LEFT SIDE */}
       <div className="login-left">
         <div className="welcome-container">
@@ -166,21 +160,20 @@ const Login = () => {
           <h3>LOGIN TO YOUR ACCOUNT</h3>
 
           {loginError && (
-            <div className="login-error-message" style={{ marginBottom: "1rem" }}>
-              {loginError}
-            </div>
+            <div className="login-error-message">{loginError}</div>
           )}
 
           {/* Email / Mobile */}
-          <div className={`form-group ${isMobileLogin ? "mobile" : "email"} mb-4`}>
+          <div className="form-group mb-4">
             <div className="input-wrapper">
               {isMobileLogin ? (
                 <>
                   <input
                     type="tel"
+                    maxLength={10}
                     value={mobile}
                     onChange={(e) => setMobile(e.target.value)}
-                    maxLength={10}
+                    className={mobile ? "filled" : ""}
                   />
                   <label>Mobile Number</label>
                   <FaEnvelope className="input-icon toggle-icon" onClick={toggleLoginMode} />
@@ -191,6 +184,7 @@ const Login = () => {
                     type="text"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
+                    className={email ? "filled" : ""}
                   />
                   <label>Email</label>
                   <FaPhone className="input-icon toggle-icon" onClick={toggleLoginMode} />
@@ -206,23 +200,41 @@ const Login = () => {
                 type={showPassword ? "text" : "password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                className={password ? "filled" : ""}
               />
               <label>Password</label>
+
               {showPassword ? (
-                <FaEyeSlash className="input-icon toggle-icon" onClick={togglePasswordVisibility} />
+                <FaEyeSlash
+                  className="input-icon toggle-icon"
+                  onClick={togglePasswordVisibility}
+                />
               ) : (
-                <FaEye className="input-icon toggle-icon" onClick={togglePasswordVisibility} />
+                <FaEye
+                  className="input-icon toggle-icon"
+                  onClick={togglePasswordVisibility}
+                />
               )}
             </div>
           </div>
 
           {/* Buttons */}
           <div style={{ display: "flex", justifyContent: "center", gap: "20px" }}>
-            <button type="button" className="log-button" disabled={loading} onClick={() => handleSubmit("user")}>
+            <button
+              type="button"
+              className="log-button"
+              disabled={loading}
+              onClick={() => handleSubmit("user")}
+            >
               {loading ? <Loading /> : "User Login"}
             </button>
 
-            <button type="button" className="log-button" disabled={loading} onClick={() => handleSubmit("employee")}>
+            <button
+              type="button"
+              className="log-button"
+              disabled={loading}
+              onClick={() => handleSubmit("employee")}
+            >
               {loading ? <Loading /> : "Employee Login"}
             </button>
           </div>
@@ -236,6 +248,7 @@ const Login = () => {
               Forgot Password?
             </span>
             <br />
+
             <span>Don't have an account?</span>
             <span
               style={{
@@ -252,40 +265,32 @@ const Login = () => {
         </form>
       </div>
 
-      {/* ---------------- FORGOT PASSWORD MODAL ---------------- */}
+      {/* FORGOT PASSWORD MODAL */}
       <Modal open={forgotModalVisible} footer={null} centered closable={false} title="Forgot Password">
-
-        {/* STEP 1: ENTER EMAIL */}
         {step === 1 && (
-          <div>
+          <>
             <Input
-              placeholder="Enter Registered Email"
+              placeholder="Enter Email or Mobile"
               value={forgotEmailOrMobile}
               onChange={(e) => setForgotEmailOrMobile(e.target.value)}
             />
             <Button type="primary" block style={{ marginTop: "1rem" }} onClick={handleSendOTP}>
               Send OTP
             </Button>
-          </div>
+          </>
         )}
 
-        {/* STEP 2: OTP */}
         {step === 2 && (
-          <div>
-            <Input
-              placeholder="Enter OTP"
-              value={otp}
-              onChange={(e) => setOtp(e.target.value)}
-            />
+          <>
+            <Input placeholder="Enter OTP" value={otp} onChange={(e) => setOtp(e.target.value)} />
             <Button type="primary" block style={{ marginTop: "1rem" }} onClick={handleVerifyOTP}>
               Verify OTP
             </Button>
-          </div>
+          </>
         )}
 
-        {/* STEP 3: NEW PASSWORD */}
         {step === 3 && (
-          <div>
+          <>
             <Input.Password
               placeholder="Enter New Password"
               value={newPassword}
@@ -294,10 +299,10 @@ const Login = () => {
             <Button type="primary" block style={{ marginTop: "1rem" }} onClick={handleResetPassword}>
               Reset Password
             </Button>
-          </div>
+          </>
         )}
 
-        <Button style={{ marginTop: "10px" }} block onClick={() => setForgotModalVisible(false)}>
+        <Button block style={{ marginTop: "10px" }} onClick={() => setForgotModalVisible(false)}>
           Cancel
         </Button>
       </Modal>

@@ -79,9 +79,9 @@ import Brands from "./pages/inventory/brands";
 import Units from "./pages/inventory/units";
 import Tax from "./pages/inventory/tax";
 
-
 import VariantAttributes from "./pages/inventory/variantattributes";
 import Warranty from "./pages/inventory/warranty";
+
 import PrintBarcode from "./pages/inventory/printbarcode";
 import PrintQRCode from "./pages/inventory/printqrcode";
 import Coupons from "./pages/coupons/coupons";
@@ -539,10 +539,12 @@ const IMSRoutes = () => {
       <Route path="inventory/brands" element={<Brands />} />
       <Route path="inventory/units" element={<Units />} />
 
-       <Route path="inventory/tax" element={<Tax />} />
 
+      <Route path="inventory/tax" element={<Tax />} />
+    
       <Route path="inventory/variantattributes" element={<VariantAttributes />} />
       <Route path="inventory/warranty" element={<Warranty />} />
+
       <Route path="inventory/print-barcode" element={<PrintBarcode />} />
       <Route path="inventory/print-qr" element={<PrintQRCode />} />
       <Route path="inventory/productdetails" element={<ProductDetails />} />

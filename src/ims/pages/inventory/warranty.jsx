@@ -1,4 +1,3 @@
-
 import { useState, useMemo, useEffect } from "react";
 import { Table, Input, Select, Button, Modal, Form, Switch, message } from "antd";
 import {
@@ -751,6 +750,7 @@ const Warranties = () => {
     </div>
   );
 };
+
 
 export default Warranties;
 
