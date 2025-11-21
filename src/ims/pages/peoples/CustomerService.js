@@ -1,10 +1,10 @@
-import api from "../../services/api.js";
+import api from "../../services/api";
 
 const customerService = {
   // Create Customer
   createCustomer: async (data) => {
     try {
-      const res = await api.post('customers/createcustomer', data, {
+      const res = await api.post("customers/createcustomer", data, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },

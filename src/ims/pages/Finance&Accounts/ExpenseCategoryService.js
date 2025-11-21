@@ -1,6 +1,7 @@
 import api from "../../services/api.js";
 
 const expenseCategoryService = {
+
   // CREATE
   createExpenseCategory: (data) =>
     api.post('/finance/addExpesescategory', data),
@@ -20,6 +21,7 @@ const expenseCategoryService = {
   // DELETE
   deleteExpenseCategory: (id) =>
     api.delete(`/finance/deleteExpenseCategory/${id}`)
+
 };
 
 export default expenseCategoryService;

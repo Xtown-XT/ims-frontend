@@ -1,126 +1,290 @@
-// src/pages/peoples/stores.jsx
 import React, { useState, useMemo, useEffect } from "react";
-import {
-  Table,
-  Input,
-  Button,
-  Dropdown,
-  Menu,
-  Tag,
-  Space,
-  Pagination,
-  message,
-  Modal,
-  Form,
-  InputNumber,
-  Switch,
-} from "antd";
+import { Switch, Table, Input, Select, Button, Modal, Form, message } from "antd";
 import {
   SearchOutlined,
-  EyeOutlined,
   EditOutlined,
   DeleteOutlined,
-  PlusOutlined,
-  DownOutlined,
-  LockOutlined,
+  PlusCircleOutlined,
 } from "@ant-design/icons";
 import { FaFilePdf, FaFileExcel, FaAngleUp } from "react-icons/fa6";
 import { IoReloadOutline } from "react-icons/io5";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import storesService from "../peoples/StoresService"; 
+import storesService from "./StoresService.js";
+
+const { Option } = Select;
 
 const Stores = () => {
-  const [searchText, setSearchText] = useState("");
-  const [statusFilter, setStatusFilter] = useState("All");
-  const [filtersCollapsed, setFiltersCollapsed] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
   const [form] = Form.useForm();
-  const [stores, setStores] =useState([])
-  
-
-  const [isModalVisible, setIsModalVisible] = useState(false);
+  const [showForm, setShowForm] = useState(false);
+  const [checked, setChecked] = useState(true);
+  const [search, setSearch] = useState('');
+  const [filterStatus, setFilterStatus] = useState(null);
   const [isEditMode, setIsEditMode] = useState(false);
-  const [selectedStore, setSelectedStore] = useState(null);
-  const [isViewModalVisible, setIsViewModalVisible] = useState(false);
-  const [viewStore, setViewStore] = useState(null);
+  const [editRecord, setEditRecord] = useState(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteRecord, setDeleteRecord] = useState(null);
+  const [filtersCollapsed, setFiltersCollapsed] = useState(false);
 
-  // 🆕 Delete Confirmation Modal States
-  const [isDeleteModalVisible, setIsDeleteModalVisible] = useState(false);
-  const [deleteStore, setDeleteStore] = useState(null);
+  const [page, setPage] = useState(1);
+  const [limit] = useState(10);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(false);
 
-  const handleSearch = (e) => setSearchText(e.target.value);
-  const handleMenuClick = (e) => setStatusFilter(e.key);
-  const toggleFilters = () => setFiltersCollapsed((prev) => !prev);
+  const [selectedKeys, setSelectedKeys] = useState([]);
+  const [stores, setStores] = useState([]);
 
-  const handleRefresh = () => {
-    setSearchText("");
-    setStatusFilter("All");
-    setCurrentPage(1);
-    setPageSize(10);
-    message.success("Refreshed");
-    // After refresh, also re-fetch from backend to get latest data
-    fetchStores();
+  useEffect(() => {
+    const fetchData = async () => {
+      if (loading) return;
+      
+      try {
+        setLoading(true);
+        const res = await storesService.getStores(page, limit, search);
+        console.log("API response:", res);
+        
+        // Backend returns array directly
+        const storeData = Array.isArray(res) ? res : [];
+        
+        console.log("Store data:", storeData);
+        console.log("Total:", storeData.length);
+        
+        setStores(storeData);
+        setTotal(storeData.length);
+      } catch (err) {
+        console.error("Failed to fetch stores:", err);
+        message.error(err.response?.data?.message || "Failed to fetch stores");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, [page, search]);
+
+  const filteredStores = useMemo(() => {
+    let filtered = [...stores];
+
+    if (filterStatus) {
+      filtered = filtered.filter(
+        (item) => item.status?.toLowerCase() === filterStatus.toLowerCase()
+      );
+    }
+
+    return filtered;
+  }, [filterStatus, stores]);
+
+  const onChange = (ch) => {
+    setChecked(ch);
+    form.setFieldsValue({ status: ch ? "active" : "inactive" });
   };
 
-  const filteredData = useMemo(() => {
-    return stores.filter((item) => {
-      const s = searchText.toLowerCase();
-      const matchesSearch =
-        item.store.toLowerCase().includes(s) ||
-        item.username.toLowerCase().includes(s) ||
-        item.email.toLowerCase().includes(s);
-      const matchesStatus =
-        statusFilter === "All" || item.status === statusFilter;
-      return matchesSearch && matchesStatus;
+  const openAddModal = () => {
+    setIsEditMode(false);
+    setEditRecord(null);
+    setChecked(true);
+    form.resetFields();
+    form.setFieldsValue({
+      store_name: "",
+      username: "",
+      password: "",
+      email: "",
+      phone: "",
+      status: "active",
     });
-  }, [searchText, statusFilter, stores]);
+    setShowForm(true);
+  };
 
-  // EXPORTS
-  const handleExportCSV = () => {
-    if (!filteredData.length) return message.info("No data to export");
-    const headers = ["Store", "Username", "Email", "Phone", "Status"];
-    const csvRows = [headers.join(",")];
-    filteredData.forEach((s) =>
-      csvRows.push(
-        [s.store, s.username, s.email, s.phone, s.status]
-          .map((v) => `"${String(v).replace(/"/g, '""')}"`)
-          .join(",")
-      )
-    );
-    const blob = new Blob([csvRows.join("\n")], {
-      type: "text/csv;charset=utf-8;",
+  const handleAddStore = async () => {
+    try {
+      const values = await form.validateFields();
+      const payload = {
+        store_name: values.store_name,
+        username: values.username,
+        password: values.password,
+        email: values.email,
+        phone: values.phone,
+        status: checked ? "active" : "inactive",
+      };
+
+      console.log("Payload sending to backend:", payload);
+      const response = await storesService.createStore(payload);
+      console.log("Create response:", response);
+      message.success("Store added successfully");
+      setShowForm(false);
+      form.resetFields();
+      setIsEditMode(false);
+      setEditRecord(null);
+      
+      // Refetch data
+      const res = await storesService.getStores(page, limit, search);
+      const storeData = Array.isArray(res) ? res : [];
+      setStores(storeData);
+      setTotal(storeData.length);
+    } catch (err) {
+      console.error("Failed to add store:", err);
+      console.error("Error response:", err.response);
+      console.error("Error data:", err.response?.data);
+      console.error("Validation errors:", err.response?.data?.errors);
+      message.error(err.response?.data?.message || err.message || "Failed to add store");
+    }
+  };
+
+  const handleEdit = (record) => {
+    setIsEditMode(true);
+    setEditRecord(record);
+    form.setFieldsValue({
+      store_name: record.store_name,
+      username: record.username,
+      email: record.email,
+      phone: record.phone,
+      status: record.status,
     });
+    setChecked(record.status?.toLowerCase() === "active");
+    setShowForm(true);
+  };
+
+  const handleSaveChanges = async () => {
+    try {
+      const values = await form.validateFields();
+
+      if (!editRecord) {
+        message.error("No record selected for editing");
+        return;
+      }
+
+      const updateStore = {
+        store_name: values.store_name,
+        username: values.username,
+        email: values.email,
+        phone: values.phone,
+        status: checked ? "active" : "inactive",
+      };
+
+      // Only include password if it's provided
+      if (values.password) {
+        updateStore.password = values.password;
+      }
+
+      await storesService.updateStore(editRecord.id, updateStore);
+      message.success("Store updated successfully");
+      setShowForm(false);
+      setIsEditMode(false);
+      setEditRecord(null);
+      form.resetFields();
+      
+      // Refetch data
+      const res = await storesService.getStores(page, limit, search);
+      const storeData = Array.isArray(res) ? res : [];
+      setStores(storeData);
+      setTotal(storeData.length);
+    } catch (err) {
+      console.error("Failed to update store:", err);
+      message.error(err.response?.data?.message || "Failed to update store");
+    }
+  };
+
+  const handleDelete = (record) => {
+    setDeleteRecord(record);
+    setShowDeleteModal(true);
+  };
+
+  const confirmDelete = async () => {
+    try {
+      await storesService.deleteStore(deleteRecord.id);
+      message.success("Store deleted successfully");
+      setShowDeleteModal(false);
+      setDeleteRecord(null);
+      
+      // Refetch data
+      const res = await storesService.getStores(page, limit, search);
+      const storeData = Array.isArray(res) ? res : [];
+      setStores(storeData);
+      setTotal(storeData.length);
+    } catch (err) {
+      console.error("Failed to delete store:", err);
+      message.error(err.response?.data?.message || "Failed to delete store");
+      setShowDeleteModal(false);
+      setDeleteRecord(null);
+    }
+  };
+
+  const cancelDelete = () => {
+    setShowDeleteModal(false);
+    setDeleteRecord(null);
+  };
+
+  const toggleFilters = () => {
+    setFiltersCollapsed((s) => !s);
+  };
+
+  const handleRefresh = () => {
+    setSearch("");
+    setFilterStatus(null);
+    setPage(1);
+    message.success("Refreshed");
+  };
+
+  const handleExportCSV = () => {
+    if (!stores || !stores.length) {
+      message.info("No data to export");
+      return;
+    }
+
+    const dataToExport = filteredStores.length ? filteredStores : stores;
+    const headers = ["store_name", "username", "email", "phone", "status"];
+    const csvRows = [];
+    csvRows.push(headers.join(","));
+    dataToExport.forEach((row) => {
+      const values = headers.map((h) => {
+        const v = row[h] ?? "";
+        const safe = String(v).replace(/"/g, '""');
+        return `"${safe}"`;
+      });
+      csvRows.push(values.join(","));
+    });
+
+    const csvString = csvRows.join("\n");
+    const blob = new Blob([csvString], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.setAttribute(
-      "download",
-      `stores_${new Date().toISOString().slice(0, 10)}.csv`
-    );
+    link.href = url;
+    const filename = `stores_export_${new Date().toISOString().slice(0, 10)}.csv`;
+    link.setAttribute("download", filename);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    message.success("Excel exported successfully");
+    URL.revokeObjectURL(url);
+    message.success("CSV exported");
   };
 
   const handleExportPDF = () => {
-    if (!filteredData.length) return message.info("No data to export");
-    const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "A4" });
+    const dataToExport = filteredStores.length ? filteredStores : stores;
+    if (!dataToExport || !dataToExport.length) {
+      message.info("No data to export");
+      return;
+    }
+
+    const doc = new jsPDF({
+      orientation: "landscape",
+      unit: "pt",
+      format: "A4",
+    });
     doc.setFontSize(16);
     doc.setTextColor("#9333ea");
     doc.text("Stores Report", 40, 40);
 
+    const columns = [
+      { header: "Store Name", dataKey: "store_name" },
+      { header: "Username", dataKey: "username" },
+      { header: "Email", dataKey: "email" },
+      { header: "Phone", dataKey: "phone" },
+      { header: "Status", dataKey: "status" },
+    ];
+
     autoTable(doc, {
       startY: 60,
-      head: [["Store", "Username", "Email", "Phone", "Status"]],
-      body: filteredData.map((s) => [
-        s.store,
-        s.username,
-        s.email,
-        s.phone,
-        s.status,
-      ]),
+      columns,
+      body: dataToExport,
       styles: { fontSize: 10, halign: "left", cellPadding: 5 },
       headStyles: { fillColor: [147, 51, 234], textColor: 255 },
       alternateRowStyles: { fillColor: [245, 245, 245] },
@@ -130,175 +294,44 @@ const Stores = () => {
     message.success("PDF downloaded successfully");
   };
 
-  // --- NEW: fetchStores will call backend GET and update state ---
-  const fetchStores = async () => {
-    try {
-      const res = await storesService.getStores();
-//Expecting backend to return: res, data.data(array)
-      
-      const apiData = res?.data ?.data || res?.data || []; 
-      
-      // If the API returns objects with backend field names, normalize to your frontend shape
-      const normalized = apiData.map((item) =>( {
-        key: String(item.id),
-        store:item.store_name,
-        userName:item.userName,
-        email: item.email,
-        phone:item.phone,
-        password:item.password,
-        status: item.is_active ? "Active" : "Inactive",        
-        products:item.products || []
-      }));
-      setstore(normalized);
-    } catch (error) {
-      console.error("Error fetching store data:", error);
-      message.error("Failed to load stores");
-    }
-    };
-
-
-  // Fetch on mount
-  useEffect(() => {
-    fetchStores();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // MODAL LOGIC
-  const showAddModal = () => {
-    setIsEditMode(false);
-    setSelectedStore(null);
-    form.resetFields();
-    setIsModalVisible(true);
-  };
-
-  const showEditModal = (record) => {
-    setIsEditMode(true);
-    setSelectedStore(record);
-    form.setFieldsValue({
-      storeName: record.store,
-      userName: record.username,
-      password: record.password,
-      email: record.email,
-      phone: record.phone,
-      status: record.status === "Active",
-    });
-    setIsModalVisible(true);
-  };
-
-  const showViewModal = (record) => {
-    setViewStore(record);
-    setIsViewModalVisible(true);
-  };
-
-  const handleCloseViewModal = () => {
-    setViewStore(null);
-    setIsViewModalVisible(false);
-  };
-
-  const handleCancel = () => {
-    form.resetFields();
-    setIsModalVisible(false);
-    setIsEditMode(false);
-  };
-
-  // MADE async to call POST API when adding new store
-  const handleSubmit = async (values) => {
-    const newStore = {
-      key: isEditMode && selectedStore ? selectedStore.key : Date.now().toString(),
-      store: values.storeName,
-      username: values.userName,
-      email: values.email,
-      phone: values.phone,
-      password: values.password,
-      status: values.status ? "Active" : "Inactive",
-      products: selectedStore?.products || [],
-    };
-
-    if (isEditMode && selectedStore) {
-      // Keep existing edit behavior (local update) as requested (no PUT implemented)
-      setStores((prev) =>
-        prev.map((s) => (s.key === selectedStore.key ? newStore : s))
-      );
-      message.success(`Store "${newStore.store}" updated successfully!`);
+  const handleSelectAll = (e) => {
+    if (e.target.checked) {
+      setSelectedKeys(stores.map((item) => item.id));
     } else {
-      // Create - call POST endpoint
-      try {
-        // Build payload for backend - adjust field names to match backend expectations if needed
-        const payload = {
-          store_name: values.storeName,
-          username: values.userName,
-          email: values.email,
-          phone: values.phone,
-          password: values.password,
-          is_active: values.status ? "active" : "inactive",
-        };
-
-        const res = await storesService.createStore(payload);
-
-        // Try to use returned data from API, fallback to local object
-        const created =
-          res?.data?.data ||
-          res?.data ||
-          {
-            key: Date.now().toString(),
-            store: values.storeName,
-            username: values.userName,
-            email: values.email,
-            phone: values.phone,
-            password: values.password,
-            status: values.status ? "Active" : "Inactive",
-            products: [],
-          };
-
-        // If backend returns object with different shape, try to normalize:
-        const createdForState =
-          created.store || created.store_name
-            ? {
-                key: created.id ? String(created.id) : created.key || Date.now().toString(),
-                store: created.store || created.store_name || values.storeName,
-                username: created.username || values.userName,
-                email: created.email || values.email,
-                phone: created.phone || values.phone,
-                password: created.password || values.password,
-                status: created.is_active ? (created.is_active ? "Active" : "Inactive") : (values.status ? "Active" : "Inactive"),
-                products: created.products || [],
-              }
-            : created; // fallback
-
-        setStores((prev) => [createdForState, ...prev]);
-        message.success(`Store "${createdForState.store}" added successfully!`);
-      } catch (err) {
-        console.error("Create store failed:", err);
-        message.error("Failed to add store. Please try again.");
-      }
+      setSelectedKeys([]);
     }
-
-    form.resetFields();
-    setIsModalVisible(false);
-    setIsEditMode(false);
   };
 
-  // 🆕 Updated Delete Logic
-  const openDeleteModal = (record) => {
-    setDeleteStore(record);
-    setIsDeleteModalVisible(true);
+  const handleSelectOne = (key) => {
+    setSelectedKeys((prev) =>
+      prev.includes(key)
+        ? prev.filter((k) => k !== key)
+        : [...prev, key]
+    );
   };
 
-  const handleConfirmDelete = () => {
-    setStores((prev) => prev.filter((s) => s.key !== deleteStore.key));
-    message.success(`Store "${deleteStore?.store}" deleted successfully!`);
-    setIsDeleteModalVisible(false);
-    setDeleteStore(null);
-  };
-
-  const handleCancelDelete = () => {
-    setIsDeleteModalVisible(false);
-    setDeleteStore(null);
-  };
-
-  // COLUMNS
   const columns = [
-    { title: "Store", dataIndex: "store", key: "store" },
+    {
+      title: (
+        <input
+          type="checkbox"
+          checked={selectedKeys.length === stores.length && stores.length > 0}
+          onChange={handleSelectAll}
+          style={{ accentColor: "#7E57C2", cursor: "pointer" }}
+        />
+      ),
+      dataIndex: "checkbox",
+      render: (_, record) => (
+        <input
+          type="checkbox"
+          checked={selectedKeys.includes(record.id)}
+          onChange={() => handleSelectOne(record.id)}
+          style={{ accentColor: "#7E57C2", cursor: "pointer" }}
+        />
+      ),
+      width: 50,
+    },
+    { title: "Store Name", dataIndex: "store_name", key: "store_name" },
     { title: "Username", dataIndex: "username", key: "username" },
     { title: "Email", dataIndex: "email", key: "email" },
     { title: "Phone", dataIndex: "phone", key: "phone" },
@@ -306,66 +339,44 @@ const Stores = () => {
       title: "Status",
       dataIndex: "status",
       key: "status",
-      render: (status) =>
-        status === "Active" ? (
-          <Tag color="green">Active</Tag>
-        ) : (
-          <Tag color="red">Inactive</Tag>
-        ),
+      render: (_, record) => (
+        <button
+          style={{
+            backgroundColor: record?.status?.toLowerCase() === "active" ? "#3EB780" : "#d63031",
+            color: "#fff",
+            border: "none",
+            borderRadius: "4px",
+            height: "22px",
+            width: "46px",
+            fontSize: "11px",
+            fontWeight: "500",
+            cursor: "default",
+            textTransform: "capitalize",
+          }}
+        >
+          {record?.status}
+        </button>
+      ),
     },
     {
-      title: "Action",
-      key: "action",
+      title: "Actions",
+      key: "actions",
       render: (_, record) => (
-        <Space>
-          <Button
-            type="text"
-            icon={<EyeOutlined />}
-            title="View"
-            onClick={() => showViewModal(record)}
-          />
-          <Button
-            type="text"
-            icon={<EditOutlined />}
-            title="Edit"
-            onClick={() => showEditModal(record)}
-          />
-          <Button
-            type="text"
-            icon={<DeleteOutlined style={{ color: "black" }} />}
-            title="Delete"
-            onClick={() => openDeleteModal(record)} // ✅ Updated to show confirmation modal
-          />
-        </Space>
+        <div className="flex gap-2 justify-center">
+          <Button icon={<EditOutlined />} onClick={() => handleEdit(record)} />
+          <Button icon={<DeleteOutlined />} onClick={() => handleDelete(record)} />
+        </div>
       ),
     },
   ];
 
-  const menu = (
-    <Menu onClick={handleMenuClick}>
-      <Menu.Item key="Active">Active</Menu.Item>
-      <Menu.Item key="Inactive">Inactive</Menu.Item>
-    </Menu>
-  );
-
-  const pageSizeMenu = (
-    <Menu onClick={(e) => setPageSize(Number(e.key))}>
-      <Menu.Item key="10">10</Menu.Item>
-      <Menu.Item key="25">25</Menu.Item>
-      <Menu.Item key="50">50</Menu.Item>
-      <Menu.Item key="100">100</Menu.Item>
-    </Menu>
-  );
-
   return (
-    <div className="p-6 bg-white rounded-lg shadow-sm">
-      {/* Header */}
-      <div className="flex justify-between items-center flex-wrap gap-3 mb-6">
+    <div className="bg-gray-50 min-h-screen p-6">
+      <div className="flex justify-between items-center mb-6 flex-wrap gap-3">
         <div>
           <h2 className="text-xl font-semibold text-gray-800">Stores</h2>
-          <p className="text-sm text-gray-500">Manage your Stores</p>
+          <p className="text-sm text-gray-500">Manage your stores</p>
         </div>
-
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <Button
             icon={<FaFilePdf color="red" size={16} />}
@@ -383,243 +394,199 @@ const Stores = () => {
             title="Refresh"
           />
           <Button
-            icon={
-              <FaAngleUp
-                color="#9333ea"
-                size={16}
-                style={{
-                  transform: filtersCollapsed ? "rotate(180deg)" : "rotate(0deg)",
-                  transition: "transform 0.2s",
-                }}
-              />
-            }
+            icon={<FaAngleUp color="#9333ea" size={16} />}
             onClick={toggleFilters}
             title={filtersCollapsed ? "Expand filters" : "Collapse filters"}
-          />
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
             style={{
-              background: "#9333ea",
-              borderColor: "#9333ea",
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
+              transform: filtersCollapsed ? "rotate(180deg)" : "rotate(0deg)",
+              transition: "transform 0.2s",
             }}
-            onClick={showAddModal}
-          >
-            Add Store
+          />
+          <Button type="primary" onClick={openAddModal}>
+            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+              <PlusCircleOutlined style={{ color: "#fff" }} />
+              <span>Add Store</span>
+            </div>
           </Button>
         </div>
       </div>
 
-      {/* Search & Filter */}
       {!filtersCollapsed && (
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
-          <Input
-            prefix={<SearchOutlined style={{ fontSize: "12px", color: "#999" }} />}
-            placeholder="Search by store, username, or email"
-            value={searchText}
-            onChange={handleSearch}
-            style={{ width: 260 }}
-            allowClear
-          />
-          <Dropdown overlay={menu}>
-            <Button size="small">
-              Status <DownOutlined style={{ fontSize: 10, marginLeft: 6 }} />
-            </Button>
-          </Dropdown>
+        <div>
+          <Form className="flex flex-wrap gap-3 mb-4 justify-between items-center">
+            <Input
+              placeholder="Search store..."
+              prefix={<SearchOutlined />}
+              style={{ width: 250 }}
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage(1);
+              }}
+              allowClear
+            />
+            <div className="flex gap-3">
+              <Form.Item>
+                <Select
+                  placeholder="Status"
+                  style={{ width: 150 }}
+                  value={filterStatus}
+                  onChange={(val) => setFilterStatus(val)}
+                  allowClear
+                >
+                  <Option value="active">Active</Option>
+                  <Option value="inactive">Inactive</Option>
+                </Select>
+              </Form.Item>
+            </div>
+          </Form>
         </div>
       )}
 
-      {/* Table */}
-      <Table
-        columns={columns}
-        dataSource={filteredData.slice(
-          (currentPage - 1) * pageSize,
-          currentPage * pageSize
-        )}
-        pagination={false}
-        bordered={false}
-        className="rounded-md"
-      />
-
-      {/* Pagination */}
-      <div className="flex justify-between items-center mt-4">
-        <div className="flex items-center gap-2 text-gray-600 text-sm">
-          <span>Row Per Page</span>
-          <Dropdown overlay={pageSizeMenu} placement="top">
-            <Button className="border border-gray-300 rounded-md px-2 py-1">
-              {pageSize} <DownOutlined style={{ marginLeft: 6 }} />
-            </Button>
-          </Dropdown>
-          <span>Entries</span>
-        </div>
-        <Pagination
-          current={currentPage}
-          total={filteredData.length}
-          pageSize={pageSize}
-          onChange={setCurrentPage}
-          showSizeChanger={false}
+      <div
+        style={{
+          border: "1px solid #e5e7eb",
+          borderRadius: 12,
+          overflow: "hidden",
+          background: "#fff",
+        }}
+      >
+        <Table
+          columns={columns}
+          dataSource={filteredStores}
+          loading={loading}
+          pagination={{
+            current: page,
+            pageSize: limit,
+            total: total,
+            onChange: (newPage) => setPage(newPage),
+            showSizeChanger: false,
+            showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} items`,
+          }}
+          rowKey="id"
+          className="bg-white"
+          bordered={false}
+          rowClassName={() => "hover:bg-gray-50"}
+          style={{
+            borderRadius: 12,
+            overflow: "hidden",
+            background: "#fff",
+          }}
+          components={{
+            header: {
+              cell: (props) => (
+                <th
+                  {...props}
+                  className="bg-gray-100 text-gray-600 font-bold text-sm px-6 py-3"
+                />
+              ),
+            },
+            body: {
+              cell: (props) => (
+                <td {...props} className="px-6 py-3" />
+              ),
+              row: (props) => (
+                <tr
+                  {...props}
+                  className="border-t border-gray-100 hover:bg-gray-50 transition"
+                />
+              ),
+            },
+          }}
         />
       </div>
 
-      {/* Add/Edit Store Modal */}
       <Modal
-        title={isEditMode ? "Edit Store" : "Add Store"}
-        open={isModalVisible}
-        onCancel={handleCancel}
+        title={
+          <span className="font-semibold">
+            {isEditMode ? "Edit Store" : "Add Store"}
+          </span>
+        }
+        open={showForm}
+        onCancel={() => {
+          setShowForm(false);
+          setIsEditMode(false);
+          form.resetFields();
+        }}
         footer={null}
+        centered
         width={600}
-        centered
       >
-        <Form layout="vertical" form={form} onFinish={handleSubmit}>
+        <Form layout="vertical" form={form}>
           <Form.Item
-            name="storeName"
-            label="Store Name"
+            label={<span className="text-sm font-medium text-gray-700">Store Name</span>}
+            name="store_name"
             rules={[{ required: true, message: "Please enter store name" }]}
+            className="mb-3"
           >
-            <Input />
+            <Input placeholder="Store Name" />
           </Form.Item>
 
           <Form.Item
-            name="userName"
-            label="User Name"
+            label={<span className="text-sm font-medium text-gray-700">Username</span>}
+            name="username"
             rules={[{ required: true, message: "Please enter username" }]}
+            className="mb-3"
           >
-            <Input />
+            <Input placeholder="Username" />
           </Form.Item>
 
           <Form.Item
+            label={<span className="text-sm font-medium text-gray-700">Password</span>}
             name="password"
-            label="Password"
-            rules={[{ required: true, message: "Please enter password" }]}
+            rules={[
+              { required: !isEditMode, message: "Please enter password" },
+              { min: 6, message: "Password must be at least 6 characters" }
+            ]}
+            className="mb-3"
           >
-            <Input.Password prefix={<LockOutlined />} />
+            <Input.Password placeholder={isEditMode ? "Leave blank to keep current password" : "Password"} />
           </Form.Item>
 
           <Form.Item
+            label={<span className="text-sm font-medium text-gray-700">Email</span>}
             name="email"
-            label="Email"
-            rules={[{ required: true, message: "Please enter email" }]}
+            rules={[
+              { required: true, message: "Please enter email" },
+              { type: "email", message: "Please enter valid email" }
+            ]}
+            className="mb-3"
           >
-            <Input />
+            <Input placeholder="Email" />
           </Form.Item>
 
           <Form.Item
+            label={<span className="text-sm font-medium text-gray-700">Phone</span>}
             name="phone"
-            label="Phone"
-            rules={[{ required: true, message: "Please enter phone number" }]}
+            rules={[{ required: true, message: "Please enter phone" }]}
+            className="mb-3"
           >
-            <Input />
+            <Input placeholder="Phone" maxLength={10} />
           </Form.Item>
 
-          <Form.Item name="status" label="Status" valuePropName="checked">
-            <Switch defaultChecked />
-          </Form.Item>
-
-          <div className="flex justify-end gap-3">
-            <Button onClick={handleCancel}>Cancel</Button>
-            <Button type="primary" htmlType="submit">
-              {isEditMode ? "Save Changes" : "Add Store"}
-            </Button>
+          <div className="flex items-center justify-between mt-2">
+            <span className="text-sm font-medium text-gray-700">Status</span>
+            <Form.Item name="status" valuePropName="checked" noStyle>
+              <Switch
+                size="small"
+                checked={checked}
+                onChange={(ch) => {
+                  onChange(ch);
+                  form.setFieldsValue({ status: ch ? "active" : "inactive" });
+                }}
+              />
+            </Form.Item>
           </div>
-        </Form>
-      </Modal>
 
-      {/* View Store Modal */}
-      <Modal
-        title="Store Details"
-        open={isViewModalVisible}
-        onCancel={handleCloseViewModal}
-        footer={[
-          <Button key="close" onClick={handleCloseViewModal}>
-            Close
-          </Button>,
-        ]}
-        width={700}
-        centered
-      >
-        {viewStore ? (
-          <div className="p-4">
-            <h3 className="text-lg font-semibold mb-2">{viewStore.store}</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
-              <div>
-                <p className="text-xs text-gray-400">Username</p>
-                <p className="text-sm">{viewStore.username}</p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-400">Email</p>
-                <p className="text-sm">{viewStore.email}</p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-400">Phone</p>
-                <p className="text-sm">{viewStore.phone}</p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-400">Password</p>
-                <p className="text-sm">{viewStore.password}</p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-400">Status</p>
-                <Tag color={viewStore.status === "Active" ? "green" : "red"}>
-                  {viewStore.status}
-                </Tag>
-              </div>
-            </div>
-
-            <h4 className="font-semibold text-gray-700 mt-4 mb-2">
-              Product Details
-            </h4>
-            <Table
-              dataSource={viewStore.products}
-              columns={[
-                { title: "Product Name", dataIndex: "name", key: "name" },
-                { title: "Quantity", dataIndex: "quantity", key: "quantity" },
-                { title: "Price", dataIndex: "price", key: "price" },
-              ]}
-              pagination={false}
-              bordered
-              size="small"
-              rowKey="id"
-            />
-          </div>
-        ) : (
-          <div>Loading...</div>
-        )}
-      </Modal>
-
-      {/* 🆕 Delete Confirmation Modal */}
-      <Modal
-        open={isDeleteModalVisible}
-        onCancel={handleCancelDelete}
-        footer={null}
-        centered
-        width={400}
-        className="delete-modal"
-      >
-        <div className="text-center p-4">
-          <div
-            className="flex justify-center items-center mb-3"
-            style={{
-              background: "#fdecea",
-              width: 60,
-              height: 60,
-              margin: "0 auto",
-              borderRadius: "50%",
-            }}
-          >
-            <DeleteOutlined style={{ color: "black", fontSize: 28 }} />
-          </div>
-          <h3 className="text-lg font-semibold mb-1">Delete Store</h3>
-          <p className="text-gray-500 mb-5">
-            Are you sure you want to delete store?
-          </p>
-          <div className="flex justify-center gap-3">
+          <div className="flex justify-end gap-3 mt-6">
             <Button
-              onClick={handleCancelDelete}
+              onClick={() => {
+                setShowForm(false);
+                setIsEditMode(false);
+                form.resetFields();
+              }}
               style={{
-                background: "#001f3f",
+                backgroundColor: "#0A2540",
                 color: "#fff",
                 border: "none",
               }}
@@ -627,12 +594,78 @@ const Stores = () => {
               Cancel
             </Button>
             <Button
-              danger
               type="primary"
-              onClick={handleConfirmDelete}
               style={{
-                background: "#ff8c00",
+                backgroundColor: "#7E57C2",
+                borderColor: "#7E57C2",
+                color: "#fff",
+              }}
+              onClick={isEditMode ? handleSaveChanges : handleAddStore}
+            >
+              {isEditMode ? "Save Changes" : "Add Store"}
+            </Button>
+          </div>
+        </Form>
+      </Modal>
+
+      <Modal open={showDeleteModal} onCancel={cancelDelete} footer={null} centered>
+        <div style={{ textAlign: "center", padding: "10px 0" }}>
+          <div
+            style={{
+              width: 60,
+              height: 60,
+              borderRadius: "50%",
+              backgroundColor: "#FEE2E2",
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              margin: "0 auto 15px",
+            }}
+          >
+            <DeleteOutlined style={{ fontSize: 30, color: "#EF4444" }} />
+          </div>
+          <h2
+            style={{
+              fontSize: 18,
+              fontWeight: 600,
+              color: "#1F2937",
+              marginBottom: 10,
+            }}
+          >
+            Delete Store
+          </h2>
+          <p style={{ color: "#6B7280", marginBottom: 25 }}>
+            Are you sure you want to delete this store?
+          </p>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "center",
+              gap: 10,
+              marginTop: 10,
+            }}
+          >
+            <Button
+              onClick={cancelDelete}
+              style={{
+                backgroundColor: "#0A2540",
+                color: "#fff",
                 border: "none",
+                height: 38,
+                width: 100,
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="primary"
+              onClick={confirmDelete}
+              style={{
+                backgroundColor: "#7E57C2",
+                borderColor: "#7E57C2",
+                color: "#fff",
+                height: 38,
+                width: 120,
               }}
             >
               Yes Delete
