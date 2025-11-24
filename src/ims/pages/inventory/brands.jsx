@@ -58,6 +58,11 @@ const Brands = () => {
         console.log("API response:", res.data);
         // Backend returns { rows: [...], count, page, limit, totalPages }
         const fetchedBrands = res.data.rows || [];
+        console.log("Fetched brands:", fetchedBrands);
+        if (fetchedBrands.length > 0) {
+          console.log("First brand image field:", fetchedBrands[0].image);
+          console.log("First brand full data:", fetchedBrands[0]);
+        }
         setBrands(fetchedBrands);
         setTotal(res.data.count || fetchedBrands.length);
       } catch (err) {
@@ -440,21 +445,35 @@ const Brands = () => {
       title: "Brand",
       dataIndex: "brand_name",
       key: "brand_name",
-      render: (text, record) => (
-        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-          <img
-            src={record.image ? `http://192.168.1.18:5000${record.image}` : "https://via.placeholder.com/40x40?text=Img"}
-            style={{
-              width: 40,
-              height: 40,
-              borderRadius: 8,
-              objectFit: "cover",
-            }}
-            alt="brand"
-          />
-          <span>{text}</span>
-        </div>
-      ),
+      render: (text, record) => {
+        // Handle different possible image field names and formats
+        const imageUrl = record.image || record.brand_image || record.imageUrl;
+        const fullImageUrl = imageUrl 
+          ? (imageUrl.startsWith('http') ? imageUrl : `http://192.168.1.15:3000${imageUrl}`)
+          : "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40'%3E%3Crect width='40' height='40' fill='%23ddd'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='12' fill='%23999'%3EImg%3C/text%3E%3C/svg%3E";
+        
+        return (
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <img
+              src={fullImageUrl}
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 8,
+                objectFit: "cover",
+                backgroundColor: "#f0f0f0",
+              }}
+              alt="brand"
+              onError={(e) => {
+                console.error("Failed to load image:", fullImageUrl);
+                console.error("Check if backend is serving static files from /uploads folder");
+                e.target.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40'%3E%3Crect width='40' height='40' fill='%23ddd'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='12' fill='%23999'%3EImg%3C/text%3E%3C/svg%3E";
+              }}
+            />
+            <span>{text}</span>
+          </div>
+        );
+      },
     },
     {
       title: "Created Date",
