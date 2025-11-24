@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   Table,
   Input,
@@ -17,6 +17,7 @@ import {
   DeleteOutlined,
 } from "@ant-design/icons";
 import dayjs from "dayjs";
+import couponsService from "./couponsService.js";
 
 const { Option } = Select;
 const { TextArea } = Input;
@@ -27,6 +28,9 @@ const Coupons = () => {
   const [filterStatus, setFilterStatus] = useState(null);
   const [filterType, setFilterType] = useState(null);
   const [shortByFilter, setShortByFilter] = useState("recentlyadded");
+  const [loading, setLoading] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteRecord, setDeleteRecord] = useState(null);
 
   // form instance
   const [form] = Form.useForm();
@@ -35,47 +39,47 @@ const Coupons = () => {
   const [isEdit, setIsEdit] = useState(false);
   const [editingKey, setEditingKey] = useState(null);
 
-  const [formData, setFormData] = useState([
-    {
-      key: 1,
-      name: "Big Saver Deal",
-      code: "SAVE50",
-      description: "$50 off orders over $300",
-      type: "Fixed Amount",
-      discount: "$50",
-      limit: "03",
-      startDate: "01/10/2024",
-      endDate: "03/10/2024",
-      valid: "03 Oct 2024",
-      status: "Active",
-    },
-    {
-      key: 2,
-      name: "Winter Offer",
-      code: "WINTER30",
-      description: "30% off all items",
-      type: "Percentage",
-      discount: "30%",
-      limit: "05",
-      startDate: "01/11/2024",
-      endDate: "12/11/2024",
-      valid: "12 Nov 2024",
-      status: "Active",
-    },
-    {
-      key: 3,
-      name: "Festive Bonanza",
-      code: "FEST50",
-      description: "50% off on electronics",
-      type: "Percentage",
-      discount: "50%",
-      limit: "10",
-      startDate: "10/12/2024",
-      endDate: "25/12/2024",
-      valid: "25 Dec 2024",
-      status: "Inactive",
-    },
-  ]);
+  const [formData, setFormData] = useState([]);
+
+  useEffect(() => {
+    fetchCoupons();
+  }, []);
+
+  const fetchCoupons = async () => {
+    try {
+      setLoading(true);
+      const res = await couponsService.getCoupons();
+      console.log("Coupons API response:", res.data);
+      const fetchedCoupons = res.data.data?.rows || res.data.rows || [];
+      console.log("Fetched coupons:", fetchedCoupons);
+      
+      setFormData(fetchedCoupons.map(item => {
+        const endDate = item.end_date || item.valid_until || item.endDate;
+        const formattedValidDate = endDate ? dayjs(endDate).format("DD/MM/YYYY") : "";
+        
+        return {
+          key: item.id,
+          id: item.id,
+          name: item.cupon_name || item.name || item.coupon_name,
+          code: item.code || item.coupon_code,
+          description: item.description,
+          type: item.type || item.discount_type,
+          discount: item.discount || item.discount_value,
+          limit: item.limit || item.usage_limit,
+          startDate: item.start_date || item.startDate,
+          endDate: item.end_date || item.endDate,
+          valid: formattedValidDate,
+          status: item.status || (item.is_active ? "Active" : "Inactive"),
+          product: item.product,
+        };
+      }));
+    } catch (err) {
+      console.error("Failed to fetch coupons:", err);
+      message.error(err.response?.data?.message || "Failed to fetch coupons");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const openAddForm = () => {
     setIsEdit(false);
@@ -97,60 +101,59 @@ const Coupons = () => {
       description: record.description,
       status: record.status === "Active",
       product: record.product || undefined,
-      startDate: record.startDate ? dayjs(record.startDate, "DD/MM/YYYY") : null,
-      endDate: record.endDate ? dayjs(record.endDate, "DD/MM/YYYY") : null,
+      startDate: record.startDate ? dayjs(record.startDate) : null,
+      endDate: record.endDate ? dayjs(record.endDate) : null,
     };
+    console.log("Edit form initial values:", initial);
     form.setFieldsValue(initial);
     setShowForm(true);
   };
 
-  const handleAddCoupons = (values) => {
-    // values.startDate and endDate are dayjs objects; convert to string format DD/MM/YYYY
-    const startDateStr = values.startDate ? values.startDate.format("DD/MM/YYYY") : "";
-    const endDateStr = values.endDate ? values.endDate.format("DD/MM/YYYY") : "";
+  const handleAddCoupons = async (values) => {
+    try {
+      console.log("Form values received:", values);
 
-    if (isEdit && editingKey != null) {
-      // update existing item
-      setFormData((prev) =>
-        prev.map((item) =>
-          item.key === editingKey
-            ? {
-              ...item,
-              name: values.name,
-              code: values.code,
-              type: values.type,
-              discount: values.discount,
-              limit: values.limit,
-              description: values.description || "",
-              startDate: startDateStr,
-              endDate: endDateStr,
-              valid: endDateStr, // maintain your existing 'valid' field logic
-              status: values.status ? "Active" : "Inactive",
-              product: values.product,
-            }
-            : item
-        )
-      );
-      message.success("Coupon updated successfully");
-    } else {
-      // add new item
-      const newKey = formData.length ? Math.max(...formData.map((i) => i.key)) + 1 : 1;
-      const newItem = {
-        key: newKey,
-        name: values.name,
+      if (!values.startDate || !values.endDate) {
+        message.error("Please select both start and end dates");
+        return;
+      }
+
+      const couponData = {
+        cupon_name: values.name,
         code: values.code,
         type: values.type,
-        discount: values.discount,
-        limit: values.limit,
+        discount: Number(values.discount),
+        limit: Number(values.limit),
         description: values.description || "",
-        startDate: startDateStr,
-        endDate: endDateStr,
-        valid: endDateStr,
+        start_date: values.startDate.format("YYYY-MM-DD"),
+        end_date: values.endDate.format("YYYY-MM-DD"),
         status: values.status ? "Active" : "Inactive",
-        product: values.product,
       };
-      setFormData((prev) => [newItem, ...prev]);
-      message.success("Coupon added successfully");
+
+      // Only add product if it has a value
+      if (values.product) {
+        couponData.product = values.product;
+      }
+
+      console.log("Sending coupon data:", couponData);
+
+      if (isEdit && editingKey != null) {
+        await couponsService.updateCoupon(editingKey, couponData);
+        message.success("Coupon updated successfully");
+      } else {
+        await couponsService.createCoupon(couponData);
+        message.success("Coupon added successfully");
+      }
+      
+      setShowForm(false);
+      form.resetFields();
+      setIsEdit(false);
+      setEditingKey(null);
+      fetchCoupons();
+    } catch (err) {
+      console.error("Failed to save coupon:", err);
+      console.error("Error response:", err.response);
+      message.error(err.response?.data?.message || "Failed to save coupon");
     }
 
     // close modal & reset
@@ -160,12 +163,18 @@ const Coupons = () => {
     setEditingKey(null);
   };
 
-  const handleDelete = (key) => {
+  const handleDelete = async (key) => {
     Modal.confirm({
       title: "Are you sure you want to delete this coupon?",
-      onOk: () => {
-        setFormData((prev) => prev.filter((i) => i.key !== key));
-        message.success("Coupon deleted");
+      onOk: async () => {
+        try {
+          await couponsService.deleteCoupon(key);
+          message.success("Coupon deleted successfully!");
+          fetchCoupons();
+        } catch (err) {
+          console.error("Failed to delete coupon:", err);
+          message.error(err.response?.data?.message || "Failed to delete coupon");
+        }
       },
     });
   };
@@ -174,9 +183,9 @@ const Coupons = () => {
   const filteredData = useMemo(() => {
     return formData.filter((item) => {
       const matchesSearch =
-        item.name.toLowerCase().includes(searchText.toLowerCase()) ||
-        item.code.toLowerCase().includes(searchText.toLowerCase()) ||
-        item.description.toLowerCase().includes(searchText.toLowerCase());
+        item.name?.toLowerCase().includes(searchText.toLowerCase()) ||
+        item.code?.toLowerCase().includes(searchText.toLowerCase()) ||
+        item.description?.toLowerCase().includes(searchText.toLowerCase());
 
       const matchesStatus = filterStatus ? item.status === filterStatus : true;
       const matchesType = filterType ? item.type === filterType : true;
@@ -197,6 +206,7 @@ const Coupons = () => {
       title: "Code",
       dataIndex: "code",
       key: "code",
+      width: 180,
       render: (text) => (
         <span
           style={{
@@ -338,6 +348,7 @@ const Coupons = () => {
       <Table
         columns={columns}
         dataSource={filteredData}
+        loading={loading}
         pagination={{ pageSize: 5 }}
         className="bg-white"
         bordered={false}
@@ -381,21 +392,21 @@ const Coupons = () => {
         <Form layout="vertical" form={form} onFinish={handleAddCoupons}>
           <div className="grid grid-cols-2 gap-4">
             <Form.Item
-              label="Coupon Name *"
+              label="Coupon Name"
               name="name"
               rules={[{ required: true, message: "Please enter coupon name" }]}
             >
               <Input placeholder="Enter Coupon Name" />
             </Form.Item>
             <Form.Item
-              label="Coupon Code *"
+              label="Coupon Code"
               name="code"
               rules={[{ required: true, message: "Please enter coupon code" }]}
             >
               <Input placeholder="Enter Coupon Code" />
             </Form.Item>
             <Form.Item
-              label="Type *"
+              label="Type"
               name="type"
               rules={[{ required: true, message: "Please select type" }]}
             >
@@ -405,14 +416,14 @@ const Coupons = () => {
               </Select>
             </Form.Item>
             <Form.Item
-              label="Discount *"
+              label="Discount"
               name="discount"
               rules={[{ required: true, message: "Please enter discount" }]}
             >
               <Input placeholder="Enter Discount" />
             </Form.Item>
             <Form.Item
-              label="Limit *"
+              label="Limit"
               name="limit"
               rules={[{ required: true, message: "Please enter limit" }]}
             >
@@ -420,14 +431,14 @@ const Coupons = () => {
             </Form.Item>
             <div></div>
             <Form.Item
-              label="Start Date *"
+              label="Start Date"
               name="startDate"
               rules={[{ required: true, message: "Please select start date" }]}
             >
               <DatePicker style={{ width: "100%" }} format="DD/MM/YYYY" />
             </Form.Item>
             <Form.Item
-              label="End Date *"
+              label="End Date"
               name="endDate"
               rules={[{ required: true, message: "Please select end date" }]}
             >
@@ -436,7 +447,7 @@ const Coupons = () => {
           </div>
 
           <Form.Item
-            label="Product *"
+            label="Product"
             name="product"
             rules={[{ required: false, message: "Please select product" }]}
           >
