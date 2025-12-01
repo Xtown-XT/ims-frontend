@@ -365,6 +365,7 @@ const PrintBarcode = () => {
             pagination={false}
             bordered={false}
             rowClassName="text-sm"
+            scroll={{ x: 'max-content' }}
           />
         </Spin>
       </div>

@@ -486,6 +486,7 @@ const Units = () => {
             overflow: "hidden",
             background: "#fff",
           }}
+          scroll={{ x: 'max-content' }}
         />
       </div>
 

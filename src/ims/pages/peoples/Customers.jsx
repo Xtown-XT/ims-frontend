@@ -50,7 +50,14 @@ const Customers = () => {
         setTotal(res?.data?.total || res?.total || customerData.length);
       } catch (err) {
         console.error("Failed to fetch customers:", err);
-        message.error(err?.message || "Failed to fetch customers");
+        const errorMsg = err.response?.data?.message || err?.message || "Failed to fetch customers";
+        
+        // Show specific message for permission errors
+        if (errorMsg.includes("Forbidden") || errorMsg.includes("permissions") || err.response?.status === 403) {
+          message.error("Access denied: You don't have permission to view customers. Please contact your administrator.");
+        } else {
+          message.error(errorMsg);
+        }
       } finally {
         setLoading(false);
       }

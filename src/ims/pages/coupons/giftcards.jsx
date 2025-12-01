@@ -339,6 +339,7 @@ const GiftCards = () => {
         loading={loading}
         pagination={false}
         rowSelection={rowSelection}
+        scroll={{ x: 'max-content' }}
       />
 
       {/* Add/Edit Modal */}

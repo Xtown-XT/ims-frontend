@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   FilePdfOutlined,
   FileExcelOutlined,
@@ -6,94 +6,218 @@ import {
   UpOutlined,
   EditOutlined,
   DeleteOutlined,
-  PlusOutlined,
   SearchOutlined,
   PlusCircleOutlined
 } from "@ant-design/icons";
 import {
   Table,
   Button,
-  Tag,
   Input,
   Select,
-  Pagination,
   Form,
   Modal,
   Checkbox,
   DatePicker,
   Row,
-  Col
+  Col,
+  Switch,
+  message
 } from "antd";
+import dayjs from "dayjs";
+import discountService from "./discountService";
+import discountPlanService from "./discountPlanService";
 
 const { Option } = Select;
 
 const Discount = () => {
-  const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
-  const [searchText, setSearchText] = useState('')
-  const [showForm, setShowForm] = useState(false);
+  const [searchText, setSearchText] = useState('');
   const [filterStatus, setFilterStatus] = useState(null);
-  const [filterType, setFilterType] = useState(null);
+  const [filterApplicableFor, setFilterApplicableFor] = useState(null);
   const [checked, setChecked] = useState(true);
-  const [shortByFilter, setShortByFilter] = useState("Customers");
   const [isModalVisible, setIsModalVisible] = useState(false);
-  const [status, setStatus] = useState(true);
+  const [loading, setLoading] = useState(true);
+  const [discounts, setDiscounts] = useState([]);
+  const [form] = Form.useForm();
+  const [isEdit, setIsEdit] = useState(false);
+  const [editingKey, setEditingKey] = useState(null);
+  const [selectedDays, setSelectedDays] = useState([]);
+  const [discountPlans, setDiscountPlans] = useState([]);
+  const [loadingPlans, setLoadingPlans] = useState(false);
+  const [selectedPlanId, setSelectedPlanId] = useState(null);
 
-  const discounts = [
-    {
-      name: "Weekend Deal",
-      value: "70 (Percentage)",
-      plan: "Standard",
-      validity: "22 May 2025 - 24 Jun 2025",
-      days: "Sat, Sun",
-      products: "All Products",
-      status: "Active",
-    },
-    {
-      name: "Loyalty Reward",
-      value: "40 (Flat)",
-      plan: "Membership",
-      validity: "16 Apr 2025 - 16 May 2025",
-      days: "Mon, Tue, Thu, Fri",
-      products: "Specific Products",
-      status: "Active",
-    },
-    {
-      name: "Flash Sale",
-      value: "60 (Percentage)",
-      plan: "Standard",
-      validity: "20 Mar 2025 - 20 Apr 2025",
-      days: "Thu, Fri, Sat, Sun",
-      products: "All Products",
-      status: "Active",
-    },
-    {
-      name: "Super Saver",
-      value: "80 (Percentage)",
-      plan: "Standard",
-      validity: "15 Feb 2025 - 15 Apr 2025",
-      days: "Mon, Tue, Wed",
-      products: "All Products",
-      status: "Active",
-    },
-    {
-      name: "Surprise Savings",
-      value: "50 (Flat)",
-      plan: "Standard",
-      validity: "24 Jan 2025 - 24 Mar 2025",
-      days: "Mon, Tue, Thu, Sat",
-      products: "Specific Products",
-      status: "Active",
-    },
+  const daysOfWeek = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+
+  const applicableForOptions = [
+    { value: "all_products", label: "All Products" },
+    { value: "specific_products", label: "Specific Products" },
   ];
 
+  const discountPlanTypeOptions = [
+    { value: "standard", label: "Standard" },
+    { value: "membership", label: "Membership" },
+    { value: "seasonal", label: "Seasonal" },
+    { value: "festival", label: "Festival" },
+    { value: "special_offer", label: "Special Offer" },
+  ];
 
-  const filteredData = discounts.filter(
-    (item) =>
-      item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.plan.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const discountTypeOptions = [
+    { value: "percentage", label: "Percentage" },
+    { value: "flat", label: "Flat" },
+  ];
+
+  const onChange = (ch) => {
+    setChecked(ch);
+    form.setFieldsValue({ status: ch });
+  };
+
+  // Fetch discounts
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const res = await discountService.getDiscounts(currentPage, pageSize, searchText);
+        console.log("API Response:", res.data);
+        setDiscounts(res.data.data || []);
+      } catch (error) {
+        console.log("Failed to Fetch Discounts", error);
+        message.error(error.response?.data?.message || "Failed to fetch Discounts");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, [currentPage, pageSize, searchText]);
+
+  // Fetch discount plans for dropdown
+  useEffect(() => {
+    const fetchDiscountPlans = async () => {
+      try {
+        setLoadingPlans(true);
+        const res = await discountPlanService.getDiscountPlan(1, 100, '');
+        console.log("Discount Plans Response:", res.data);
+        setDiscountPlans(res.data.data || []);
+      } catch (error) {
+        console.error("Failed to fetch discount plans:", error);
+        message.error("Failed to load discount plans");
+      } finally {
+        setLoadingPlans(false);
+      }
+    };
+    fetchDiscountPlans();
+  }, []);
+
+  const filteredData = useMemo(() => {
+    return discounts.filter((item) => {
+      const matchesSearch =
+        item.discount_name?.toLowerCase().includes(searchText.toLowerCase()) ||
+        item.discount_plan?.toLowerCase().includes(searchText.toLowerCase());
+
+      const matchesStatus = filterStatus ?
+        (filterStatus === "Active" ? item.status === true : item.status === false) : true;
+
+      const matchesApplicableFor = filterApplicableFor ? item.applicable_for === filterApplicableFor : true;
+
+      return matchesSearch && matchesStatus && matchesApplicableFor;
+    });
+  }, [discounts, searchText, filterStatus, filterApplicableFor]);
+
+  const openAddForm = () => {
+    setIsEdit(false);
+    setEditingKey(null);
+    setChecked(true);
+    setSelectedDays([]);
+    setSelectedPlanId(null);
+    form.resetFields();
+    form.setFieldsValue({
+      status: true,
+    });
+    setIsModalVisible(true);
+  };
+
+  const openEditForm = (record) => {
+    setIsEdit(true);
+    setEditingKey(record.id);
+    setChecked(record.status);
+    setSelectedDays(record.valid_days || []);
+    setSelectedPlanId(record.discount_plan_id);
+    form.setFieldsValue({
+      discount_name: record.discount_name,
+      discount_plan_id: record.discount_plan_id,
+      discount_plan_type: record.discount_plan,
+      applicable_for: record.applicable_for,
+      valid_from: record.valid_from ? dayjs(record.valid_from) : null,
+      valid_till: record.valid_till ? dayjs(record.valid_till) : null,
+      discount_type: record.discount_type,
+      status: record.status,
+    });
+    setIsModalVisible(true);
+  };
+
+  const handleSubmit = async (values) => {
+    try {
+      const payload = {
+        discount_name: values.discount_name,
+        discount_plan_id: values.discount_plan_id,
+        discount_plan: values.discount_plan_type, // This is the ENUM value
+        applicable_for: values.applicable_for,
+        valid_from: values.valid_from ? values.valid_from.format("YYYY-MM-DD") : null,
+        valid_till: values.valid_till ? values.valid_till.format("YYYY-MM-DD") : null,
+        discount_type: values.discount_type,
+        valid_days: selectedDays,
+        status: checked
+      };
+
+      console.log("Sending payload:", payload);
+
+      if (isEdit) {
+        await discountService.updateDiscount(editingKey, payload);
+        message.success("Discount updated successfully");
+      } else {
+        await discountService.createDiscount(payload);
+        message.success("Discount added successfully");
+      }
+
+      setIsModalVisible(false);
+      form.resetFields();
+      setIsEdit(false);
+      setEditingKey(null);
+      setSelectedDays([]);
+      setSelectedPlanId(null);
+
+      // Refresh data
+      const res = await discountService.getDiscounts(currentPage, pageSize, searchText);
+      setDiscounts(res.data.data || []);
+    } catch (err) {
+      console.log('Failed to save discount', err);
+      const errorMsg = err.response?.data?.message || err.response?.data?.error || "Failed to save discount";
+      message.error(errorMsg);
+    }
+  };
+
+  const handleDelete = (id) => {
+    Modal.confirm({
+      title: "Are you sure you want to delete this discount?",
+      onOk: async () => {
+        try {
+          await discountService.deleteDiscount(id);
+          message.success("Discount deleted");
+          const res = await discountService.getDiscounts(currentPage, pageSize, searchText);
+          setDiscounts(res.data.data || []);
+        } catch (err) {
+          message.error("Failed to delete discount");
+        }
+      },
+    });
+  };
+
+  const handleDayChange = (day, checked) => {
+    if (checked) {
+      setSelectedDays([...selectedDays, day]);
+    } else {
+      setSelectedDays(selectedDays.filter(d => d !== day));
+    }
+  };
 
   const columns = [
     {
@@ -104,45 +228,53 @@ const Discount = () => {
     },
     {
       title: "Name",
-      dataIndex: "name",
-      key: "name",
+      dataIndex: "discount_name",
+      key: "discount_name",
       render: (text) => <span className="font-semibold">{text}</span>,
     },
     {
-      title: "Value",
-      dataIndex: "value",
-      key: "value",
+      title: "Discount Type",
+      dataIndex: "discount_type",
+      key: "discount_type",
+      render: (type) => type?.charAt(0).toUpperCase() + type?.slice(1) || "",
     },
     {
       title: "Discount Plan",
-      dataIndex: "plan",
-      key: "plan",
+      dataIndex: "discount_plan",
+      key: "discount_plan",
     },
     {
       title: "Validity",
-      dataIndex: "validity",
       key: "validity",
+      render: (_, record) => {
+        const from = record.valid_from ? dayjs(record.valid_from).format("DD MMM YYYY") : "";
+        const till = record.valid_till ? dayjs(record.valid_till).format("DD MMM YYYY") : "";
+        return `${from} - ${till}`;
+      },
     },
     {
       title: "Days",
-      dataIndex: "days",
-      key: "days",
+      dataIndex: "valid_days",
+      key: "valid_days",
+      render: (days) => days?.join(", ") || "",
     },
     {
-      title: "Products",
-      dataIndex: "products",
-      key: "products",
+      title: "Applicable For",
+      dataIndex: "applicable_for",
+      key: "applicable_for",
+      render: (value) => {
+        const option = applicableForOptions.find(opt => opt.value === value);
+        return option ? option.label : value;
+      },
     },
     {
       title: "Status",
       dataIndex: "status",
       key: "status",
-      status: status === true ? "Active" : "InActive",
       render: (status) => (
         <button
           style={{
-            backgroundColor:
-              status.toLowerCase() === "active" ? "#71D98D" : "#FF9999",
+            backgroundColor: status === true ? "#71D98D" : "#FF9999",
             color: "#fff",
             border: "none",
             borderRadius: "4px",
@@ -153,32 +285,29 @@ const Discount = () => {
             cursor: "default",
           }}
         >
-          {status}
+          {status === true ? "Active" : "Inactive"}
         </button>
       ),
     },
     {
       title: "Action",
       key: "action",
-      render: () => (
+      render: (_, record) => (
         <div className="flex gap-2 justify-center">
-          <Button icon={<EditOutlined />} />
-          <Button icon={<DeleteOutlined />} />
+          <Button icon={<EditOutlined />} onClick={() => openEditForm(record)} />
+          <Button icon={<DeleteOutlined />} onClick={() => handleDelete(record.id)} />
         </div>
       ),
     },
   ];
 
-  const showModal = () => {
-    setIsModalVisible(true);
-  };
-
   const handleCancel = () => {
     setIsModalVisible(false);
-  };
-
-  const handleAddDiscount = () => {
-    setIsModalVisible(false);
+    form.resetFields();
+    setIsEdit(false);
+    setEditingKey(null);
+    setSelectedDays([]);
+    setSelectedPlanId(null);
   };
 
   return (
@@ -211,7 +340,7 @@ const Discount = () => {
           <Button icon={<UpOutlined />} />
           <Button
             type="primary"
-            onClick={showModal}
+            onClick={openAddForm}
             style={{
               background: "#9333ea",
               borderColor: "#9333ea",
@@ -235,18 +364,22 @@ const Discount = () => {
             style={{ width: 200 }}
             value={searchText}
             onChange={(e) => setSearchText(e.target.value)}
+            allowClear
           />
           <div className="flex gap-3">
             <Form.Item>
               <Select
-                placeholder="Customers"
-                style={{ width: 150 }}
-                value={shortByFilter}
-                onChange={(val) => setShortByFilter(val)}
+                placeholder="Applicable For"
+                style={{ width: 200 }}
+                value={filterApplicableFor}
+                onChange={(val) => setFilterApplicableFor(val)}
+                allowClear
               >
-
-                <Option value="kiran">kiran</Option>
-                <Option value="vijay">vijay</Option>
+                {applicableForOptions.map((option) => (
+                  <Option key={option.value} value={option.value}>
+                    {option.label}
+                  </Option>
+                ))}
               </Select>
             </Form.Item>
             <Form.Item>
@@ -261,90 +394,55 @@ const Discount = () => {
                 <Option value="Inactive">Inactive</Option>
               </Select>
             </Form.Item>
-
           </div>
         </Form>
       </div>
 
       {/* Discount Table */}
-      <div className="bg-white p-4 rounded-xl shadow-sm">
-        <Table
-          columns={columns}
-          dataSource={filteredData.slice(
-            (currentPage - 1) * pageSize,
-            currentPage * pageSize
-          )}
-          pagination={false}
-          rowKey="name"
-        />
+      <Table
+        columns={columns}
+        dataSource={filteredData}
+        loading={loading}
+        pagination={{
+          current: currentPage,
+          pageSize: pageSize,
+          total: filteredData.length,
+          onChange: (page, size) => {
+            setCurrentPage(page);
+            setPageSize(size);
+          },
+          showSizeChanger: true,
+          showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} items`,
+        }}
+        rowKey="id"
+      />
 
-        {/* Footer with Row Per Page Dropdown */}
-        <div className="flex justify-between items-center mt-4 px-2 text-gray-600 text-sm">
-          <div className="flex items-center gap-2">
-            <span>Row Per Page</span>
-            <Select
-              value={pageSize}
-              onChange={(value) => {
-                setPageSize(value);
-                setCurrentPage(1);
-              }}
-              size="small"
-              style={{ width: 70 }}
-            >
-              <Option value={10}>10</Option>
-              <Option value={25}>25</Option>
-              <Option value={50}>50</Option>
-              <Option value={100}>100</Option>
-            </Select>
-            <span>Entries</span>
-          </div>
-
-          <Pagination
-            current={currentPage}
-            total={filteredData.length}
-            pageSize={pageSize}
-            onChange={(page) => setCurrentPage(page)}
-            showSizeChanger={false}
-          />
-        </div>
-      </div>
-
-      {/* Add Discount Modal */}
+      {/* Add/Edit Discount Modal */}
       <Modal
-        title="Add Discount"
-        visible={isModalVisible}
+        title={isEdit ? "Edit Discount" : "Add Discount"}
+        open={isModalVisible}
         onCancel={handleCancel}
-        footer={[
-          <Button key="cancel" onClick={handleCancel}>
-            Cancel
-          </Button>,
-          <Button key="add" type="primary" onClick={handleAddDiscount}>
-            Add Discount
-          </Button>,
-        ]}
-        width={800} // Increased width to accommodate three columns
+        footer={null}
+        centered
+        width={800}
       >
-        <Form layout="vertical">
+        <Form layout="vertical" form={form} onFinish={handleSubmit}>
           {/* First Row: Three inputs in one row */}
           <Row gutter={16}>
             <Col span={8}>
               <Form.Item
                 label="Discount Name"
-                required
-                style={{ marginBottom: 16 }}
+                name="discount_name"
+                rules={[{ required: true, message: "Please enter discount name" }]}
               >
-                <Select placeholder="Select" style={{ width: "100%" }}>
-                  <Option value="weekend">Weekend Deal</Option>
-                  <Option value="loyalty">Loyalty Reward</Option>
-                  <Option value="flash">Flash Sale</Option>
-                </Select>
+                <Input placeholder="Enter discount name" />
               </Form.Item>
             </Col>
             <Col span={8}>
               <Form.Item
                 label="Valid From"
-                required
-                style={{ marginBottom: 16 }}
+                name="valid_from"
+                rules={[{ required: true, message: "Please select valid from date" }]}
               >
                 <DatePicker
                   placeholder="dd/mm/yyyy"
@@ -355,14 +453,16 @@ const Discount = () => {
             </Col>
             <Col span={8}>
               <Form.Item
-                label="Discount Plan"
-                required
-                style={{ marginBottom: 16 }}
+                label="Discount Plan Type"
+                name="discount_plan_type"
+                rules={[{ required: true, message: "Please select discount plan type" }]}
               >
-                <Select placeholder="Select" style={{ width: "100%" }}>
-                  <Option value="standard">Standard</Option>
-                  <Option value="membership">Membership</Option>
-                  <Option value="premium">Premium</Option>
+                <Select placeholder="Select Plan Type">
+                  {discountPlanTypeOptions.map((option) => (
+                    <Option key={option.value} value={option.value}>
+                      {option.label}
+                    </Option>
+                  ))}
                 </Select>
               </Form.Item>
             </Col>
@@ -372,40 +472,71 @@ const Discount = () => {
           <Row gutter={16}>
             <Col span={8}>
               <Form.Item
+                label="Discount Plan Reference"
+                name="discount_plan_id"
+                rules={[{ required: true, message: "Please select discount plan" }]}
+              >
+                <Select
+                  placeholder="Select Discount Plan"
+                  loading={loadingPlans}
+                  showSearch
+                  filterOption={(input, option) =>
+                    option.children.toLowerCase().includes(input.toLowerCase())
+                  }
+                  onChange={(value) => setSelectedPlanId(value)}
+                >
+                  {discountPlans.map((plan) => (
+                    <Option key={plan.id} value={plan.id}>
+                      {plan.plan_name}
+                    </Option>
+                  ))}
+                </Select>
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item
                 label="Valid Till"
-                required
-                style={{ marginBottom: 16 }}
+                name="valid_till"
+                rules={[{ required: true, message: "Please select valid till date" }]}
               >
                 <DatePicker
-                  placeholder="13-11-2025"
+                  placeholder="dd/mm/yyyy"
                   style={{ width: "100%" }}
-                  format="DD-MM-YYYY"
+                  format="DD/MM/YYYY"
                 />
               </Form.Item>
             </Col>
             <Col span={8}>
               <Form.Item
                 label="Applicable For"
-                required
-                style={{ marginBottom: 16 }}
+                name="applicable_for"
+                rules={[{ required: true, message: "Please select applicable for" }]}
               >
-                <Select placeholder="Select" style={{ width: "100%" }}>
-                  <Option value="all">All Products</Option>
-                  <Option value="specific">Specific Products</Option>
-                  <Option value="category">Product Category</Option>
+                <Select placeholder="Select">
+                  {applicableForOptions.map((option) => (
+                    <Option key={option.value} value={option.value}>
+                      {option.label}
+                    </Option>
+                  ))}
                 </Select>
               </Form.Item>
             </Col>
+          </Row>
+
+          {/* Third Row */}
+          <Row gutter={16}>
             <Col span={8}>
               <Form.Item
                 label="Discount Type"
-                required
-                style={{ marginBottom: 16 }}
+                name="discount_type"
+                rules={[{ required: true, message: "Please select discount type" }]}
               >
-                <Select placeholder="Select" style={{ width: "100%" }}>
-                  <Option value="percentage">Percentage</Option>
-                  <Option value="flat">Flat</Option>
-                  <Option value="fixed">Fixed Amount</Option>
+                <Select placeholder="Select">
+                  {discountTypeOptions.map((option) => (
+                    <Option key={option.value} value={option.value}>
+                      {option.label}
+                    </Option>
+                  ))}
                 </Select>
               </Form.Item>
             </Col>
@@ -415,18 +546,64 @@ const Discount = () => {
           <Form.Item
             label="Valid on Following Days"
             required
-            style={{ marginBottom: 16 }}
           >
             <div style={{ display: "flex", flexDirection: "row", gap: "16px", flexWrap: "wrap" }}>
-              <Checkbox checked={true} style={{ margin: 0 }}>Monday</Checkbox>
-              <Checkbox checked={true} style={{ margin: 0 }}>Tuesday</Checkbox>
-              <Checkbox style={{ margin: 0 }}>Wednesday</Checkbox>
-              <Checkbox style={{ margin: 0 }}>Thursday</Checkbox>
-              <Checkbox style={{ margin: 0 }}>Friday</Checkbox>
-              <Checkbox style={{ margin: 0 }}>Saturday</Checkbox>
-              <Checkbox style={{ margin: 0 }}>Sunday</Checkbox>
+              {daysOfWeek.map((day) => (
+                <Checkbox
+                  key={day}
+                  checked={selectedDays.includes(day)}
+                  onChange={(e) => handleDayChange(day, e.target.checked)}
+                  style={{ margin: 0 }}
+                >
+                  {day}
+                </Checkbox>
+              ))}
             </div>
           </Form.Item>
+
+          {/* Status Switch */}
+          <div className="flex items-center justify-between mt-2">
+            <span className="text-sm font-medium text-gray-700">
+              Status <span className="text-red-500">*</span>
+            </span>
+            <Form.Item name="status" valuePropName="checked" noStyle>
+              <Switch
+                size="small"
+                checked={checked}
+                onChange={(ch) => {
+                  onChange(ch);
+                  form.setFieldsValue({ status: ch });
+                }}
+                style={{
+                  backgroundColor: checked ? "#9333ea" : "#ccc",
+                }}
+              />
+            </Form.Item>
+          </div>
+
+          {/* Footer Buttons */}
+          <div className="flex justify-end gap-3 mt-6">
+            <Button
+              onClick={handleCancel}
+              style={{
+                background: "#0c254a",
+                color: "white",
+                border: "none",
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="primary"
+              htmlType="submit"
+              style={{
+                background: "#9333ea",
+                borderColor: "#9333ea",
+              }}
+            >
+              {isEdit ? "Update Discount" : "Add Discount"}
+            </Button>
+          </div>
         </Form>
       </Modal>
     </div>

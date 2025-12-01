@@ -376,7 +376,7 @@ export const imsMenuItems = [
         ]
       },
 
-      { key: "/ims/reports/InvoiceReport", label: "Invoice Report", icon: <FileProtectOutlined /> },
+      // { key: "/ims/reports/InvoiceReport", label: "Invoice Report", icon: <FileProtectOutlined /> },
 
       {
         key: "/ims/reports/SupplierReports",

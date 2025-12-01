@@ -17,3 +17,6 @@ const printbarcodeService = {
 };
 
 export default printbarcodeService;
+
+
+

@@ -7,4 +7,13 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Change Switch active color to violet */
+.ant-switch-checked {
+  background-color: #7c3aed !important; /* violet-600 */
+}
+
+.ant-switch-checked:hover:not(.ant-switch-disabled) {
+  background-color: #6d28d9 !important; /* violet-700 */
+}
+
 

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   Table,
   Input,
@@ -24,6 +24,7 @@ import { HashLink as Link } from "react-router-hash-link";
 import { useNavigate } from "react-router-dom";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import productService from "./productService.js";
 
 const { Option } = Select;
 const { TextArea } = Input;
@@ -38,51 +39,72 @@ const Products = () => {
   const [filterBrand, setFilterBrand] = useState(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteRecord, setDeleteRecord] = useState(null);
+  const [loading, setLoading] = useState(false);
 
   const [filtersCollapsed, setFiltersCollapsed] = useState(false);
 
   const [selectedKeys, setSelectedKeys] = useState([]);
 
-  const [formData, setFormData] = useState([
-    {
-      key: 1,
-      sku: "EX849",
-      image: "",
-      productname: "Electricity Payment",
-      category: "Computers",
-      brand: "Lenovo",
-      price: "$200",
-      unit: "Unit",
-      quantity: 10,
-      createdby: "admin",
-    },
-    {
-      key: 2,
-      sku: "EX850",
-      image: "",
-      productname: "Water Payment",
-      category: "Electronics",
-      brand: "Beats",
-      price: "$100",
-      unit: "Unit",
-      quantity: 5,
-      createdby: "admin",
-    },
-    {
-      key: 3,
-      sku: "EX851",
-      image: "",
-      productname: "Water Payment",
-      category: "Shoes",
-      brand: "Nike",
-      price: "$100",
-      unit: "Unit",
-      quantity: 5,
-      createdby: "admin",
-    },
-  ]);
+  const [products, setProducts] = useState([]);
+  const [formData, setFormData] = useState([]);
 
   const initialDataRef = React.useRef(formData);
+
+  // Fetch products from API
+  useEffect(() => {
+    fetchProducts();
+  }, []);
+
+  const fetchProducts = async () => {
+    try {
+      setLoading(true);
+      const res = await productService.getProducts();
+      console.log("Products API response:", res.data);
+      const fetchedProducts = res.data.data || [];
+      console.log("Fetched products:", fetchedProducts);
+      
+      // Map the API data to table format
+      const mappedData = fetchedProducts.map(item => {
+        console.log("Mapping product:", item.product_name);
+        console.log("SingleProduct:", item.SingleProduct);
+        console.log("VariantProducts:", item.VariantProducts);
+        
+        // Calculate total quantity for variant products
+        const variantTotalQty = item.VariantProducts?.length > 0
+          ? item.VariantProducts.reduce((sum, v) => sum + (v.quantity || 0), 0)
+          : 0;
+        
+        // Get tax data (handle both uppercase and lowercase)
+        const taxData = item.SingleProduct?.Tax || item.SingleProduct?.tax;
+        
+        return {
+          key: item.id,
+          id: item.id,
+          sku: item.sku,
+          image: item.ProductImages?.[0]?.image_url || "",
+          productname: item.product_name,
+          category: item.Category?.category_name || "",
+          brand: item.Brand?.brand_name || "",
+          price: item.SingleProduct?.price || item.VariantProducts?.[0]?.price || "-",
+          unit: item.Unit?.unit_name || "",
+          quantity: item.SingleProduct?.quantity || variantTotalQty || "-",
+          tax: taxData?.tax_name 
+            ? `${taxData.tax_name} (${taxData.tax_percentage}%)` 
+            : "-",
+          createdby: "admin",
+          is_active: item.is_active,
+        };
+      });
+      
+      setProducts(fetchedProducts);
+      setFormData(mappedData);
+    } catch (err) {
+      console.error("Failed to fetch products:", err);
+      message.error(err.response?.data?.message || "Failed to fetch products");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filteredData = useMemo(() => {
     if (!searchText.trim()) return formData;
@@ -145,11 +167,23 @@ const Products = () => {
     setShowDeleteModal(true);
   };
 
-  const confirmDelete = () => {
-    setFormData((prev) => prev.filter((item) => item.key !== deleteRecord.key));
-    setShowDeleteModal(false);
-    setDeleteRecord(null);
-    message.success("Product deleted successfully");
+  const confirmDelete = async () => {
+    try {
+      await productService.deleteProduct(deleteRecord.id);
+      message.success("Product deleted successfully");
+      
+      // Remove from local state
+      setFormData((prev) => prev.filter((item) => item.key !== deleteRecord.key));
+      
+      // Refresh the products list from API
+      await fetchProducts();
+    } catch (err) {
+      console.error("Failed to delete product:", err);
+      message.error(err.response?.data?.message || "Failed to delete product");
+    } finally {
+      setShowDeleteModal(false);
+      setDeleteRecord(null);
+    }
   };
 
   const cancelDelete = () => {
@@ -340,6 +374,7 @@ const Products = () => {
     { title: "Price", dataIndex: "price", key: "price" },
     { title: "Unit", dataIndex: "unit", key: "unit" },
     { title: "Quantity", dataIndex: "quantity", key: "quantity" },
+    { title: "Tax", dataIndex: "tax", key: "tax" },
     { title: "Created By", dataIndex: "createdby", key: "createdby" },
     {
       title: "Actions",
@@ -508,6 +543,7 @@ const Products = () => {
             overflow: "hidden",
             background: "#fff",
           }}
+          scroll={{ x: 'max-content' }}
         />
       </div>
 

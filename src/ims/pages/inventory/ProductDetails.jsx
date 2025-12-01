@@ -8,9 +8,12 @@ const ProductDetails = () => {
   const location = useLocation();
   const product = (location.state && location.state.product) || null;
 
-  const barcodeUrl = `https://api.qrserver.com/v1/create-qr-code/?data=${
-    product?.sku || "86102192"
-  }&size=150x150`;
+  // Get barcode from product data or generate using barcode text
+  const barcodeText = product?.Barcode?.text || product?.barcode || product?.sku || "86102192";
+  const barcodeImageUrl = product?.Barcode?.image_url;
+  
+  // Use backend barcode image if available, otherwise generate using external API
+  const barcodeUrl = barcodeImageUrl || `https://barcode.tec-it.com/barcode.ashx?data=${barcodeText}&code=Code128&translate-esc=on&unit=Fit&dpi=96&imagetype=Gif&rotation=0&color=%23000000&bgcolor=%23ffffff&qunit=Mm&quiet=0`;
 
   return (
     <div
@@ -92,7 +95,7 @@ const ProductDetails = () => {
                 style={{ width: 160, height: 60, objectFit: "contain" }}
               />
               <span style={{ fontWeight: 500, fontSize: 14 }}>
-                {product?.sku || "86102192"}
+                {barcodeText}
               </span>
             </div>
             <Button

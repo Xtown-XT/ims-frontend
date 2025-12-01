@@ -23,8 +23,13 @@ import { FaFilePdf, FaFileExcel, FaAngleUp } from "react-icons/fa6";
 import { IoReloadOutline } from "react-icons/io5";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import subcategoriesService from "./subcategoriesService.js";
+import categoryService from "./productCategoryService.js";
 
 const { Option } = Select;
+
+// Use the same base URL as the API
+const API_BASE_URL = "http://192.168.1.17:3000";
 
 const ProductSubCategory = () => {
   const [showForm, setShowForm] = useState(false);
@@ -33,33 +38,18 @@ const ProductSubCategory = () => {
   const [filterStatus, setFilterStatus] = useState(null);
   const [status, setStatus] = useState(true);
   const [imageUrl, setImageUrl] = useState(null);
+  const [imageFile, setImageFile] = useState(null);
   const [editRecord, setEditRecord] = useState(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteRecord, setDeleteRecord] = useState(null);
   const [filtersCollapsed, setFiltersCollapsed] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [categories, setCategories] = useState([]);
 
   // ✅ New selection state for checkboxes
   const [selectedKeys, setSelectedKeys] = useState([]);
 
-  const [formData, setFormData] = useState([
-    {
-      key: 1,
-      subcategory: "Laptop",
-      category: "Computers",
-      categorycode: "CT001",
-      description: "Efficient Productivity",
-      status: "Active",
-      image: "https://via.placeholder.com/120x120.png?text=Laptop",
-    },
-    {
-      key: 2,
-      subcategory: "Mobiles",
-      category: "Electronics",
-      categorycode: "CT002",
-      description: "Smartphones and accessories",
-      status: "Inactive",
-    },
-  ]);
+  const [formData, setFormData] = useState([]);
 
   const [addSubCategoryData, setAddSubCategoryData] = useState({
     category: "",
@@ -69,6 +59,70 @@ const ProductSubCategory = () => {
     status: true,
     image: null,
   });
+
+  useEffect(() => {
+    const fetchData = async () => {
+      await fetchCategories();
+      await fetchSubcategories();
+    };
+    fetchData();
+  }, []);
+
+  const fetchSubcategories = async () => {
+    try {
+      setLoading(true);
+      
+      // Ensure categories are loaded first
+      let categoriesList = categories;
+      if (categoriesList.length === 0) {
+        categoriesList = await fetchCategories();
+      }
+      
+      const res = await subcategoriesService.getSubcategories();
+      console.log("Subcategories API response:", res.data);
+      const fetchedData = res.data.data?.subcategories || res.data.subcategories || [];
+      
+      const mappedData = fetchedData.map(item => {
+        // Find the category name from categories array using category_id
+        const category = categoriesList.find(cat => cat.id === item.category_id);
+        const categoryName = category ? (category.category_name || category.name) : item.category_name || '';
+        
+        return {
+          key: item.id,
+          id: item.id,
+          subcategory: item.subcategory_name || item.name,
+          category: categoryName,
+          categoryId: item.category_id,
+          categorycode: item.category_code || item.code,
+          description: item.description,
+          status: item.is_active ? "Active" : "Inactive",
+          image: item.image,
+        };
+      });
+      
+      console.log("Mapped subcategories data:", mappedData);
+      setFormData(mappedData);
+    } catch (err) {
+      console.error("Failed to fetch subcategories:", err);
+      message.error(err.response?.data?.message || "Failed to fetch subcategories");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchCategories = async () => {
+    try {
+      const res = await categoryService.getCategories();
+      console.log("Categories API response:", res.data);
+      const fetchedCategories = res.data.data?.rows || res.data.rows || [];
+      setCategories(fetchedCategories);
+      return fetchedCategories;
+    } catch (err) {
+      console.error("Failed to fetch categories:", err);
+      message.error("Failed to fetch categories");
+      return [];
+    }
+  };
 
   // ✅ Search + Status filter logic
   const filteredData = useMemo(() => {
@@ -104,32 +158,70 @@ const ProductSubCategory = () => {
   };
 
   const handleImageChange = (info) => {
-    const file = info.file.originFileObj;
-    const imageUrl = URL.createObjectURL(file);
-    setImageUrl(imageUrl);
-    setAddSubCategoryData({ ...addSubCategoryData, image: file });
+    console.log("Upload info:", info);
+    const file = info.file.originFileObj || info.file;
+    console.log("Selected file:", file);
+    
+    if (file) {
+      // Check if it's a valid image file
+      if (!file.type || !file.type.startsWith('image/')) {
+        message.error('Please select a valid image file (JPEG or PNG)');
+        return;
+      }
+      
+      try {
+        const imageUrl = URL.createObjectURL(file);
+        console.log("Created image URL:", imageUrl);
+        setImageUrl(imageUrl);
+        setImageFile(file);
+        message.success('Image selected successfully');
+      } catch (error) {
+        console.error("Error creating image URL:", error);
+        message.error('Failed to load image preview');
+      }
+    } else {
+      console.error("No file found in upload info");
+    }
   };
 
-  const handleAddSubCategory = () => {
-    const newEntry = {
-      key: formData.length + 1,
-      subcategory: addSubCategoryData.subcategory,
-      category: addSubCategoryData.category,
-      categorycode: addSubCategoryData.categorycode,
-      description: addSubCategoryData.description,
-      status: addSubCategoryData.status ? "Active" : "Inactive",
-      image: imageUrl,
-    };
-    setFormData([...formData, newEntry]);
-    setShowForm(false);
-    resetForm();
+  const handleAddSubCategory = async () => {
+    try {
+      const formData = new FormData();
+      formData.append('subcategory_name', addSubCategoryData.subcategory);
+      formData.append('category_id', addSubCategoryData.category);
+      formData.append('category_code', addSubCategoryData.categorycode);
+      formData.append('description', addSubCategoryData.description);
+      formData.append('is_active', addSubCategoryData.status ? 'true' : 'false');
+      
+      // Only append image if imageFile exists
+      if (imageFile) {
+        formData.append('image', imageFile);
+        console.log("Image file to upload:", imageFile.name, imageFile.type);
+      }
+
+      console.log("FormData contents:");
+      for (let pair of formData.entries()) {
+        console.log(pair[0], pair[1]);
+      }
+
+      const res = await subcategoriesService.createSubcategory(formData);
+      console.log("Create subcategory response:", res.data);
+      message.success("Subcategory added successfully");
+      setShowForm(false);
+      resetForm();
+      await fetchSubcategories();
+    } catch (err) {
+      console.error("Failed to add subcategory:", err);
+      console.error("Error response:", err.response?.data);
+      message.error(err.response?.data?.message || "Failed to add subcategory");
+    }
   };
 
   const handleEdit = (record) => {
     setIsEditMode(true);
     setEditRecord(record);
     setAddSubCategoryData({
-      category: record.category,
+      category: record.categoryId,
       subcategory: record.subcategory,
       categorycode: record.categorycode,
       description: record.description,
@@ -137,25 +229,48 @@ const ProductSubCategory = () => {
       image: record.image,
     });
     setImageUrl(record.image);
+    setImageFile(null); // Reset imageFile when editing
     setShowForm(true);
   };
 
-  const handleSaveChanges = () => {
-    const updatedData = formData.map((item) =>
-      item.key === editRecord.key
-        ? {
-            ...item,
-            ...addSubCategoryData,
-            status: addSubCategoryData.status ? "Active" : "Inactive",
-            image: imageUrl,
-          }
-        : item
-    );
-    setFormData(updatedData);
-    setShowForm(false);
-    setIsEditMode(false);
-    setEditRecord(null);
-    resetForm();
+  const handleSaveChanges = async () => {
+    try {
+      if (!editRecord) {
+        message.error("No record selected for editing");
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('subcategory_name', addSubCategoryData.subcategory);
+      formData.append('category_id', addSubCategoryData.category);
+      formData.append('category_code', addSubCategoryData.categorycode);
+      formData.append('description', addSubCategoryData.description);
+      formData.append('is_active', addSubCategoryData.status ? 'true' : 'false');
+      
+      // Only append image if imageFile exists (new upload)
+      if (imageFile) {
+        formData.append('image', imageFile);
+        console.log("New image file to upload:", imageFile.name, imageFile.type);
+      }
+
+      console.log("Update FormData contents:");
+      for (let pair of formData.entries()) {
+        console.log(pair[0], pair[1]);
+      }
+
+      const res = await subcategoriesService.updateSubcategory(editRecord.id, formData);
+      console.log("Update subcategory response:", res.data);
+      message.success("Subcategory updated successfully");
+      setShowForm(false);
+      setIsEditMode(false);
+      setEditRecord(null);
+      resetForm();
+      await fetchSubcategories();
+    } catch (err) {
+      console.error("Failed to update subcategory:", err);
+      console.error("Error response:", err.response?.data);
+      message.error(err.response?.data?.message || "Failed to update subcategory");
+    }
   };
 
   const handleDelete = (record) => {
@@ -163,12 +278,20 @@ const ProductSubCategory = () => {
     setShowDeleteModal(true);
   };
 
-  const confirmDelete = () => {
-    setFormData((prev) => prev.filter((item) => item.key !== deleteRecord.key));
-    setShowDeleteModal(false);
-    setDeleteRecord(null);
-    // update selectedKeys if needed
-    setSelectedKeys((prev) => prev.filter((k) => k !== deleteRecord.key));
+  const confirmDelete = async () => {
+    try {
+      await subcategoriesService.deleteSubcategory(deleteRecord.id);
+      message.success("Subcategory deleted successfully");
+      setShowDeleteModal(false);
+      setDeleteRecord(null);
+      setSelectedKeys((prev) => prev.filter((k) => k !== deleteRecord.key));
+      fetchSubcategories();
+    } catch (err) {
+      console.error("Failed to delete subcategory:", err);
+      message.error(err.response?.data?.message || "Failed to delete subcategory");
+      setShowDeleteModal(false);
+      setDeleteRecord(null);
+    }
   };
 
   const cancelDelete = () => {
@@ -186,6 +309,7 @@ const ProductSubCategory = () => {
       image: null,
     });
     setImageUrl(null);
+    setImageFile(null);
   };
 
   // 🟣 Refresh handler
@@ -342,20 +466,32 @@ const ProductSubCategory = () => {
       title: "Images",
       dataIndex: "image",
       key: "image",
-      render: (image) => (
-        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-          <img
-            src={image || "https://via.placeholder.com/40x40.png?text=Img"}
-            alt="sub-category"
-            style={{
-              width: 40,
-              height: 40,
-              borderRadius: 8,
-              objectFit: "cover",
-            }}
-          />
-        </div>
-      ),
+      render: (image) => {
+        const fullImageUrl = image 
+          ? (image.startsWith('http') ? image : `${API_BASE_URL}${image}`)
+          : "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40'%3E%3Crect width='40' height='40' fill='%23ddd'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='12' fill='%23999'%3EImg%3C/text%3E%3C/svg%3E";
+        
+        return (
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <img
+              src={fullImageUrl}
+              alt="sub-category"
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 8,
+                objectFit: "cover",
+                backgroundColor: "#f0f0f0",
+              }}
+              onError={(e) => {
+                console.error("Failed to load image:", fullImageUrl);
+                console.error("Check if backend is serving static files from /uploads folder");
+                e.target.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40'%3E%3Crect width='40' height='40' fill='%23ddd'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='12' fill='%23999'%3EImg%3C/text%3E%3C/svg%3E";
+              }}
+            />
+          </div>
+        );
+      },
     },
     { title: "Sub Category", dataIndex: "subcategory", key: "subcategory" },
     { title: "Category", dataIndex: "category", key: "category" },
@@ -484,10 +620,17 @@ const ProductSubCategory = () => {
             />
             <div className="flex gap-3 items-center">
               <Form.Item>
-                <Select placeholder="Category" name="category" style={{ width: 180 }}>
-                  <Option value="Computers">Computers</Option>
-                  <Option value="Electronics">Electronics</Option>
-                  <Option value="Shoes">Shoes</Option>
+                <Select 
+                  placeholder="Category" 
+                  name="category" 
+                  style={{ width: 180 }}
+                  allowClear
+                >
+                  {categories.map(cat => (
+                    <Option key={cat.id} value={cat.category_name || cat.name}>
+                      {cat.category_name || cat.name}
+                    </Option>
+                  ))}
                 </Select>
               </Form.Item>
               <Form.Item>
@@ -519,6 +662,7 @@ const ProductSubCategory = () => {
         <Table
           columns={columns}
           dataSource={filteredData}
+          loading={loading}
           pagination={{ pageSize: 5 }}
           className="bg-white"
           bordered={false}
@@ -528,6 +672,7 @@ const ProductSubCategory = () => {
             overflow: "hidden",
             background: "#fff",
           }}
+          scroll={{ x: "max-content"}}
         />
       </div>
 
@@ -572,12 +717,16 @@ const ProductSubCategory = () => {
               {imageUrl ? (
                 <>
                   <img
-                    src={imageUrl}
+                    src={imageUrl.startsWith('blob:') || imageUrl.startsWith('http') ? imageUrl : `${API_BASE_URL}${imageUrl}`}
                     alt="Preview"
                     style={{
                       width: "100%",
                       height: "100%",
                       objectFit: "cover",
+                    }}
+                    onError={(e) => {
+                      console.error("Image failed to load:", imageUrl);
+                      e.target.src = "https://via.placeholder.com/120x120?text=Error";
                     }}
                   />
                   <Button
@@ -594,6 +743,7 @@ const ProductSubCategory = () => {
                     }}
                     onClick={() => {
                       setImageUrl(null);
+                      setImageFile(null);
                       setAddSubCategoryData({
                         ...addSubCategoryData,
                         image: null,
@@ -641,9 +791,16 @@ const ProductSubCategory = () => {
                   category: val,
                 })
               }
+              showSearch
+              filterOption={(input, option) =>
+                option.children.toLowerCase().includes(input.toLowerCase())
+              }
             >
-              <Option value="Computers">Computers</Option>
-              <Option value="Electronics">Electronics</Option>
+              {categories.map(cat => (
+                <Option key={cat.id} value={cat.id}>
+                  {cat.category_name || cat.name}
+                </Option>
+              ))}
             </Select>
           </Form.Item>
 

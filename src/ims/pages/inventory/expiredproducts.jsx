@@ -451,6 +451,7 @@ const ExpiredProducts = () => {
             overflow: "hidden",
             background: "#fff",
           }}
+          scroll={{ x: 'max-content' }}
           components={{
             header: {
               cell: (props) => (

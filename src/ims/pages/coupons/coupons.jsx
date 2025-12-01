@@ -354,6 +354,7 @@ const Coupons = () => {
         bordered={false}
         rowClassName={() => "hover:bg-gray-50"}
         style={{ border: "rounded-xl" }}
+        scroll={{ x: 'max-content' }}
         components={{
           header: {
             cell: (props) => (

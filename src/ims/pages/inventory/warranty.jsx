@@ -74,7 +74,14 @@ const Warranties = () => {
         setTotal(res.data?.data?.count || res.data?.count || warranties.length);
       } catch (err) {
         console.error("Failed to fetch warranties:", err);
-        message.error("Failed to load warranties");
+        const errorMsg = err.response?.data?.error || err.response?.data?.message || "Failed to load warranties";
+        
+        // Show specific message for database column errors
+        if (errorMsg.includes("Unknown column") || errorMsg.includes("deletedAt")) {
+          message.error("Database configuration error. Please contact your administrator to update the warranty table schema.");
+        } else {
+          message.error(errorMsg);
+        }
       } finally {
         setLoading(false);
       }
@@ -577,6 +584,7 @@ const Warranties = () => {
             overflow: "hidden",
             background: "#fff",
           }}
+          scroll={{ x: 'max-content' }}
         />
       </div>
 

@@ -26,6 +26,9 @@ import brandService from "./brandsService.js";
 
 const { Option } = Select;
 
+// Use the same base URL as the API
+const API_BASE_URL = "http://192.168.1.17:3000";
+
 const Brands = () => {
   const [form] = Form.useForm();
   const [showForm, setShowForm] = useState(false);
@@ -449,7 +452,7 @@ const Brands = () => {
         // Handle different possible image field names and formats
         const imageUrl = record.image || record.brand_image || record.imageUrl;
         const fullImageUrl = imageUrl 
-          ? (imageUrl.startsWith('http') ? imageUrl : `http://192.168.1.15:3000${imageUrl}`)
+          ? (imageUrl.startsWith('http') ? imageUrl : `${API_BASE_URL}${imageUrl}`)
           : "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40'%3E%3Crect width='40' height='40' fill='%23ddd'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='12' fill='%23999'%3EImg%3C/text%3E%3C/svg%3E";
         
         return (
@@ -655,6 +658,7 @@ const Brands = () => {
             showSizeChanger: false,
             showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} items`,
           }}
+          scroll={{ x: 'max-content' }}
           className="bg-white"
           bordered={false}
           rowClassName={() => "hover:bg-gray-50"}
@@ -704,7 +708,7 @@ const Brands = () => {
               {imageUrl ? (
                 <>
                   <img
-                    src={imageUrl.startsWith('blob:') || imageUrl.startsWith('http') ? imageUrl : `http://192.168.1.18:5000${imageUrl}`}
+                    src={imageUrl.startsWith('blob:') || imageUrl.startsWith('http') ? imageUrl : `${API_BASE_URL}${imageUrl}`}
                     alt="Preview"
                     style={{
                       width: "100%",

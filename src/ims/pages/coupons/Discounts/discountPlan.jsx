@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   Table,
   Input,
@@ -6,7 +6,6 @@ import {
   Button,
   Modal,
   Form,
-  DatePicker,
   Switch,
   message,
 } from "antd";
@@ -16,151 +15,144 @@ import {
   EditOutlined,
   DeleteOutlined,
 } from "@ant-design/icons";
-import dayjs from "dayjs";
+
+import discountPlanService from "./discountPlanService";
 
 const { Option } = Select;
-const { TextArea } = Input;
 
 const DiscountPlan = () => {
   const [showForm, setShowForm] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
-  const [searchText, setSearchText] = useState("");
+  const [searchText, setSearchText] = useState('');
   const [filterStatus, setFilterStatus] = useState(null);
-  const [filterType, setFilterType] = useState(null);
+  const [filterCustomer, setFilterCustomer] = useState(null);
   const [checked, setChecked] = useState(true);
-  const [shortByFilter, setShortByFilter] = useState("Customers");
-
-  const [status, setStatus] = useState(true);
-  // form instance
+  const [loading, setLoading] = useState(true);
   const [form] = Form.useForm();
-
-  // isEdit flag + editing record key
   const [isEdit, setIsEdit] = useState(false);
   const [editingKey, setEditingKey] = useState(null);
+  const [discountPlans, setDiscountPlans] = useState([]);
 
-  const [formData, setFormData] = useState([
-    {
-      key: 1,
-      planname: "Big Saver Deal",
-      customers: "kiran",
-      status: "Active",
-    },
-    {
-      key: 2,
-      planname: "Big Saver Deal",
-      customers: "vijay",
-      status: "Active",
-    },
+  // Customer type options (matching backend enum)
+  const customerTypes = [
+    { value: "all_customers", label: "All Customers" },
+    { value: "members_only", label: "Members Only" },
+    { value: "high_spending_customers", label: "High Spending Customers" },
+    { value: "custom_selected", label: "Custom Selected" },
+  ];
 
-  ]);
+  const onChange = (ch) => {
+    setChecked(ch);
+    form.setFieldsValue({ status: ch });
+  };
+
+  // Fetch discount plans
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const res = await discountPlanService.getDiscountPlan(currentPage, pageSize, searchText)
+        console.log("API Response:", res.data)
+        console.log("Discount Plans Data:", res.data.data || [])
+        setDiscountPlans(res.data.data || []);
+      } catch (error) {
+        console.log("Failed to Fetch Discount Plans", error)
+        message.error(error.response?.data?.message || "Failed to fetch Discount Plans");
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchData();
+  }, [currentPage, pageSize, searchText])
+
+
 
   const openAddForm = () => {
     setIsEdit(false);
     setEditingKey(null);
+    setChecked(true);
     form.resetFields();
+    form.setFieldsValue({
+      plan_name: "",
+      customer: undefined,
+      status: true,
+    });
     setShowForm(true);
   };
 
   const openEditForm = (record) => {
     setIsEdit(true);
-    setEditingKey(record.key);
-    // populate form fields (convert date strings to dayjs if present)
-    const initial = {
-      name: record.name,
-      code: record.code,
-      type: record.type,
-      discount: record.discount,
-      limit: record.limit,
-      description: record.description,
-      status: record.status === "Active",
-      product: record.product || undefined,
-      startDate: record.startDate ? dayjs(record.startDate, "DD/MM/YYYY") : null,
-      endDate: record.endDate ? dayjs(record.endDate, "DD/MM/YYYY") : null,
-    };
-    form.setFieldsValue(initial);
+    setEditingKey(record.id);
+    form.setFieldsValue({
+      plan_name: record.plan_name,
+      customer: record.customer,
+      status: record.status,
+    });
+    setChecked(record.status);
     setShowForm(true);
   };
 
-  const handleAddCoupons = (values) => {
-    // values.startDate and endDate are dayjs objects; convert to string format DD/MM/YYYY
-    const startDateStr = values.startDate ? values.startDate.format("DD/MM/YYYY") : "";
-    const endDateStr = values.endDate ? values.endDate.format("DD/MM/YYYY") : "";
-
-    if (isEdit && editingKey != null) {
-      // update existing item
-      setFormData((prev) =>
-        prev.map((item) =>
-          item.key === editingKey
-            ? {
-              ...item,
-              name: values.name,
-              code: values.code,
-              type: values.type,
-              discount: values.discount,
-              limit: values.limit,
-              description: values.description || "",
-              startDate: startDateStr,
-              endDate: endDateStr,
-              valid: endDateStr, // maintain your existing 'valid' field logic
-              status: values.status ? "Active" : "Inactive",
-              product: values.product,
-            }
-            : item
-        )
-      );
-      message.success("Coupon updated successfully");
-    } else {
-      // add new item
-      const newKey = formData.length ? Math.max(...formData.map((i) => i.key)) + 1 : 1;
-      const newItem = {
-        key: newKey,
-        name: values.name,
-        code: values.code,
-        type: values.type,
-        discount: values.discount,
-        limit: values.limit,
-        description: values.description || "",
-        startDate: startDateStr,
-        endDate: endDateStr,
-        valid: endDateStr,
-        status: values.status ? "Active" : "Inactive",
-        product: values.product,
+  const handleSubmit = async (values) => {
+    try {
+      const payload = {
+        plan_name: values.plan_name,
+        customer: values.customer,
+        status: Boolean(checked)
       };
-      setFormData((prev) => [newItem, ...prev]);
-      message.success("Coupon added successfully");
-    }
 
-    // close modal & reset
-    setShowForm(false);
-    form.resetFields();
-    setIsEdit(false);
-    setEditingKey(null);
+      if (isEdit) {
+        await discountPlanService.updateDiscountPlan(editingKey, payload);
+        message.success("Discount Plan updated successfully");
+      } else {
+        await discountPlanService.createDiscountPlan(payload);
+        message.success("Discount Plan added successfully");
+      }
+
+      setShowForm(false);
+      form.resetFields();
+      setIsEdit(false);
+      setEditingKey(null);
+
+      // Refresh data
+      const res = await discountPlanService.getDiscountPlan(currentPage, pageSize, searchText);
+      setDiscountPlans(res.data.data || []);
+    } catch (err) {
+      console.log('Failed to save discount plan', err);
+      const errorMsg = err.response?.data?.message || err.response?.data?.error || "Failed to save discount plan";
+      message.error(errorMsg);
+    }
   };
 
-  const handleDelete = (key) => {
+  const handleDelete = (id) => {
     Modal.confirm({
-      title: "Are you sure you want to delete this coupon?",
-      onOk: () => {
-        setFormData((prev) => prev.filter((i) => i.key !== key));
-        message.success("Coupon deleted");
+      title: "Are you sure you want to delete this discount plan?",
+      onOk: async () => {
+        try {
+          await discountPlanService.deleteDiscountPlan(id);
+          message.success("Discount Plan deleted");
+          const res = await discountPlanService.getDiscountPlan(currentPage, pageSize, searchText);
+          setDiscountPlans(res.data.data || []);
+        } catch (err) {
+          message.error("Failed to delete discount plan");
+        }
       },
     });
   };
 
-  // 🔍 SEARCH FUNCTIONALITY — filters coupons by name, code, or description
   const filteredData = useMemo(() => {
-    return formData.filter((item) => {
+    return discountPlans.filter((item) => {
       const matchesSearch =
-        item.planname.toLowerCase().includes(searchText.toLowerCase()) ||
-        item.customers.toLowerCase().includes(searchText.toLowerCase());
+        item.plan_name?.toLowerCase().includes(searchText.toLowerCase()) ||
+        item.customer?.toLowerCase().includes(searchText.toLowerCase());
 
-      const matchesStatus = filterStatus ? item.status === filterStatus : true;
-      const matchesType = filterType ? item.type === filterType : true;
+      const matchesStatus = filterStatus ?
+        (filterStatus === "Active" ? item.status === true : item.status === false) : true;
 
-      return matchesSearch && matchesStatus && matchesType;
+      const matchesCustomer = filterCustomer ? item.customer === filterCustomer : true;
+
+      return matchesSearch && matchesStatus && matchesCustomer;
     });
-  }, [formData, searchText, filterStatus, filterType]);
+  }, [discountPlans, searchText, filterStatus, filterCustomer]);
 
   const columns = [
     {
@@ -169,18 +161,24 @@ const DiscountPlan = () => {
       render: () => <input type="checkbox" />,
       width: 50,
     },
-    { title: "Plan Name", dataIndex: "planname", key: "planname" },
-    { title: "Customers", dataIndex: "customers", key: "customers" },
+    { title: "Plan Name", dataIndex: "plan_name", key: "plan_name" },
+    { 
+      title: "Customer Type", 
+      dataIndex: "customer", 
+      key: "customer",
+      render: (customer) => {
+        const customerType = customerTypes.find(ct => ct.value === customer);
+        return customerType ? customerType.label : customer;
+      }
+    },
     {
       title: "Status",
       dataIndex: "status",
       key: "status",
-      status: status === true ? "Active" : "InActive",
       render: (status) => (
         <button
           style={{
-            backgroundColor:
-              status.toLowerCase() === "active" ? "#71D98D" : "#FF9999",
+            backgroundColor: status === true ? "#71D98D" : "#FF9999",
             color: "#fff",
             border: "none",
             borderRadius: "4px",
@@ -191,7 +189,7 @@ const DiscountPlan = () => {
             cursor: "default",
           }}
         >
-          {status}
+          {status === true ? "Active" : "Inactive"}
         </button>
       ),
     },
@@ -203,7 +201,7 @@ const DiscountPlan = () => {
           <Button icon={<EditOutlined />} onClick={() => openEditForm(record)} />
           <Button
             icon={<DeleteOutlined />}
-            onClick={() => handleDelete(record.key)}
+            onClick={() => handleDelete(record.id)}
           />
         </div>
       ),
@@ -249,14 +247,17 @@ const DiscountPlan = () => {
           <div className="flex gap-3">
             <Form.Item>
               <Select
-                placeholder="Customers"
-                style={{ width: 150 }}
-                value={shortByFilter}
-                onChange={(val) => setShortByFilter(val)}
+                placeholder="Customer Type"
+                style={{ width: 200 }}
+                value={filterCustomer}
+                onChange={(val) => setFilterCustomer(val)}
+                allowClear
               >
-
-                <Option value="kiran">kiran</Option>
-                <Option value="vijay">vijay</Option>
+                {customerTypes.map((type) => (
+                  <Option key={type.value} value={type.value}>
+                    {type.label}
+                  </Option>
+                ))}
               </Select>
             </Form.Item>
             <Form.Item>
@@ -277,26 +278,25 @@ const DiscountPlan = () => {
       </div>
 
       {/* Table */}
-      {/* <Table
-        columns={columns}
-        dataSource={filteredData}
-        pagination={{ pageSize: 5 }}
-        className="bg-white"
-        bordered={false}
-     
-      /> */}
-
       <Table
         columns={columns}
-        dataSource={filteredData.slice(
-          (currentPage - 1) * pageSize,
-          currentPage * pageSize
-        )}
-        pagination={false}
-        rowKey="name"
+        dataSource={filteredData}
+        loading={loading}
+        pagination={{
+          current: currentPage,
+          pageSize: pageSize,
+          total: filteredData.length,
+          onChange: (page, size) => {
+            setCurrentPage(page);
+            setPageSize(size);
+          },
+          showSizeChanger: true,
+          showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} items`,
+        }}
+        rowKey="id"
       />
 
-      {/* Add/Edit Coupon Modal */}
+      {/* Add/Edit Discount Plan Modal */}
       <Modal
         title={isEdit ? "Edit Discount plan" : "Add Discount Plan"}
         open={showForm}
@@ -310,31 +310,36 @@ const DiscountPlan = () => {
         centered
         width={500}
       >
-        <Form layout="vertical" form={form} onFinish={handleAddCoupons}>
+        <Form
+          layout="vertical"
+          form={form}
+          onFinish={handleSubmit}
+        >
           <div className="grid grid-cols-1 gap-4">
             <Form.Item
               label="Plan Name"
-              name="planname"
+              name="plan_name"
               rules={[{ required: true, message: "Please enter plan name" }]}
             >
               <Input placeholder="Enter plan Name" />
             </Form.Item>
             <Form.Item
-              label={
-                <div className="flex justify-between items-center">
-                  <span>Customer</span>
-                  <span className="text-purple-500 text-sm cursor-pointer">
-                    + Add New
-                  </span>
-                </div>
-              }
-              name="customer *"
-              rules={[{ required: true, message: "Please select a customer" }]}
+              label="Customer Type"
+              name="customer"
+              rules={[{ required: true, message: "Please select customer type" }]}
             >
-              <Select placeholder="Select Customer">
-                <Option value="Carl Evans">Carl Evans</Option>
-                <Option value="Minerva Rameriz">Minerva Rameriz</Option>
-                <Option value="Robert Lamon">Robert Lamon</Option>
+              <Select
+                placeholder="Select Customer Type"
+                showSearch
+                filterOption={(input, option) =>
+                  option.children.toLowerCase().includes(input.toLowerCase())
+                }
+              >
+                {customerTypes.map((type) => (
+                  <Option key={type.value} value={type.value}>
+                    {type.label}
+                  </Option>
+                ))}
               </Select>
             </Form.Item>
           </div>
@@ -349,6 +354,10 @@ const DiscountPlan = () => {
                 checked={checked}
                 onChange={(ch) => {
                   onChange(ch);
+                  form.setFieldsValue({ status: ch });
+                }}
+                style={{
+                  backgroundColor: checked ? "#9333ea" : "#ccc",
                 }}
               />
             </Form.Item>
