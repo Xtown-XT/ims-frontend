@@ -747,7 +747,7 @@ const SalesReturn = () => {
         </Select>
       </div>
 
-      <div className="bg-white rounded-lg overflow-hidden">
+      <div className="bg-white rounded-lg" style={{ overflowX: 'auto' }}>
         <Table
           dataSource={filteredData}
           columns={columns}
@@ -759,6 +759,7 @@ const SalesReturn = () => {
             onSelect: handleSelectRow,
             checkStrictly: false,
           }}
+          scroll={{ x: 'max-content' }}
           className="custom-table [&_.ant-checkbox-wrapper]:accent-purple-600"
           style={{
             fontFamily: 'Inter, system-ui, sans-serif'

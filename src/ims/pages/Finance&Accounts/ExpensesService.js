@@ -8,21 +8,15 @@ const expensesService = {
 
   // GET All Expenses
   getAllExpenses: (page = 1, limit = 10, search = "") =>
-    api.get(
-      `/expenses/getAllExpenses?page=${page}&limit=${limit}&search=${search}`
-    ),
+    api.get(`/expenses/getAllExpenses?page=${page}&limit=${limit}&search=${search}`),
 
   // GET Expense By ID
   getExpenseById: (id) =>
-    api.get(
-      `/expenses/getExpenseById/${id}`
-    ),
+    api.get(`/expenses/getExpenseById/${id}`),
 
   // DELETE Expense
   deleteExpense: (id) =>
-    api.delete(
-      `/expenses/getExpenseById/${id}`
-    ),
+    api.delete(`/expenses/getExpenseById/${id}`),
 };
 
 export default expensesService;
