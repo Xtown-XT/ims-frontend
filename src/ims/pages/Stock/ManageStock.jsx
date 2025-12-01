@@ -28,6 +28,8 @@ import "jspdf-autotable";
 import * as XLSX from "xlsx";
 import { Plus } from "lucide-react";
 import manageStockService from "./manageStockService.js";
+import warehouseService from "../peoples/WarehouseService";
+import storesService from "../peoples/StoresService";
 
 const ManageStock = () => {
   const [searchText, setSearchText] = useState("");
@@ -41,22 +43,10 @@ const ManageStock = () => {
   const [dataSource, setDataSource] = useState([]);
   const [loading, setLoading] = useState(false);
   const [total, setTotal] = useState(0);
-
-  const warehouses = [
-    "Lavish Warehouse",
-    "Quaint Warehouse",
-    "Traditional Warehouse",
-    "Cool Warehouse",
-    "Retail Supply Hub",
-  ];
-
-  const stores = [
-    "Electro Mart",
-    "Quantum Gadgets",
-    "Prime Bazaar",
-    "Gadget World",
-    "Volt Vault",
-  ];
+  const [warehouses, setWarehouses] = useState([]);
+  const [stores, setStores] = useState([]);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteRecord, setDeleteRecord] = useState(null);
 
   const products = [
     "Lenovo IdeaPad 3",
@@ -68,10 +58,45 @@ const ManageStock = () => {
 
   const persons = ["James Kirwin", "Francis Chang", "Steven", "Gravely", "Kevin"];
 
-  // Fetch stocks from API
+  // Fetch stocks, warehouses and stores from API
   useEffect(() => {
     fetchStocks();
+    fetchWarehouses();
+    fetchStores();
   }, []);
+
+  const fetchWarehouses = async () => {
+    try {
+      const res = await warehouseService.getWarehouses(1, 100, "");
+      const rows = res?.data?.data?.rows ?? [];
+      const warehouseNames = rows.map(w => w.warehouse_name || w.warehouse);
+      setWarehouses(warehouseNames);
+    } catch (err) {
+      console.error("Failed to fetch warehouses:", err);
+      message.error("Failed to load warehouses");
+    }
+  };
+
+  const fetchStores = async () => {
+    try {
+      const res = await storesService.getStores();
+      console.log("Stores API response:", res.data);
+      
+      // Try different possible response structures
+      const rows = res?.data?.rows ?? res?.data?.data?.rows ?? res?.data ?? [];
+      console.log("Stores rows:", rows);
+      
+      const storeNames = rows.map(s => s.store_name || s.store || s.storeName || s.name);
+      console.log("Store names:", storeNames);
+      
+      setStores(storeNames);
+    } catch (err) {
+      console.error("Failed to fetch stores:", err);
+      console.error("Error response:", err.response?.data);
+      // Don't show error message if stores API doesn't exist yet
+      // message.error("Failed to load stores");
+    }
+  };
 
   const fetchStocks = async () => {
     try {
@@ -211,15 +236,29 @@ const ManageStock = () => {
     }
   };
 
-  const handleDelete = async (key) => {
+  const handleDelete = (record) => {
+    setDeleteRecord(record);
+    setShowDeleteModal(true);
+  };
+
+  const confirmDelete = async () => {
     try {
-      await manageStockService.deleteStock(key);
+      await manageStockService.deleteStock(deleteRecord.id);
       message.success("Stock deleted successfully!");
+      setShowDeleteModal(false);
+      setDeleteRecord(null);
       fetchStocks();
     } catch (err) {
       console.error("Failed to delete stock:", err);
       message.error(err.response?.data?.message || "Failed to delete stock");
+      setShowDeleteModal(false);
+      setDeleteRecord(null);
     }
+  };
+
+  const cancelDelete = () => {
+    setShowDeleteModal(false);
+    setDeleteRecord(null);
   };
 
   const columns = [
@@ -263,7 +302,7 @@ const ManageStock = () => {
       render: (_, record) => (
         <Space>
           <Button icon={<EditOutlined />} onClick={() => handleOpenModal(record)} />
-          <Button icon={<DeleteOutlined />} onClick={() => handleDelete(record.id)} />
+          <Button icon={<DeleteOutlined />} onClick={() => handleDelete(record)} />
         </Space>
       ),
     },
@@ -360,39 +399,17 @@ const ManageStock = () => {
         <Table
           dataSource={filteredData}
           columns={columns}
-          pagination={false}
-          rowSelection={{}}
           loading={loading}
+          rowKey="id"
+          pagination={{
+            pageSize: pageSize,
+            showSizeChanger: false,
+            showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} items`,
+          }}
+          className="bg-white"
+          bordered={false}
+          rowClassName={() => "hover:bg-gray-50"}
         />
-
-        {/* Pagination */}
-        <div className="flex justify-between items-center mt-4">
-          <div className="flex items-center gap-2">
-            <span className="text-gray-600 text-sm">Rows per page</span>
-            <Select
-              value={pageSize}
-              style={{ width: 80 }}
-              onChange={(value) => setPageSize(value)}
-              options={[
-                { value: 5, label: "5" },
-                { value: 10, label: "10" },
-                { value: 20, label: "20" },
-              ]}
-            />
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Button shape="circle" size="small">
-              {"<"}
-            </Button>
-            <Button shape="circle" size="small" className="bg-orange-500 text-white border-none">
-              1
-            </Button>
-            <Button shape="circle" size="small">
-              {">"}
-            </Button>
-          </div>
-        </div>
       </div>
 
       {/* Modal */}
@@ -478,6 +495,78 @@ const ManageStock = () => {
             </Button>
           </div>
         </Form>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        open={showDeleteModal}
+        onCancel={cancelDelete}
+        footer={null}
+        centered
+      >
+        <div style={{ textAlign: "center", padding: "10px 0" }}>
+          <div
+            style={{
+              width: 60,
+              height: 60,
+              borderRadius: "50%",
+              backgroundColor: "#FEE2E2",
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              margin: "0 auto 15px",
+            }}
+          >
+            <DeleteOutlined style={{ fontSize: 30, color: "#EF4444" }} />
+          </div>
+          <h2
+            style={{
+              fontSize: 18,
+              fontWeight: 600,
+              color: "#1F2937",
+              marginBottom: 10,
+            }}
+          >
+            Delete Stock
+          </h2>
+          <p style={{ color: "#6B7280", marginBottom: 25 }}>
+            Are you sure you want to delete this stock?
+          </p>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "center",
+              gap: 10,
+              marginTop: 10,
+            }}
+          >
+            <Button
+              onClick={cancelDelete}
+              style={{
+                backgroundColor: "#0A2540",
+                color: "#fff",
+                border: "none",
+                height: 38,
+                width: 100,
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="primary"
+              onClick={confirmDelete}
+              style={{
+                backgroundColor: "#6C5CE7",
+                borderColor: "#6C5CE7",
+                color: "#fff",
+                height: 38,
+                width: 120,
+              }}
+            >
+              Yes Delete
+            </Button>
+          </div>
+        </div>
       </Modal>
     </div>
   );

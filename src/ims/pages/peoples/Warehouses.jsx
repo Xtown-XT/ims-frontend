@@ -1,4 +1,3 @@
-// src/pages/peoples/warehouses.jsx
 import React, { useState, useMemo, useEffect } from "react"; // added useEffect
 import {
   Table,
@@ -330,7 +329,7 @@ const Warehouses = () => {
       Contact_person: values.contactPerson,
       email: values.email,
       phone_number: values.phone,
-      phone_work: values.phone, // since the form doesn't have separate work phone
+      phone_work: values.phoneWork || values.phone,
       address: values.address,
       city: values.city,
       state: values.state,
@@ -399,7 +398,10 @@ const Warehouses = () => {
       }
     } catch (err) {
       console.error("Create Warehouse Error:", err);
-      message.error("Failed to create warehouse");
+      console.error("Error response:", err.response);
+      console.error("Error message:", err.message);
+      console.error("Payload sent:", payload);
+      message.error(err.response?.data?.message || err.message || "Failed to create warehouse");
     } finally {
       form.resetFields();
       setIsModalVisible(false);
@@ -627,13 +629,16 @@ const Warehouses = () => {
             <Input autoComplete="off" />
           </Form.Item>
 
-          {/* REPLACED: contactPerson Select -> Input (no suggestions / no dropdown) */}
           <Form.Item
             name="contactPerson"
             label="Contact Person"
-            rules={[{ required: true, message: "Please enter contact person" }]}
+            rules={[{ required: true, message: "Please select contact person" }]}
           >
-            <Input autoComplete="off" />
+            <Select placeholder="Select" allowClear>
+              <Select.Option value="John Doe">John Doe</Select.Option>
+              <Select.Option value="Jane Smith">Jane Smith</Select.Option>
+              <Select.Option value="Mike Johnson">Mike Johnson</Select.Option>
+            </Select>
           </Form.Item>
 
           <Form.Item
@@ -644,19 +649,32 @@ const Warehouses = () => {
             <Input autoComplete="off" />
           </Form.Item>
 
-          {/* PHONE: only digits allowed, max 10 */}
-          <Form.Item
-            name="phone"
-            label="Phone"
-            rules={[{ required: true, message: "Please enter phone" }]}
-          >
-            <Input
-              onChange={handlePhoneChange}
-              maxLength={10}
-              placeholder="Enter 10 digit phone number"
-              autoComplete="off"
-            />
-          </Form.Item>
+          <div className="flex gap-3">
+            <Form.Item
+              name="phone"
+              label="Phone"
+              rules={[{ required: true, message: "Please enter phone" }]}
+              className="flex-1"
+            >
+              <Input
+                onChange={handlePhoneChange}
+                maxLength={10}
+                placeholder="Enter phone number"
+                autoComplete="off"
+              />
+            </Form.Item>
+            <Form.Item
+              name="phoneWork"
+              label="Phone(Work)"
+              className="flex-1"
+            >
+              <Input
+                maxLength={10}
+                placeholder="Enter work phone"
+                autoComplete="off"
+              />
+            </Form.Item>
+          </div>
 
           <Form.Item
             name="address"
@@ -667,35 +685,46 @@ const Warehouses = () => {
           </Form.Item>
 
           <div className="flex gap-3">
-            {/* REPLACED: city Select -> Input */}
             <Form.Item
               name="city"
               label="City"
-              rules={[{ required: true, message: "Please enter city" }]}
+              rules={[{ required: true, message: "Please select city" }]}
               className="flex-1"
             >
-              <Input autoComplete="off" />
+              <Select placeholder="Select" allowClear>
+                <Select.Option value="Chennai">Chennai</Select.Option>
+                <Select.Option value="Mumbai">Mumbai</Select.Option>
+                <Select.Option value="Delhi">Delhi</Select.Option>
+                <Select.Option value="Bangalore">Bangalore</Select.Option>
+              </Select>
             </Form.Item>
-            {/* REPLACED: state Select -> Input */}
             <Form.Item
               name="state"
               label="State"
-              rules={[{ required: true, message: "Please enter state" }]}
+              rules={[{ required: true, message: "Please select state" }]}
               className="flex-1"
             >
-              <Input autoComplete="off" />
+              <Select placeholder="Select" allowClear>
+                <Select.Option value="Tamil Nadu">Tamil Nadu</Select.Option>
+                <Select.Option value="Maharashtra">Maharashtra</Select.Option>
+                <Select.Option value="Delhi">Delhi</Select.Option>
+                <Select.Option value="Karnataka">Karnataka</Select.Option>
+              </Select>
             </Form.Item>
           </div>
 
           <div className="flex gap-3">
-            {/* REPLACED: country Select -> Input */}
             <Form.Item
               name="country"
               label="Country"
-              rules={[{ required: true, message: "Please enter country" }]}
+              rules={[{ required: true, message: "Please select country" }]}
               className="flex-1"
             >
-              <Input autoComplete="off" />
+              <Select placeholder="Select" allowClear>
+                <Select.Option value="India">India</Select.Option>
+                <Select.Option value="USA">USA</Select.Option>
+                <Select.Option value="UK">UK</Select.Option>
+              </Select>
             </Form.Item>
             <Form.Item
               name="postalCode"

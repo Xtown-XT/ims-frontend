@@ -13,7 +13,6 @@ const printbarcodeService = {
   // DELETE -> Delete by ID
   deleteById: (id) => api.delete(`/barcode/deleteBarcode/${id}`)
 
-
 };
 
 export default printbarcodeService;

@@ -10,3 +10,4 @@ const variantAttributesService = {
 };
 
 export default variantAttributesService;
+

@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Table,
   Input,
@@ -11,6 +11,7 @@ import {
   Modal,
   Form,
   Upload,
+  message,
 } from "antd";
 import {
   SearchOutlined,
@@ -26,6 +27,8 @@ import {
   UpOutlined,
   CloseOutlined,
 } from "@ant-design/icons";
+import stockTransferService from "../Stock/stockTransferService.js";
+import warehouseService from "../peoples/WarehouseService.js";
 
 const { Dragger } = Upload;
 
@@ -34,6 +37,12 @@ const StockTransfer = () => {
   const [sortBy, setSortBy] = useState("Last 7 Days");
   const [pageSize, setPageSize] = useState(10);
   const [collapsed, setCollapsed] = useState(false);
+  const [dataSource, setDataSource] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [warehouses, setWarehouses] = useState([]);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteRecord, setDeleteRecord] = useState(null);
+  const [editingRecord, setEditingRecord] = useState(null);
 
   // modal states + forms
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -41,14 +50,126 @@ const StockTransfer = () => {
   const [addForm] = Form.useForm();
   const [importForm] = Form.useForm();
 
-  const openAddModal = () => setIsAddModalOpen(true);
+  // Fetch data on mount
+  useEffect(() => {
+    fetchTransfers();
+    fetchWarehouses();
+  }, []);
+
+  const fetchTransfers = async () => {
+    try {
+      setLoading(true);
+      const res = await stockTransferService.getTransfers();
+      console.log("Stock Transfer API response:", res.data);
+      const fetchedTransfers = res.data.rows || res.data || [];
+      console.log("Fetched transfers:", fetchedTransfers);
+      const mappedData = fetchedTransfers.map(item => {
+        console.log("Individual item:", item);
+        return {
+          key: item.id,
+          id: item.id,
+          fromWarehouse: item.from_warehouse || item.fromWarehouse || item.from || item.warehouse_from || item.warehouseFrom,
+          toWarehouse: item.to_warehouse || item.toWarehouse || item.to || item.warehouse_to || item.warehouseTo,
+          noOfProducts: item.no_of_products || item.noOfProducts || item.product_count || 0,
+          qtyTransferred: item.qty_transferred || item.qtyTransferred || item.quantity || item.qty || 0,
+          refNumber: item.reference_number || item.refNumber || item.ref_number || item.reference,
+          date: item.createdAt || item.created_at || item.date,
+        };
+      });
+      console.log("Mapped data:", mappedData);
+      setDataSource(mappedData);
+    } catch (err) {
+      console.error("Failed to fetch transfers:", err);
+      console.error("Error details:", err.response?.data);
+      message.error(err.response?.data?.message || "Failed to fetch transfers");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchWarehouses = async () => {
+    try {
+      const res = await warehouseService.getWarehouses(1, 100, "");
+      const rows = res?.data?.data?.rows ?? [];
+      const warehouseNames = rows.map(w => w.warehouse_name || w.warehouse);
+      setWarehouses(warehouseNames);
+    } catch (err) {
+      console.error("Failed to fetch warehouses:", err);
+    }
+  };
+
+  const openAddModal = (record = null) => {
+    setEditingRecord(record);
+    setIsAddModalOpen(true);
+    if (record) {
+      addForm.setFieldsValue({
+        from: record.fromWarehouse,
+        to: record.toWarehouse,
+        refNumber: record.refNumber,
+        product: record.product,
+        notes: record.notes,
+      });
+    } else {
+      addForm.resetFields();
+    }
+  };
+
   const closeAddModal = () => {
     setIsAddModalOpen(false);
+    setEditingRecord(null);
     addForm.resetFields();
   };
-  const submitAddTransfer = (values) => {
-    console.log("Add Transfer:", values);
-    closeAddModal();
+
+  const submitAddTransfer = async (values) => {
+    try {
+      console.log("Form values:", values);
+      const transferData = {
+        from_warehouse: values.from,
+        to_warehouse: values.to,
+        reference_number: values.refNumber,
+        product: values.product,
+        notes: values.notes,
+      };
+      console.log("Sending to backend:", transferData);
+
+      if (editingRecord) {
+        await stockTransferService.updateTransfer(editingRecord.id, transferData);
+        message.success("Transfer updated successfully!");
+      } else {
+        await stockTransferService.createTransfer(transferData);
+        message.success("Transfer created successfully!");
+      }
+      closeAddModal();
+      fetchTransfers();
+    } catch (err) {
+      console.error("Failed to save transfer:", err);
+      message.error(err.response?.data?.message || "Failed to save transfer");
+    }
+  };
+
+  const handleDelete = (record) => {
+    setDeleteRecord(record);
+    setShowDeleteModal(true);
+  };
+
+  const confirmDelete = async () => {
+    try {
+      await stockTransferService.deleteTransfer(deleteRecord.id);
+      message.success("Transfer deleted successfully!");
+      setShowDeleteModal(false);
+      setDeleteRecord(null);
+      fetchTransfers();
+    } catch (err) {
+      console.error("Failed to delete transfer:", err);
+      message.error(err.response?.data?.message || "Failed to delete transfer");
+      setShowDeleteModal(false);
+      setDeleteRecord(null);
+    }
+  };
+
+  const cancelDelete = () => {
+    setShowDeleteModal(false);
+    setDeleteRecord(null);
   };
 
   const openImportModal = () => setIsImportModalOpen(true);
@@ -61,104 +182,13 @@ const StockTransfer = () => {
     closeImportModal();
   };
 
-  const dataSource = [
-    {
-      key: "1",
-      fromWarehouse: "Lavish Warehouse",
-      toWarehouse: "North Zone Warehouse",
-      noOfProducts: 20,
-      qtyTransferred: 15,
-      refNumber: "#458924",
-      date: "24 Dec 2024",
-    },
-    {
-      key: "2",
-      fromWarehouse: "Lobar Handy",
-      toWarehouse: "Nova Storage Hub",
-      noOfProducts: 4,
-      qtyTransferred: 14,
-      refNumber: "#145445",
-      date: "25 Jul 2023",
-    },
-    {
-      key: "3",
-      fromWarehouse: "Quaint Warehouse",
-      toWarehouse: "Cool Warehouse",
-      noOfProducts: 21,
-      qtyTransferred: 10,
-      refNumber: "#135478",
-      date: "28 Jul 2023",
-    },
-    {
-      key: "4",
-      fromWarehouse: "Traditional Warehouse",
-      toWarehouse: "Retail Supply Hub",
-      noOfProducts: 15,
-      qtyTransferred: 14,
-      refNumber: "#145124",
-      date: "24 Jul 2023",
-    },
-    {
-      key: "5",
-      fromWarehouse: "Cool Warehouse",
-      toWarehouse: "EdgeWare Solutions",
-      noOfProducts: 14,
-      qtyTransferred: 74,
-      refNumber: "#474541",
-      date: "15 Jul 2023",
-    },
-    {
-      key: "6",
-      fromWarehouse: "Overflow Warehouse",
-      toWarehouse: "Quaint Warehouse",
-      noOfProducts: 30,
-      qtyTransferred: 20,
-      refNumber: "#366713",
-      date: "06 Nov 2024",
-    },
-    {
-      key: "7",
-      fromWarehouse: "Nova Storage Hub",
-      toWarehouse: "Traditional Warehouse",
-      noOfProducts: 10,
-      qtyTransferred: 6,
-      refNumber: "#327814",
-      date: "25 Oct 2024",
-    },
-    {
-      key: "8",
-      fromWarehouse: "Retail Supply Hub",
-      toWarehouse: "Overflow Warehouse",
-      noOfProducts: 70,
-      qtyTransferred: 60,
-      refNumber: "#274509",
-      date: "14 Oct 2024",
-    },
-    {
-      key: "9",
-      fromWarehouse: "EdgeWare Solutions",
-      toWarehouse: "Lavish Warehouse",
-      noOfProducts: 35,
-      qtyTransferred: 30,
-      refNumber: "#239073",
-      date: "03 Oct 2024",
-    },
-    {
-      key: "10",
-      fromWarehouse: "North Zone Warehouse",
-      toWarehouse: "Fulfillment Hub",
-      noOfProducts: 15,
-      qtyTransferred: 10,
-      refNumber: "#187204",
-      date: "20 Sep 2024",
-    },
-  ];
+
 
   const filteredData = dataSource.filter(
     (item) =>
-      item.fromWarehouse.toLowerCase().includes(searchText.toLowerCase()) ||
-      item.toWarehouse.toLowerCase().includes(searchText.toLowerCase()) ||
-      item.refNumber.toLowerCase().includes(searchText.toLowerCase())
+      (item.fromWarehouse || '').toLowerCase().includes(searchText.toLowerCase()) ||
+      (item.toWarehouse || '').toLowerCase().includes(searchText.toLowerCase()) ||
+      (item.refNumber || '').toLowerCase().includes(searchText.toLowerCase())
   );
 
   const columns = [
@@ -193,14 +223,24 @@ const StockTransfer = () => {
       title: "Date",
       dataIndex: "date",
       key: "date",
+      render: (date) => {
+        if (!date) return '';
+        if (typeof date === 'string' && date.includes(' ') && !date.includes('T')) return date;
+        const dateObj = new Date(date);
+        return dateObj.toLocaleDateString('en-GB', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric'
+        });
+      }
     },
     {
       title: "",
       key: "actions",
-      render: () => (
+      render: (_, record) => (
         <Space>
-          <Button icon={<EditOutlined />} />
-          <Button  icon={<DeleteOutlined />} />
+          <Button icon={<EditOutlined />} onClick={() => openAddModal(record)} />
+          <Button icon={<DeleteOutlined />} onClick={() => handleDelete(record)} />
         </Space>
       ),
     },
@@ -208,20 +248,17 @@ const StockTransfer = () => {
 
   const fromMenu = (
     <Menu>
-      <Menu.Item key="f1">Lavish Warehouse</Menu.Item>
-      <Menu.Item key="f2">Lobar Handy</Menu.Item>
-      <Menu.Item key="f3">Quaint Warehouse</Menu.Item>
-      <Menu.Item key="f4">Traditional Warehouse</Menu.Item>
-      <Menu.Item key="f5">Cool Warehouse</Menu.Item>
+      {warehouses.map((w, idx) => (
+        <Menu.Item key={`f${idx}`}>{w}</Menu.Item>
+      ))}
     </Menu>
   );
 
   const toMenu = (
     <Menu>
-      <Menu.Item key="t1">North Zone Warehouse</Menu.Item>
-      <Menu.Item key="t2">Nova Storage Hub</Menu.Item>
-      <Menu.Item key="t3">EdgeWare Solutions</Menu.Item>
-      <Menu.Item key="t4">Retail Supply Hub</Menu.Item>
+      {warehouses.map((w, idx) => (
+        <Menu.Item key={`t${idx}`}>{w}</Menu.Item>
+      ))}
     </Menu>
   );
 
@@ -235,14 +272,7 @@ const StockTransfer = () => {
     </Menu>
   );
 
-  const warehouseOptions = [
-    { value: "Lavish Warehouse", label: "Lavish Warehouse" },
-    { value: "Lobar Handy", label: "Lobar Handy" },
-    { value: "Quaint Warehouse", label: "Quaint Warehouse" },
-    { value: "Traditional Warehouse", label: "Traditional Warehouse" },
-    { value: "North Zone Warehouse", label: "North Zone Warehouse" },
-    { value: "Nova Storage Hub", label: "Nova Storage Hub" },
-  ];
+  const warehouseOptions = warehouses.map(w => ({ value: w, label: w }));
 
   const productOptions = dataSource.map((d) => ({
     value: d.refNumber,
@@ -270,7 +300,7 @@ const StockTransfer = () => {
             type="primary"
             icon={<PlusOutlined />}
             className="bg-orange-500 border-none hover:bg-orange-600"
-            onClick={openAddModal}
+            onClick={() => openAddModal()}
           >
             Add New
           </Button>
@@ -329,53 +359,27 @@ const StockTransfer = () => {
         <Table
           dataSource={filteredData}
           columns={columns}
-          pagination={false}
-          rowSelection={{}}
+          loading={loading}
+          rowKey="key"
+          pagination={{
+            pageSize: pageSize,
+            showSizeChanger: false,
+            showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} items`,
+          }}
+          className="bg-white"
+          bordered={false}
+          rowClassName={() => "hover:bg-gray-50"}
         />
-
-        {/* Pagination */}
-        <div className="flex justify-between items-center mt-4">
-          <div className="flex items-center gap-2">
-            <span className="text-gray-600 text-sm">Row Per Page</span>
-            <Select
-              value={pageSize}
-              style={{ width: 80 }}
-              onChange={(value) => setPageSize(value)}
-              options={[
-                { value: 5, label: "5" },
-                { value: 10, label: "10" },
-                { value: 20, label: "20" },
-              ]}
-            />
-            <span className="text-gray-600 text-sm">Entries</span>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Button shape="circle" size="small">
-              {"<"}
-            </Button>
-            <Button
-              shape="circle"
-              size="small"
-              className="bg-orange-500 text-white border-none"
-            >
-              1
-            </Button>
-            <Button shape="circle" size="small">
-              {">"}
-            </Button>
-          </div>
-        </div>
       </div>
 
-      {/* ✅ Add Transfer Modal (Fixed Size & Position) */}
+      {/* ✅ Add/Edit Transfer Modal */}
       <Modal
-        title="Add Transfer"
+        title={editingRecord ? "Edit Transfer" : "Add Transfer"}
         open={isAddModalOpen}
         onCancel={closeAddModal}
         footer={null}
-        width={500} // 🔹 smaller modal width
-        style={{ top: 120 }} // 🔹 moves modal down below header
+        width={500}
+        style={{ top: 120 }}
       >
         <Form
           form={addForm}
@@ -425,10 +429,82 @@ const StockTransfer = () => {
           <div className="flex justify-end gap-2 mt-4">
             <Button onClick={closeAddModal}>Cancel</Button>
             <Button type="primary" htmlType="submit" className="bg-orange-500 hover:bg-orange-600">
-              Create
+              {editingRecord ? "Update" : "Create"}
             </Button>
           </div>
         </Form>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        open={showDeleteModal}
+        onCancel={cancelDelete}
+        footer={null}
+        centered
+      >
+        <div style={{ textAlign: "center", padding: "10px 0" }}>
+          <div
+            style={{
+              width: 60,
+              height: 60,
+              borderRadius: "50%",
+              backgroundColor: "#FEE2E2",
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              margin: "0 auto 15px",
+            }}
+          >
+            <DeleteOutlined style={{ fontSize: 30, color: "#EF4444" }} />
+          </div>
+          <h2
+            style={{
+              fontSize: 18,
+              fontWeight: 600,
+              color: "#1F2937",
+              marginBottom: 10,
+            }}
+          >
+            Delete Transfer
+          </h2>
+          <p style={{ color: "#6B7280", marginBottom: 25 }}>
+            Are you sure you want to delete this transfer?
+          </p>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "center",
+              gap: 10,
+              marginTop: 10,
+            }}
+          >
+            <Button
+              onClick={cancelDelete}
+              style={{
+                backgroundColor: "#0A2540",
+                color: "#fff",
+                border: "none",
+                height: 38,
+                width: 100,
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="primary"
+              onClick={confirmDelete}
+              style={{
+                backgroundColor: "#6C5CE7",
+                borderColor: "#6C5CE7",
+                color: "#fff",
+                height: 38,
+                width: 120,
+              }}
+            >
+              Yes Delete
+            </Button>
+          </div>
+        </div>
       </Modal>
     </div>
   );

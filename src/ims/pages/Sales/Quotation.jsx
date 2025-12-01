@@ -746,28 +746,12 @@ const Quotation = () => {
 
         {/* Table with Horizontal Scrollbar */}
         <div 
-          className="bg-white rounded-lg shadow-sm overflow-x-auto"
+          className="bg-white rounded-lg"
           style={{
-            scrollbarWidth: 'thin',
-            scrollbarColor: '#CBD5E0 #F7FAFC'
+            overflowX: 'auto',
+            overflowY: 'visible'
           }}
         >
-          <style jsx>{`
-            div::-webkit-scrollbar {
-              height: 8px;
-            }
-            div::-webkit-scrollbar-track {
-              background: #F7FAFC;
-              border-radius: 4px;
-            }
-            div::-webkit-scrollbar-thumb {
-              background: #CBD5E0;
-              border-radius: 4px;
-            }
-            div::-webkit-scrollbar-thumb:hover {
-              background: #A0AEC0;
-            }
-          `}</style>
           <Table
             columns={columns}
             dataSource={filteredData}

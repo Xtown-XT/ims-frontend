@@ -1,653 +1,694 @@
-// src/pages/peoples/customers.jsx
-import React, { useState } from "react";
-import {
-  Table,
-  Input,
-  Button,
-  Dropdown,
-  Menu,
-  Tag,
-  Space,
-  Avatar,
-  Pagination,
-  message,
-  Modal,
-  Form,
-  Upload,
-  Switch,
-  Select,
-} from "antd";
+import React, { useState, useMemo, useEffect } from "react";
+import { Switch, Table, Input, Select, Button, Modal, Form, message, Upload, Avatar } from "antd";
 import {
   SearchOutlined,
-  EyeOutlined,
   EditOutlined,
   DeleteOutlined,
-  PlusOutlined,
-  DownOutlined,
+  PlusCircleOutlined,
   UploadOutlined,
+  UserOutlined,
 } from "@ant-design/icons";
 import { FaFilePdf, FaFileExcel, FaAngleUp } from "react-icons/fa6";
 import { IoReloadOutline } from "react-icons/io5";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import customerService from "./CustomerService.js";
+
+const { Option } = Select;
 
 const Customers = () => {
-  const [searchText, setSearchText] = useState("");
-  const [statusFilter, setStatusFilter] = useState("All");
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [form] = Form.useForm();
+  const [showForm, setShowForm] = useState(false);
+  const [checked, setChecked] = useState(true);
+  const [search, setSearch] = useState('');
+  const [filterStatus, setFilterStatus] = useState(null);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editRecord, setEditRecord] = useState(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteRecord, setDeleteRecord] = useState(null);
   const [filtersCollapsed, setFiltersCollapsed] = useState(false);
 
-  const [customers, setCustomers] = useState([
-    {
-      key: "1",
-      code: "CU001",
-      name: "Carl Evans",
-      email: "carlevans@example.com",
-      phone: "+12163547758",
-      country: "Germany",
-      status: "Active",
-      avatar: "https://randomuser.me/api/portraits/men/1.jpg",
-      address: "87 Griffin Street",
-      city: "Los Angeles",
-      state: "California",
-      postalCode: "90001",
-    },
-    {
-      key: "2",
-      code: "CU002",
-      name: "Minerva Rameriz",
-      email: "rameriz@example.com",
-      phone: "+11367529510",
-      country: "Japan",
-      status: "Active",
-      avatar: "https://randomuser.me/api/portraits/women/2.jpg",
-      address: "23 Sakura Avenue",
-      city: "Tokyo",
-      state: "Tokyo",
-      postalCode: "100-0001",
-    },
-  ]);
+  const [page, setPage] = useState(1);
+  const [limit] = useState(10);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(false);
 
-  const [isModalVisible, setIsModalVisible] = useState(false);
-  const [isEditMode, setIsEditMode] = useState(false);
-  const [selectedCustomer, setSelectedCustomer] = useState(null);
-  const [isDeleteModalVisible, setIsDeleteModalVisible] = useState(false);
-  const [deleteCustomer, setDeleteCustomer] = useState(null);
-  const [isViewModalVisible, setIsViewModalVisible] = useState(false);
-  const [viewCustomer, setViewCustomer] = useState(null);
+  const [selectedKeys, setSelectedKeys] = useState([]);
+  const [customers, setCustomers] = useState([]);
+  const [fileList, setFileList] = useState([]);
 
-  const [form] = Form.useForm();
+  useEffect(() => {
+    const fetchData = async () => {
+      if (loading) return;
+      
+      try {
+        setLoading(true);
+        const res = await customerService.getCustomers(page, limit, search);
+        console.log("API response:", res);
+        const customerData = res?.data?.customers || res?.customers || [];
+        setCustomers(customerData);
+        setTotal(res?.data?.total || res?.total || customerData.length);
+      } catch (err) {
+        console.error("Failed to fetch customers:", err);
+        message.error(err?.message || "Failed to fetch customers");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, [page, search]);
 
-  const handleSearch = (e) => {
-    setSearchText(e.target.value);
+  const filteredCustomers = useMemo(() => {
+    let filtered = [...customers];
+
+    if (filterStatus) {
+      filtered = filtered.filter(
+        (item) => item.status?.toLowerCase() === filterStatus.toLowerCase()
+      );
+    }
+
+    return filtered;
+  }, [filterStatus, customers]);
+
+  const onChange = (ch) => {
+    setChecked(ch);
+    form.setFieldsValue({ status: ch ? "active" : "inactive" });
   };
 
-  const handleMenuClick = (e) => {
-    setStatusFilter(e.key);
-  };
-
-  const menu = (
-    <Menu onClick={handleMenuClick}>
-      <Menu.Item key="Active">Active</Menu.Item>
-      <Menu.Item key="Inactive">Inactive</Menu.Item>
-    </Menu>
-  );
-
-  const handleRefresh = () => {
-    setSearchText("");
-    setStatusFilter("All");
-    setCurrentPage(1);
-    setPageSize(10);
-    message.success("Refreshed");
-  };
-
-  const toggleFilters = () => {
-    setFiltersCollapsed((s) => !s);
-  };
-
-  const filteredData = customers.filter((item) => {
-    const matchesSearch =
-      item.name.toLowerCase().includes(searchText.toLowerCase()) ||
-      (item.email && item.email.toLowerCase().includes(searchText.toLowerCase())) ||
-      (item.code && item.code.toLowerCase().includes(searchText.toLowerCase()));
-    const matchesStatus = statusFilter === "All" || item.status === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
-
-  const startIndex = (currentPage - 1) * pageSize;
-  const endIndex = startIndex + pageSize;
-  const paginatedData = filteredData.slice(startIndex, endIndex);
-
-  const openDeleteModal = (record) => {
-    setDeleteCustomer(record);
-    setIsDeleteModalVisible(true);
-  };
-
-  const handleConfirmDelete = () => {
-    setCustomers((prev) => prev.filter((c) => c.key !== deleteCustomer.key));
-    message.success(`Customer "${deleteCustomer?.name}" deleted successfully!`);
-    setIsDeleteModalVisible(false);
-    setDeleteCustomer(null);
-  };
-
-  const handleCancelDelete = () => {
-    setIsDeleteModalVisible(false);
-    setDeleteCustomer(null);
-  };
-
-  const showAddModal = () => {
-    form.resetFields();
-    setSelectedCustomer(null);
+  const openAddModal = () => {
     setIsEditMode(false);
-    setIsModalVisible(true);
+    setEditRecord(null);
+    setChecked(true);
+    setFileList([]);
+    form.resetFields();
+    setShowForm(true);
   };
 
-  const showEditModal = (record) => {
-    const [firstName, ...rest] = (record.name || "").split(" ");
-    const lastName = rest.join(" ") || "";
+  const handleAddCustomer = async () => {
+    try {
+      const values = await form.validateFields();
+      const formData = new FormData();
+      
+      formData.append('first_name', values.first_name);
+      formData.append('last_name', values.last_name);
+      formData.append('email', values.email);
+      formData.append('phone', values.phone);
+      formData.append('address', values.address || "");
+      formData.append('city', values.city || "");
+      formData.append('state', values.state || "");
+      formData.append('country', values.country || "");
+      formData.append('postal_code', values.postal_code || "");
+      formData.append('status', checked ? "active" : "inactive");
+      
+      if (fileList.length > 0) {
+        const imageFile = fileList[0].originFileObj || fileList[0];
+        formData.append('image', imageFile, imageFile.name);
+      }
+
+      await customerService.createCustomer(formData);
+      message.success("Customer added successfully");
+      setShowForm(false);
+      form.resetFields();
+      setFileList([]);
+      
+      // Refetch data
+      const res = await customerService.getCustomers(page, limit, search);
+      const customerData = res?.data?.customers || res?.customers || [];
+      setCustomers(customerData);
+      setTotal(res?.data?.total || res?.total || customerData.length);
+    } catch (err) {
+      console.error("Failed to add customer:", err);
+      message.error(err?.message || "Failed to add customer");
+    }
+  };
+
+  const handleEdit = (record) => {
+    setIsEditMode(true);
+    setEditRecord(record);
     form.setFieldsValue({
-      firstName,
-      lastName,
+      first_name: record.first_name,
+      last_name: record.last_name,
       email: record.email,
       phone: record.phone,
       address: record.address,
       city: record.city,
       state: record.state,
       country: record.country,
-      postalCode: record.postalCode,
-      status: record.status === "Active",
+      postal_code: record.postal_code,
     });
-    setSelectedCustomer(record);
-    setIsEditMode(true);
-    setIsModalVisible(true);
-  };
-
-  const showViewModal = (record) => {
-    setViewCustomer(record);
-    setIsViewModalVisible(true);
-  };
-
-  const handleCloseViewModal = () => {
-    setViewCustomer(null);
-    setIsViewModalVisible(false);
-  };
-
-  const handleCancel = () => {
-    form.resetFields();
-    setIsModalVisible(false);
-    setIsEditMode(false);
-    setSelectedCustomer(null);
-  };
-
-  const handleAddOrEditCustomer = (values) => {
-    const newCustomerObj = {
-      key: isEditMode && selectedCustomer ? selectedCustomer.key : Date.now().toString(),
-      code:
-        isEditMode && selectedCustomer
-          ? selectedCustomer.code
-          : `CU${String(customers.length + 1).padStart(3, "0")}`,
-      name: `${values.firstName || ""} ${values.lastName || ""}`.trim(),
-      email: values.email || "",
-      phone: values.phone || "",
-      country: values.country || "",
-      status: values.status ? "Active" : "Inactive",
-      avatar:
-        (isEditMode && selectedCustomer && selectedCustomer.avatar) ||
-        "https://via.placeholder.com/150",
-      address: values.address || "",
-      city: values.city || "",
-      state: values.state || "",
-      postalCode: values.postalCode || "",
-    };
-
-    if (isEditMode && selectedCustomer) {
-      setCustomers((prev) => prev.map((c) => (c.key === selectedCustomer.key ? newCustomerObj : c)));
-      message.success(`Customer "${newCustomerObj.name}" updated successfully!`);
+    setChecked(record.status?.toLowerCase() === "active");
+    
+    if (record.image) {
+      setFileList([{
+        uid: '-1',
+        name: 'image.png',
+        status: 'done',
+        url: record.image,
+      }]);
     } else {
-      setCustomers((prev) => [newCustomerObj, ...prev]);
-      message.success(`Customer "${newCustomerObj.name}" added successfully!`);
+      setFileList([]);
+    }
+    
+    setShowForm(true);
+  };
+
+  const handleSaveChanges = async () => {
+    try {
+      const values = await form.validateFields();
+
+      if (!editRecord) {
+        message.error("No record selected for editing");
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('first_name', values.first_name);
+      formData.append('last_name', values.last_name);
+      formData.append('email', values.email);
+      formData.append('phone', values.phone);
+      formData.append('address', values.address || "");
+      formData.append('city', values.city || "");
+      formData.append('state', values.state || "");
+      formData.append('country', values.country || "");
+      formData.append('postal_code', values.postal_code || "");
+      formData.append('status', checked ? "active" : "inactive");
+      
+      if (fileList.length > 0 && fileList[0].originFileObj) {
+        const imageFile = fileList[0].originFileObj || fileList[0];
+        formData.append('image', imageFile, imageFile.name);
+      }
+
+      await customerService.updateCustomer(editRecord.id, formData);
+      message.success("Customer updated successfully");
+      setShowForm(false);
+      setIsEditMode(false);
+      setEditRecord(null);
+      form.resetFields();
+      setFileList([]);
+      
+      // Refetch data
+      const res = await customerService.getCustomers(page, limit, search);
+      const customerData = res?.data?.customers || res?.customers || [];
+      setCustomers(customerData);
+      setTotal(res?.data?.total || res?.total || customerData.length);
+    } catch (err) {
+      console.error("Failed to update customer:", err);
+      message.error(err?.message || "Failed to update customer");
+    }
+  };
+
+  const handleDelete = (record) => {
+    setDeleteRecord(record);
+    setShowDeleteModal(true);
+  };
+
+  const confirmDelete = async () => {
+    try {
+      await customerService.deleteCustomer(deleteRecord.id);
+      message.success("Customer deleted successfully");
+      setShowDeleteModal(false);
+      setDeleteRecord(null);
+      
+      // Refetch data
+      const res = await customerService.getCustomers(page, limit, search);
+      const customerData = res?.data?.customers || res?.customers || [];
+      setCustomers(customerData);
+      setTotal(res?.data?.total || res?.total || customerData.length);
+    } catch (err) {
+      console.error("Failed to delete customer:", err);
+      message.error(err?.message || "Failed to delete customer");
+      setShowDeleteModal(false);
+      setDeleteRecord(null);
+    }
+  };
+
+  const cancelDelete = () => {
+    setShowDeleteModal(false);
+    setDeleteRecord(null);
+  };
+
+  const toggleFilters = () => {
+    setFiltersCollapsed((s) => !s);
+  };
+
+  const handleRefresh = () => {
+    setSearch("");
+    setFilterStatus(null);
+    setPage(1);
+    message.success("Refreshed");
+  };
+
+  const handleExportCSV = () => {
+    if (!customers || !customers.length) {
+      message.info("No data to export");
+      return;
     }
 
-    setIsModalVisible(false);
-    form.resetFields();
-    setIsEditMode(false);
-    setSelectedCustomer(null);
+    const dataToExport = filteredCustomers.length ? filteredCustomers : customers;
+    const headers = ["first_name", "last_name", "email", "phone", "city", "country", "status"];
+    const csvRows = [];
+    csvRows.push(headers.join(","));
+    dataToExport.forEach((row) => {
+      const values = headers.map((h) => {
+        const v = row[h] ?? "";
+        const safe = String(v).replace(/"/g, '""');
+        return `"${safe}"`;
+      });
+      csvRows.push(values.join(","));
+    });
+
+    const csvString = csvRows.join("\n");
+    const blob = new Blob([csvString], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    const filename = `customers_export_${new Date().toISOString().slice(0, 10)}.csv`;
+    link.setAttribute("download", filename);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    message.success("CSV exported");
+  };
+
+  const handleExportPDF = () => {
+    const dataToExport = filteredCustomers.length ? filteredCustomers : customers;
+    if (!dataToExport || !dataToExport.length) {
+      message.info("No data to export");
+      return;
+    }
+
+    const doc = new jsPDF({
+      orientation: "landscape",
+      unit: "pt",
+      format: "A4",
+    });
+    doc.setFontSize(16);
+    doc.setTextColor("#9333ea");
+    doc.text("Customers Report", 40, 40);
+
+    const columns = [
+      { header: "First Name", dataKey: "first_name" },
+      { header: "Last Name", dataKey: "last_name" },
+      { header: "Email", dataKey: "email" },
+      { header: "Phone", dataKey: "phone" },
+      { header: "City", dataKey: "city" },
+      { header: "Country", dataKey: "country" },
+      { header: "Status", dataKey: "status" },
+    ];
+
+    autoTable(doc, {
+      startY: 60,
+      columns,
+      body: dataToExport,
+      styles: { fontSize: 10, halign: "left", cellPadding: 5 },
+      headStyles: { fillColor: [147, 51, 234], textColor: 255 },
+      alternateRowStyles: { fillColor: [245, 245, 245] },
+    });
+
+    doc.save(`customers_${new Date().toISOString().slice(0, 10)}.pdf`);
+    message.success("PDF downloaded successfully");
+  };
+
+  const handleSelectAll = (e) => {
+    if (e.target.checked) {
+      setSelectedKeys(customers.map((item) => item.id));
+    } else {
+      setSelectedKeys([]);
+    }
+  };
+
+  const handleSelectOne = (key) => {
+    setSelectedKeys((prev) =>
+      prev.includes(key)
+        ? prev.filter((k) => k !== key)
+        : [...prev, key]
+    );
+  };
+
+  const uploadProps = {
+    beforeUpload: (file) => {
+      const isImage = file.type.startsWith('image/');
+      if (!isImage) {
+        message.error('You can only upload image files!');
+        return false;
+      }
+      const isLt2M = file.size / 1024 / 1024 < 2;
+      if (!isLt2M) {
+        message.error('Image must be smaller than 2MB!');
+        return false;
+      }
+      setFileList([{
+        uid: file.uid,
+        name: file.name,
+        status: 'done',
+        originFileObj: file,
+      }]);
+      return false;
+    },
+    fileList,
+    onRemove: () => {
+      setFileList([]);
+    },
   };
 
   const columns = [
     {
-      title: "Code",
-      dataIndex: "code",
-      key: "code",
+      title: (
+        <input
+          type="checkbox"
+          checked={selectedKeys.length === customers.length && customers.length > 0}
+          onChange={handleSelectAll}
+          style={{ accentColor: "#7E57C2", cursor: "pointer" }}
+        />
+      ),
+      dataIndex: "checkbox",
+      render: (_, record) => (
+        <input
+          type="checkbox"
+          checked={selectedKeys.includes(record.id)}
+          onChange={() => handleSelectOne(record.id)}
+          style={{ accentColor: "#7E57C2", cursor: "pointer" }}
+        />
+      ),
+      width: 50,
     },
     {
       title: "Customer",
-      dataIndex: "name",
-      key: "name",
-      render: (text, record) => (
-        <Space>
-          <Avatar src={record.avatar} />
-          {text}
-        </Space>
+      dataIndex: "first_name",
+      key: "first_name",
+      render: (_, record) => (
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <Avatar 
+            src={record.image} 
+            icon={<UserOutlined />}
+            size={32}
+          />
+          <span>{`${record.first_name} ${record.last_name}`}</span>
+        </div>
       ),
     },
+    { title: "Email", dataIndex: "email", key: "email" },
+    { title: "Phone", dataIndex: "phone", key: "phone" },
+    { title: "City", dataIndex: "city", key: "city" },
+    { title: "Country", dataIndex: "country", key: "country" },
     {
-      title: "Email",
-      dataIndex: "email",
-      key: "email",
-    },
-    {
-      title: "Phone",
-      dataIndex: "phone",
-      key: "phone",
-    },
-    {
-      title: "Country",
-      dataIndex: "country",
-      key: "country",
-    },
-    {
-      // ✅ UPDATED STATUS COLUMN WITH DROPDOWN FUNCTIONALITY
       title: "Status",
       dataIndex: "status",
       key: "status",
-      render: (status, record) => {
-        const handleStatusChange = (newStatus) => {
-          setCustomers((prev) =>
-            prev.map((c) =>
-              c.key === record.key ? { ...c, status: newStatus } : c
-            )
-          );
-          message.success(`Status changed to ${newStatus}`);
-        };
-
-        const statusMenu = (
-          <Menu
-            onClick={({ key }) => handleStatusChange(key)}
-            items={[
-              { key: "Active", label: "Active" },
-              { key: "Inactive", label: "Inactive" },
-            ]}
-          />
-        );
-
-        return (
-          <Dropdown overlay={statusMenu} trigger={["click"]}>
-            <Button
-              type="text"
-              className="flex items-center gap-1"
-              style={{ cursor: "pointer" }}
-            >
-              {status === "Active" ? (
-                <Tag color="green">Active</Tag>
-              ) : (
-                <Tag color="red">Inactive</Tag>
-              )}
-              <DownOutlined style={{ fontSize: 10, color: "#888" }} />
-            </Button>
-          </Dropdown>
-        );
-      },
+      render: (_, record) => (
+        <button
+          style={{
+            backgroundColor: record?.status?.toLowerCase() === "active" ? "#3EB780" : "#d63031",
+            color: "#fff",
+            border: "none",
+            borderRadius: "4px",
+            height: "22px",
+            width: "46px",
+            fontSize: "11px",
+            fontWeight: "500",
+            cursor: "default",
+            textTransform: "capitalize",
+          }}
+        >
+          {record?.status}
+        </button>
+      ),
     },
     {
-      title: "Action",
-      key: "action",
+      title: "Actions",
+      key: "actions",
       render: (_, record) => (
-        <Space>
-          <Button
-            type="text"
-            icon={<EyeOutlined />}
-            title="View"
-            onClick={(e) => {
-              e.stopPropagation();
-              showViewModal(record);
-            }}
-          />
-          <Button
-            type="text"
-            icon={<EditOutlined />}
-            title="Edit"
-            onClick={(e) => {
-              e.stopPropagation();
-              showEditModal(record);
-            }}
-          />
-          <Button
-            type="text"
-            icon={<DeleteOutlined style={{ color: "black" }} />}
-            title="Delete"
-            onClick={(e) => {
-              // prevent row click or other parent handlers from interfering
-              e.stopPropagation();
-              openDeleteModal(record);
-            }}
-          />
-        </Space>
+        <div className="flex gap-2 justify-center">
+          <Button icon={<EditOutlined />} onClick={() => handleEdit(record)} />
+          <Button icon={<DeleteOutlined />} onClick={() => handleDelete(record)} />
+        </div>
       ),
     },
   ];
 
-  const handlePageChange = (page) => {
-    setCurrentPage(page);
-  };
-
-  const handlePageSizeChange = (value) => {
-    setPageSize(value);
-    setCurrentPage(1);
-  };
-
-  const pageSizeMenu = (
-    <Menu onClick={(e) => handlePageSizeChange(Number(e.key))}>
-      <Menu.Item key="10">10</Menu.Item>
-      <Menu.Item key="25">25</Menu.Item>
-      <Menu.Item key="50">50</Menu.Item>
-      <Menu.Item key="100">100</Menu.Item>
-    </Menu>
-  );
-
   return (
-    <div className="p-6 bg-white rounded-lg shadow-sm">
-      {/* Header */}
-      <div className="flex justify-between items-center flex-wrap gap-3 mb-6">
+    <div className="bg-gray-50 min-h-screen p-6">
+      <div className="flex justify-between items-center mb-6 flex-wrap gap-3">
         <div>
-          <h2 className="text-2xl font-semibold">Customers</h2>
-          <p className="text-gray-500">Manage your customers</p>
+          <h2 className="text-xl font-semibold text-gray-800">Customers</h2>
+          <p className="text-sm text-gray-500">Manage your customers</p>
         </div>
-
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <Button
             icon={<FaFilePdf color="red" size={16} />}
-            className="border-gray-300"
+            onClick={handleExportPDF}
             title="Export to PDF"
           />
           <Button
             icon={<FaFileExcel color="green" size={16} />}
-            className="border-gray-300"
+            onClick={handleExportCSV}
             title="Export to Excel"
           />
           <Button
             icon={<IoReloadOutline color="#9333ea" size={18} />}
             onClick={handleRefresh}
-            className="border-gray-300"
             title="Refresh"
           />
           <Button
-            icon={
-              <FaAngleUp
-                color="#9333ea"
-                size={16}
-                style={{
-                  transform: filtersCollapsed ? "rotate(180deg)" : "rotate(0deg)",
-                }}
-              />
-            }
+            icon={<FaAngleUp color="#9333ea" size={16} />}
             onClick={toggleFilters}
-            className="border-gray-300"
             title={filtersCollapsed ? "Expand filters" : "Collapse filters"}
+            style={{
+              transform: filtersCollapsed ? "rotate(180deg)" : "rotate(0deg)",
+              transition: "transform 0.2s",
+            }}
           />
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            className="bg-orange-500 hover:bg-orange-600"
-            onClick={showAddModal}
-            style={{ display: "flex", alignItems: "center", gap: 8 }}
-          >
-            Add Customer
+          <Button type="primary" onClick={openAddModal}>
+            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+              <PlusCircleOutlined style={{ color: "#fff" }} />
+              <span>Add Customer</span>
+            </div>
           </Button>
         </div>
       </div>
-      {/* Search & Filter */}
+
       {!filtersCollapsed && (
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
-          <Input
-            prefix={<SearchOutlined style={{ fontSize: "12px", color: "#999" }} />}
-            placeholder="Search"
-            value={searchText}
-            onChange={handleSearch}
-            className="w-full sm:w-20 h-6 text-[10px] rounded-sm px-2 py-0.5"
-            style={{ maxWidth: "270px" }}
-          />
-          <Dropdown overlay={menu} trigger={["click"]}>
-            <Button size="small" className="text-[10px] h-6 flex items-center justify-center px-2">
-              Status <DownOutlined style={{ fontSize: "10px", marginLeft: 6 }} />
-            </Button>
-          </Dropdown>
+        <div>
+          <Form className="flex flex-wrap gap-3 mb-4 justify-between items-center">
+            <Input
+              placeholder="Search customer..."
+              prefix={<SearchOutlined />}
+              style={{ width: 250 }}
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage(1);
+              }}
+              allowClear
+            />
+            <div className="flex gap-3">
+              <Form.Item>
+                <Select
+                  placeholder="Status"
+                  style={{ width: 150 }}
+                  value={filterStatus}
+                  onChange={(val) => setFilterStatus(val)}
+                  allowClear
+                >
+                  <Option value="active">Active</Option>
+                  <Option value="inactive">Inactive</Option>
+                </Select>
+              </Form.Item>
+            </div>
+          </Form>
         </div>
       )}
 
-      {/* Table */}
-      <Table
-        columns={columns}
-        dataSource={paginatedData}
-        pagination={false}
-        bordered={false}
-        className="rounded-md"
-      />
-
-      {/* Pagination */}
-      <div className="flex justify-between items-center mt-4">
-        <div className="flex items-center gap-2 text-gray-600 text-sm">
-          <span>Row Per Page</span>
-          <Dropdown overlay={pageSizeMenu} placement="top">
-            <Button className="border border-gray-300 rounded-md px-2 py-1">
-              {pageSize} <DownOutlined style={{ marginLeft: 6 }} />
-            </Button>
-          </Dropdown>
-          <span>Entries</span>
-        </div>
-        <Pagination
-          current={currentPage}
-          total={filteredData.length}
-          pageSize={pageSize}
-          onChange={handlePageChange}
-          showSizeChanger={false}
+      <div
+        style={{
+          border: "1px solid #e5e7eb",
+          borderRadius: 12,
+          overflow: "hidden",
+          background: "#fff",
+        }}
+      >
+        <Table
+          columns={columns}
+          dataSource={filteredCustomers}
+          loading={loading}
+          pagination={{
+            current: page,
+            pageSize: limit,
+            total: total,
+            onChange: (newPage) => setPage(newPage),
+            showSizeChanger: false,
+            showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} items`,
+          }}
+          rowKey="id"
+          className="bg-white"
+          bordered={false}
+          rowClassName={() => "hover:bg-gray-50"}
+          style={{
+            borderRadius: 12,
+            overflow: "hidden",
+            background: "#fff",
+          }}
+          components={{
+            header: {
+              cell: (props) => (
+                <th
+                  {...props}
+                  className="bg-gray-100 text-gray-600 font-bold text-sm px-6 py-3"
+                />
+              ),
+            },
+            body: {
+              cell: (props) => (
+                <td {...props} className="px-6 py-3" />
+              ),
+              row: (props) => (
+                <tr
+                  {...props}
+                  className="border-t border-gray-100 hover:bg-gray-50 transition"
+                />
+              ),
+            },
+          }}
         />
       </div>
 
-      {/* Add/Edit Customer Modal */}
       <Modal
-        title={isEditMode ? "Edit Customer" : "Add Customer"}
-        open={isModalVisible}
-        onCancel={handleCancel}
+        title={
+          <span className="font-semibold">
+            {isEditMode ? "Edit Customer" : "Add Customer"}
+          </span>
+        }
+        open={showForm}
+        onCancel={() => {
+          setShowForm(false);
+          setIsEditMode(false);
+          form.resetFields();
+          setFileList([]);
+        }}
         footer={null}
-        width={700}
         centered
+        width={600}
       >
-        <Form layout="vertical" form={form} onFinish={handleAddOrEditCustomer}>
-          <Form.Item label="Upload Image" name="avatar">
-            <Upload maxCount={1} listType="picture-card" showUploadList={false}>
-              <div>
-                <UploadOutlined /> Upload Image
-              </div>
-            </Upload>
-            <p>JPEG, PNG up to 2MB</p>
-          </Form.Item>
-
+        <Form layout="vertical" form={form}>
           <div className="flex gap-3">
             <Form.Item
-              name="firstName"
-              label="First Name"
+              label={<span className="text-sm font-medium text-gray-700">First Name</span>}
+              name="first_name"
               rules={[{ required: true, message: "Please enter first name" }]}
-              className="flex-1"
+              className="mb-3 flex-1"
             >
-              <Input />
+              <Input placeholder="First Name" />
             </Form.Item>
+
             <Form.Item
-              name="lastName"
-              label="Last Name"
+              label={<span className="text-sm font-medium text-gray-700">Last Name</span>}
+              name="last_name"
               rules={[{ required: true, message: "Please enter last name" }]}
-              className="flex-1"
+              className="mb-3 flex-1"
             >
-              <Input />
+              <Input placeholder="Last Name" />
             </Form.Item>
           </div>
 
-          <Form.Item name="email" label="Email" rules={[{ required: true, message: "Please enter email" }]}>
-            <Input />
-          </Form.Item>
-          <Form.Item name="phone" label="Phone" rules={[{ required: true, message: "Please enter phone number" }]}>
-            <Input />
-          </Form.Item>
-          <Form.Item name="address" label="Address" rules={[{ required: true, message: "Please enter address" }]}>
-            <Input />
-          </Form.Item>
-
-          <div className="flex gap-3">
-            <Form.Item
-              name="city"
-              label="City"
-              rules={[{ required: true, message: "Please select city" }]}
-              className="flex-1"
-            >
-              <Select>
-                <Select.Option value="Los Angeles">Los Angeles</Select.Option>
-                <Select.Option value="Chennai">Chennai</Select.Option>
-                <Select.Option value="Mumbai">Mumbai</Select.Option>
-              </Select>
-            </Form.Item>
-            <Form.Item
-              name="state"
-              label="State"
-              rules={[{ required: true, message: "Please select state" }]}
-              className="flex-1"
-            >
-              <Select>
-                <Select.Option value="California">California</Select.Option>
-                <Select.Option value="TN">Tamil Nadu</Select.Option>
-                <Select.Option value="MH">Maharashtra</Select.Option>
-              </Select>
-            </Form.Item>
-          </div>
-
-          <div className="flex gap-3">
-            <Form.Item
-              name="country"
-              label="Country"
-              rules={[{ required: true, message: "Please select country" }]}
-              className="flex-1"
-            >
-              <Select>
-                <Select.Option value="India">India</Select.Option>
-                <Select.Option value="USA">USA</Select.Option>
-                <Select.Option value="Germany">Germany</Select.Option>
-                <Select.Option value="Japan">Japan</Select.Option>
-              </Select>
-            </Form.Item>
-            <Form.Item
-              name="postalCode"
-              label="Postal Code"
-              rules={[{ required: true, message: "Please enter postal code" }]}
-              className="flex-1"
-            >
-              <Input />
-            </Form.Item>
-          </div>
-
-          <Form.Item name="status" label="Status" valuePropName="checked" initialValue={true}>
-            <Switch defaultChecked />
-          </Form.Item>
-
-          <div className="flex justify-end gap-3">
-            <Button onClick={handleCancel}>Cancel</Button>
-            <Button type="primary" htmlType="submit">
-              {isEditMode ? "Save Changes" : "Add Customer"}
-            </Button>
-          </div>
-        </Form>
-      </Modal>
-
-      {/* View Customer Modal */}
-      <Modal
-        title="Customer Details"
-        open={isViewModalVisible}
-        onCancel={handleCloseViewModal}
-        footer={[
-          <Button key="close" onClick={handleCloseViewModal}>
-            Close
-          </Button>,
-        ]}
-        width={700}
-        centered
-      >
-        {viewCustomer ? (
-          <div className="p-4">
-            <div className="flex items-center gap-4 mb-4">
-              <Avatar size={80} src={viewCustomer.avatar} />
-              <div>
-                <h3 className="text-lg font-semibold">{viewCustomer.name}</h3>
-                <p className="text-sm text-gray-500">Code: {viewCustomer.code}</p>
-                <div style={{ marginTop: 6 }}>
-                  {viewCustomer.status === "Active" ? (
-                    <Tag color="green">Active</Tag>
-                  ) : (
-                    <Tag color="red">Inactive</Tag>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div>
-                <p className="text-xs text-gray-400">Email</p>
-                <p className="text-sm">{viewCustomer.email || "-"}</p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-400">Phone</p>
-                <p className="text-sm">{viewCustomer.phone || "-"}</p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-400">Address</p>
-                <p className="text-sm">{viewCustomer.address || "-"}</p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-400">City / State</p>
-                <p className="text-sm">
-                  {viewCustomer.city || "-"} {viewCustomer.state ? `/ ${viewCustomer.state}` : ""}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-400">Country</p>
-                <p className="text-sm">{viewCustomer.country || "-"}</p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-400">Postal Code</p>
-                <p className="text-sm">{viewCustomer.postalCode || "-"}</p>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div>Loading...</div>
-        )}
-      </Modal>
-
-      {/* Delete Confirmation Modal */}
-      <Modal
-        open={isDeleteModalVisible}
-        onCancel={handleCancelDelete}
-        footer={null}
-        centered
-        width={400}
-        className="delete-modal"
-      >
-        <div className="text-center p-4">
-          <div
-            className="flex justify-center items-center mb-3"
-            style={{
-              background: "#fdecea",
-              width: 60,
-              height: 60,
-              margin: "0 auto",
-              borderRadius: "50%",
-            }}
+          <Form.Item
+            label={<span className="text-sm font-medium text-gray-700">Email</span>}
+            name="email"
+            rules={[
+              { required: true, message: "Please enter email" },
+              { type: "email", message: "Please enter valid email" }
+            ]}
+            className="mb-3"
           >
-            <DeleteOutlined style={{ color: "black", fontSize: 28 }} />
+            <Input placeholder="Email" />
+          </Form.Item>
+
+          <Form.Item
+            label={<span className="text-sm font-medium text-gray-700">Phone</span>}
+            name="phone"
+            rules={[{ required: true, message: "Please enter phone" }]}
+            className="mb-3"
+          >
+            <Input placeholder="Phone" maxLength={10} />
+          </Form.Item>
+
+          <Form.Item
+            label={<span className="text-sm font-medium text-gray-700">Address</span>}
+            name="address"
+            className="mb-3"
+          >
+            <Input.TextArea placeholder="Address" rows={2} />
+          </Form.Item>
+
+          <div className="flex gap-3">
+            <Form.Item
+              label={<span className="text-sm font-medium text-gray-700">City</span>}
+              name="city"
+              className="mb-3 flex-1"
+            >
+              <Input placeholder="City" />
+            </Form.Item>
+
+            <Form.Item
+              label={<span className="text-sm font-medium text-gray-700">State</span>}
+              name="state"
+              className="mb-3 flex-1"
+            >
+              <Input placeholder="State" />
+            </Form.Item>
           </div>
-          <h3 className="text-lg font-semibold mb-1">Delete Customer</h3>
-          <p className="text-gray-500 mb-5">Are you sure you want to delete customer?</p>
-          <div className="flex justify-center gap-3">
+
+          <div className="flex gap-3">
+            <Form.Item
+              label={<span className="text-sm font-medium text-gray-700">Country</span>}
+              name="country"
+              className="mb-3 flex-1"
+            >
+              <Input placeholder="Country" />
+            </Form.Item>
+
+            <Form.Item
+              label={<span className="text-sm font-medium text-gray-700">Postal Code</span>}
+              name="postal_code"
+              className="mb-3 flex-1"
+            >
+              <Input placeholder="Postal Code" />
+            </Form.Item>
+          </div>
+
+          <Form.Item
+            label={<span className="text-sm font-medium text-gray-700">Customer Image</span>}
+            className="mb-3"
+          >
+            <Upload {...uploadProps} listType="picture" maxCount={1}>
+              <Button icon={<UploadOutlined />}>Upload Image</Button>
+            </Upload>
+          </Form.Item>
+
+          <div className="flex items-center justify-between mt-2">
+            <span className="text-sm font-medium text-gray-700">Status</span>
+            <Form.Item name="status" valuePropName="checked" noStyle>
+              <Switch
+                size="small"
+                checked={checked}
+                onChange={(ch) => {
+                  onChange(ch);
+                  form.setFieldsValue({ status: ch ? "active" : "inactive" });
+                }}
+              />
+            </Form.Item>
+          </div>
+
+          <div className="flex justify-end gap-3 mt-6">
             <Button
-              onClick={handleCancelDelete}
+              onClick={() => {
+                setShowForm(false);
+                setIsEditMode(false);
+                form.resetFields();
+                setFileList([]);
+              }}
               style={{
-                background: "#001f3f",
+                backgroundColor: "#0A2540",
                 color: "#fff",
                 border: "none",
               }}
@@ -655,12 +696,78 @@ const Customers = () => {
               Cancel
             </Button>
             <Button
-              danger
               type="primary"
-              onClick={handleConfirmDelete}
               style={{
-                background: "#ff8c00",
+                backgroundColor: "#7E57C2",
+                borderColor: "#7E57C2",
+                color: "#fff",
+              }}
+              onClick={isEditMode ? handleSaveChanges : handleAddCustomer}
+            >
+              {isEditMode ? "Save Changes" : "Add Customer"}
+            </Button>
+          </div>
+        </Form>
+      </Modal>
+
+      <Modal open={showDeleteModal} onCancel={cancelDelete} footer={null} centered>
+        <div style={{ textAlign: "center", padding: "10px 0" }}>
+          <div
+            style={{
+              width: 60,
+              height: 60,
+              borderRadius: "50%",
+              backgroundColor: "#FEE2E2",
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              margin: "0 auto 15px",
+            }}
+          >
+            <DeleteOutlined style={{ fontSize: 30, color: "#EF4444" }} />
+          </div>
+          <h2
+            style={{
+              fontSize: 18,
+              fontWeight: 600,
+              color: "#1F2937",
+              marginBottom: 10,
+            }}
+          >
+            Delete Customer
+          </h2>
+          <p style={{ color: "#6B7280", marginBottom: 25 }}>
+            Are you sure you want to delete this customer?
+          </p>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "center",
+              gap: 10,
+              marginTop: 10,
+            }}
+          >
+            <Button
+              onClick={cancelDelete}
+              style={{
+                backgroundColor: "#0A2540",
+                color: "#fff",
                 border: "none",
+                height: 38,
+                width: 100,
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="primary"
+              onClick={confirmDelete}
+              style={{
+                backgroundColor: "#7E57C2",
+                borderColor: "#7E57C2",
+                color: "#fff",
+                height: 38,
+                width: 120,
               }}
             >
               Yes Delete

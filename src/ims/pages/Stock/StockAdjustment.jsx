@@ -2,7 +2,7 @@
 
 
 
-import React, { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Table,
   Input,
@@ -14,6 +14,7 @@ import {
   Select,
   Modal,
   Form,
+  message,
 } from "antd";
 import {
   SearchOutlined,
@@ -27,6 +28,9 @@ import {
   UpOutlined,
   CloseOutlined,
 } from "@ant-design/icons";
+import stockAdjustmentService from "./stockAdjustmentService.js";
+import warehouseService from "../peoples/WarehouseService";
+import storesService from "../peoples/StoresService";
 
 import LenovoIdeaPad3 from "../Stock/assets/LenovoIdeaPad3.jpg";
 import BeatsPro from "../Stock/assets/BeatsPro.jpg";
@@ -58,12 +62,83 @@ const StockAdjustment = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState(null);
   const [form] = Form.useForm();
+  const [dataSource, setDataSource] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [warehouses, setWarehouses] = useState([]);
+  const [stores, setStores] = useState([]);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteRecord, setDeleteRecord] = useState(null);
+
+  // Fetch data on mount
+  useEffect(() => {
+    fetchAdjustments();
+    fetchWarehouses();
+    fetchStores();
+  }, []);
+
+  const fetchAdjustments = async () => {
+    try {
+      setLoading(true);
+      const res = await stockAdjustmentService.getAdjustments();
+      const fetchedAdjustments = res.data.rows || [];
+      setDataSource(fetchedAdjustments.map(item => ({
+        key: item.id,
+        id: item.id,
+        warehouse: item.warehouse,
+        store: item.store,
+        product: item.product,
+        date: item.createdAt,
+        person: item.responsible_person,
+        qty: item.quantity,
+        reference: item.reference_number,
+        notes: item.notes,
+      })));
+    } catch (err) {
+      console.error("Failed to fetch adjustments:", err);
+      message.error(err.response?.data?.message || "Failed to fetch adjustments");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchWarehouses = async () => {
+    try {
+      const res = await warehouseService.getWarehouses(1, 100, "");
+      const rows = res?.data?.data?.rows ?? [];
+      const warehouseNames = rows.map(w => w.warehouse_name || w.warehouse);
+      setWarehouses(warehouseNames);
+    } catch (err) {
+      console.error("Failed to fetch warehouses:", err);
+    }
+  };
+
+  const fetchStores = async () => {
+    try {
+      const res = await storesService.getStores();
+      const rows = res?.data?.rows ?? res?.data?.data?.rows ?? res?.data ?? [];
+      const storeNames = rows.map(s => s.store_name || s.store || s.storeName || s.name);
+      setStores(storeNames);
+    } catch (err) {
+      console.error("Failed to fetch stores:", err);
+    }
+  };
 
   const openModal = (record = null) => {
     setEditingRecord(record);
     setIsModalOpen(true);
-    if (record) form.setFieldsValue(record);
-    else form.resetFields();
+    if (record) {
+      form.setFieldsValue({
+        product: record.product,
+        warehouse: record.warehouse,
+        reference: record.reference,
+        store: record.store,
+        person: record.person,
+        notes: record.notes,
+        quantity: record.qty,
+      });
+    } else {
+      form.resetFields();
+    }
   };
 
   const closeModal = () => {
@@ -72,56 +147,72 @@ const StockAdjustment = () => {
     form.resetFields();
   };
 
-  const submitAdjustment = (values) => {
-    if (editingRecord) console.log("Edited Adjustment:", values);
-    else console.log("Create Adjustment:", values);
-    closeModal();
+  const submitAdjustment = async (values) => {
+    try {
+      if (editingRecord) {
+        const updateData = {
+          product: values.product,
+          warehouse: values.warehouse,
+          reference_number: values.reference,
+          store: values.store,
+          responsible_person: values.person,
+          quantity: values.quantity,
+          notes: values.notes,
+        };
+        await stockAdjustmentService.updateAdjustment(editingRecord.id, updateData);
+        message.success("Adjustment updated successfully!");
+      } else {
+        const createData = {
+          product: values.product,
+          warehouse: values.warehouse,
+          reference_number: values.reference,
+          store: values.store,
+          responsible_person: values.person,
+          quantity: values.quantity,
+          notes: values.notes,
+        };
+        await stockAdjustmentService.createAdjustment(createData);
+        message.success("Adjustment created successfully!");
+      }
+      closeModal();
+      fetchAdjustments();
+    } catch (err) {
+      console.error("Failed to save adjustment:", err);
+      message.error(err.response?.data?.message || "Failed to save adjustment");
+    }
   };
 
-  const dataSource = [
-    {
-      key: "1",
-      warehouse: "Lavish Warehouse",
-      store: "Electro Mart",
-      product: { name: "Lenovo IdeaPad 3", img: LenovoIdeaPad3 },
-      date: "24 Dec 2024",
-      person: { name: "James Kirwin", img: JamesKirwin },
-      qty: 100,
-    },
-    {
-      key: "2",
-      warehouse: "Quaint Warehouse",
-      store: "Quantum Gadgets",
-      product: { name: "Beats Pro", img: BeatsPro },
-      date: "10 Dec 2024",
-      person: { name: "Francis Chang", img: FrancisChang },
-      qty: 140,
-    },
-    {
-      key: "3",
-      warehouse: "Overflow Warehouse",
-      store: "Prime Bazaar",
-      product: { name: "Nike Jordan", img: NikeJordan },
-      date: "25 Jul 2023",
-      person: { name: "Antonio Engle", img: AntonioEngle },
-      qty: 120,
-    },
-    {
-      key: "4",
-      warehouse: "Traditional Warehouse",
-      store: "Volt Vault",
-      product: { name: "Amazon Echo Dot", img: AmazonEchoDot },
-      date: "24 Jul 2023",
-      person: { name: "Annette Walker", img: AnnetteWalker },
-      qty: 140,
-    },
-  ];
+  const handleDelete = (record) => {
+    setDeleteRecord(record);
+    setShowDeleteModal(true);
+  };
+
+  const confirmDelete = async () => {
+    try {
+      await stockAdjustmentService.deleteAdjustment(deleteRecord.id);
+      message.success("Adjustment deleted successfully!");
+      setShowDeleteModal(false);
+      setDeleteRecord(null);
+      fetchAdjustments();
+    } catch (err) {
+      console.error("Failed to delete adjustment:", err);
+      message.error(err.response?.data?.message || "Failed to delete adjustment");
+      setShowDeleteModal(false);
+      setDeleteRecord(null);
+    }
+  };
+
+  const cancelDelete = () => {
+    setShowDeleteModal(false);
+    setDeleteRecord(null);
+  };
 
   // ✅ Warehouse + Search + Sort Filtering
   const filteredData = dataSource
     .filter((item) => {
+      const productName = typeof item.product === 'string' ? item.product : item.product?.name || '';
       const matchSearch =
-        item.product.name.toLowerCase().includes(searchText.toLowerCase()) ||
+        productName.toLowerCase().includes(searchText.toLowerCase()) ||
         item.warehouse.toLowerCase().includes(searchText.toLowerCase());
       const matchWarehouse = selectedWarehouse
         ? item.warehouse === selectedWarehouse
@@ -129,8 +220,10 @@ const StockAdjustment = () => {
       return matchSearch && matchWarehouse;
     })
     .sort((a, b) => {
-      if (sortBy === "Ascending") return a.product.name.localeCompare(b.product.name);
-      if (sortBy === "Descending") return b.product.name.localeCompare(a.product.name);
+      const aProduct = typeof a.product === 'string' ? a.product : a.product?.name || '';
+      const bProduct = typeof b.product === 'string' ? b.product : b.product?.name || '';
+      if (sortBy === "Ascending") return aProduct.localeCompare(bProduct);
+      if (sortBy === "Descending") return bProduct.localeCompare(aProduct);
       if (sortBy === "Recently Added") return b.key - a.key;
       return 0;
     });
@@ -141,23 +234,33 @@ const StockAdjustment = () => {
     {
       title: "Product",
       key: "product",
-      render: (_, record) => (
-        <Space>
-          <Avatar shape="square" src={record.product.img} />
-          <span>{record.product.name}</span>
-        </Space>
-      ),
+      render: (_, record) => {
+        const productName = typeof record.product === 'string' ? record.product : record.product?.name || '';
+        return <span>{productName}</span>;
+      },
     },
-    { title: "Date", dataIndex: "date", key: "date" },
+    { 
+      title: "Date", 
+      dataIndex: "date", 
+      key: "date",
+      render: (date) => {
+        if (!date) return '';
+        if (typeof date === 'string' && date.includes(' ') && !date.includes('T')) return date;
+        const dateObj = new Date(date);
+        return dateObj.toLocaleDateString('en-GB', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric'
+        });
+      }
+    },
     {
       title: "Person",
       key: "person",
-      render: (_, record) => (
-        <Space>
-          <Avatar src={record.person.img} />
-          <span>{record.person.name}</span>
-        </Space>
-      ),
+      render: (_, record) => {
+        const personName = typeof record.person === 'string' ? record.person : record.person?.name || '';
+        return <span>{personName}</span>;
+      },
     },
     { title: "Qty", dataIndex: "qty", key: "qty" },
     {
@@ -166,7 +269,7 @@ const StockAdjustment = () => {
       render: (_, record) => (
         <Space>
           <Button icon={<EditOutlined />} onClick={() => openModal(record)} />
-          <Button icon={<DeleteOutlined />} />
+          <Button icon={<DeleteOutlined />} onClick={() => handleDelete(record)} />
         </Space>
       ),
     },
@@ -175,13 +278,10 @@ const StockAdjustment = () => {
   // ✅ Warehouse Filter Menu
   const warehouseMenu = (
     <Menu
-      onClick={(e) => setSelectedWarehouse(e.key)}
+      onClick={(e) => setSelectedWarehouse(e.key === 'null' ? null : e.key)}
       items={[
-        { key: "Lavish Warehouse", label: "Lavish Warehouse" },
-        { key: "Quaint Warehouse", label: "Quaint Warehouse" },
-        { key: "Overflow Warehouse", label: "Overflow Warehouse" },
-        { key: "Traditional Warehouse", label: "Traditional Warehouse" },
-        { key: null, label: "All Warehouses" },
+        ...warehouses.map(w => ({ key: w, label: w })),
+        { key: 'null', label: "All Warehouses" },
       ]}
     />
   );
@@ -200,26 +300,18 @@ const StockAdjustment = () => {
     />
   );
 
-  const warehouseOptions = [
-    { value: "Lavish Warehouse", label: "Lavish Warehouse" },
-    { value: "Quaint Warehouse", label: "Quaint Warehouse" },
-    { value: "Overflow Warehouse", label: "Overflow Warehouse" },
-    { value: "Traditional Warehouse", label: "Traditional Warehouse" },
-  ];
-  const storeOptions = [
-    { value: "Electro Mart", label: "Electro Mart" },
-    { value: "Quantum Gadgets", label: "Quantum Gadgets" },
-    { value: "Prime Bazaar", label: "Prime Bazaar" },
-  ];
+  const warehouseOptions = warehouses.map(w => ({ value: w, label: w }));
+  const storeOptions = stores.map(s => ({ value: s, label: s }));
   const personOptions = [
     { value: "James Kirwin", label: "James Kirwin" },
     { value: "Francis Chang", label: "Francis Chang" },
     { value: "Antonio Engle", label: "Antonio Engle" },
   ];
-  const productOptions = dataSource.map((d) => ({
-    value: d.product.name,
-    label: d.product.name,
-  }));
+  const productOptions = [
+    { value: "Laptop", label: "Laptop" },
+    { value: "Mouse", label: "Mouse" },
+    { value: "Keyboard", label: "Keyboard" },
+  ];
 
   return (
     <div className="p-6 bg-gray-50 min-h-screen">
@@ -285,7 +377,20 @@ const StockAdjustment = () => {
           </div>
         </div>
 
-        <Table dataSource={filteredData} columns={columns} pagination={false} rowSelection={{}} />
+        <Table 
+          dataSource={filteredData} 
+          columns={columns} 
+          loading={loading}
+          rowKey="id"
+          pagination={{
+            pageSize: pageSize,
+            showSizeChanger: false,
+            showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} items`,
+          }}
+          className="bg-white"
+          bordered={false}
+          rowClassName={() => "hover:bg-gray-50"}
+        />
       </div>
 
       {/* Shared Add/Edit Modal */}
@@ -341,6 +446,14 @@ const StockAdjustment = () => {
           </Form.Item>
 
           <Form.Item
+            label="Quantity"
+            name="quantity"
+            rules={[{ required: true, message: "Please enter quantity" }]}
+          >
+            <Input placeholder="Enter quantity" type="number" />
+          </Form.Item>
+
+          <Form.Item
             label="Notes"
             name="notes"
             rules={[{ required: true, message: "Please enter notes" }]}
@@ -357,6 +470,78 @@ const StockAdjustment = () => {
             </Button>
           </div>
         </Form>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        open={showDeleteModal}
+        onCancel={cancelDelete}
+        footer={null}
+        centered
+      >
+        <div style={{ textAlign: "center", padding: "10px 0" }}>
+          <div
+            style={{
+              width: 60,
+              height: 60,
+              borderRadius: "50%",
+              backgroundColor: "#FEE2E2",
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              margin: "0 auto 15px",
+            }}
+          >
+            <DeleteOutlined style={{ fontSize: 30, color: "#EF4444" }} />
+          </div>
+          <h2
+            style={{
+              fontSize: 18,
+              fontWeight: 600,
+              color: "#1F2937",
+              marginBottom: 10,
+            }}
+          >
+            Delete Adjustment
+          </h2>
+          <p style={{ color: "#6B7280", marginBottom: 25 }}>
+            Are you sure you want to delete this adjustment?
+          </p>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "center",
+              gap: 10,
+              marginTop: 10,
+            }}
+          >
+            <Button
+              onClick={cancelDelete}
+              style={{
+                backgroundColor: "#0A2540",
+                color: "#fff",
+                border: "none",
+                height: 38,
+                width: 100,
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="primary"
+              onClick={confirmDelete}
+              style={{
+                backgroundColor: "#6C5CE7",
+                borderColor: "#6C5CE7",
+                color: "#fff",
+                height: 38,
+                width: 120,
+              }}
+            >
+              Yes Delete
+            </Button>
+          </div>
+        </div>
       </Modal>
     </div>
   );

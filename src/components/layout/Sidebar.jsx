@@ -4,8 +4,8 @@ import { useNavigate, useLocation } from "react-router-dom";
 
 import logo from "../assets/Dark Logo.png";
 import settings from "../assets/technology.png";
-import salesIcon from "../assets/sales.png";
 import { useTheme } from "../../context/ThemeContext";
+
 import {
   UpOutlined,
   DownOutlined,
@@ -15,10 +15,13 @@ import {
   DeleteOutlined,
   ShoppingCartOutlined,
   FileTextOutlined,
-  EditOutlined,
 } from "@ant-design/icons";
 
+
+// ----------------------------------------------------------
 // SubSidebar Component
+// ----------------------------------------------------------
+
 const SubSidebar = ({ parentItem, collapsed }) => {
   const navigate = useNavigate();
   const { pathname } = useLocation();
@@ -185,8 +188,9 @@ const SubSidebar = ({ parentItem, collapsed }) => {
   );
 };
 
+
 // ----------------------------------------------------------
-// MAIN SIDEBAR
+// MAIN SIDEBAR COMPONENT
 // ----------------------------------------------------------
 
 const Sidebar = ({
@@ -194,7 +198,8 @@ const Sidebar = ({
   menuItems = [],
   selectedParent,
   setSelectedParent,
-  user, // <-- GET FULL USER HERE
+  role = "employee",
+  user,
 }) => {
   const navigate = useNavigate();
   const { pathname } = useLocation();
@@ -202,7 +207,7 @@ const Sidebar = ({
 
   const [hoveredKey, setHoveredKey] = useState(null);
 
-  // Get user from localStorage
+  // Load user from localStorage if not provided
   const getStoredUser = () => {
     try {
       const userStr = localStorage.getItem("user");
@@ -214,13 +219,13 @@ const Sidebar = ({
 
   const storedUser = user || getStoredUser();
 
-  // Determine user type (EMPLOYEE has role_id, USER has role: "user")
+  // User type detection → employee has role_id
   const userType = storedUser?.role_id ? "employee" : "user";
 
-  // Filter menu (HIDE User Management for employees with role_id)
+  // FILTER menu items correctly
   const filteredMenuItems = menuItems.filter((item) => {
     if (item.key === "/ims/user-management") {
-      return userType === "user"; // only normal users (without role_id) can see
+      return userType === "user"; // Employees should NOT see user-management
     }
     return true;
   });
@@ -247,7 +252,7 @@ const Sidebar = ({
       display: "flex",
       alignItems: "center",
       fontSize: collapsed ? "0.875rem" : "1rem",
-      fontWeight: "semibold",
+      fontWeight: "500",
     };
 
     if (isActive || isHovered) {
@@ -261,7 +266,7 @@ const Sidebar = ({
   return (
     <div style={{ position: "relative", height: "100%" }}>
       <div style={containerStyles}>
-        <div style={{ padding: "0.5rem", height: "calc(100% - 100px)", fontWeight: "500" }}>
+        <div style={{ padding: "0.5rem", height: "calc(100% - 100px)" }}>
           {filteredMenuItems.map((item) => (
             <div
               key={item.key}
@@ -289,12 +294,12 @@ const Sidebar = ({
                   {item.icon}
                 </span>
               )}
-              {!collapsed && <span className="text-sm font-semibold">{item.label}</span>}
+              {!collapsed && <span>{item.label}</span>}
             </div>
           ))}
         </div>
 
-        {/* ⚙️ Settings */}
+        {/* Settings Button */}
         <div
           style={{
             position: "absolute",

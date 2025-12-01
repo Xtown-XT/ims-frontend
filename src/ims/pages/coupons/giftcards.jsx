@@ -11,6 +11,7 @@ import {
   DatePicker,
   InputNumber,
   Switch,
+  message,
 } from "antd";
 import {
   SearchOutlined,
@@ -28,6 +29,9 @@ import jsPDF from "jspdf";
 import "jspdf-autotable";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
+import dayjs from "dayjs";
+import giftcardsService from "./giftcardsService.js";
+import customerService from "../peoples/CustomerService.js";
 
 const { Option } = Select;
 
@@ -51,67 +55,58 @@ const GiftCards = () => {
   const [editingCard, setEditingCard] = useState(null);
   const [form] = Form.useForm();
   const [filteredData, setFilteredData] = useState([]);
+  const [customers, setCustomers] = useState([]);
+
+  
 
   useEffect(() => {
     fetchGiftCards();
+    fetchCustomers();
   }, []);
 
   const fetchGiftCards = async () => {
     try {
       setLoading(true);
-      const mockData = [
-        {
-          key: "1",
-          giftCard: "GFT1110",
-          customer: "Carl Evans",
-          customerImage: "https://i.pravatar.cc/150?img=12",
-          issuedDate: "24 Dec 2024",
-          expiryDate: "24 Jan 2025",
-          amount: 200,
-          balance: 100,
-          status: "Active",
-        },
-        {
-          key: "2",
-          giftCard: "GFT1109",
-          customer: "Minerva Rameriz",
-          customerImage: "https://i.pravatar.cc/150?img=45",
-          issuedDate: "10 Dec 2024",
-          expiryDate: "10 Jan 2025",
-          amount: 300,
-          balance: 200,
-          status: "Active",
-        },
-        {
-          key: "3",
-          giftCard: "GFT1108",
-          customer: "Robert Lamon",
-          customerImage: "https://i.pravatar.cc/150?img=33",
-          issuedDate: "27 Nov 2024",
-          expiryDate: "27 Dec 2024",
-          amount: 200,
-          balance: 150,
-          status: "Active",
-        },
-        {
-          key: "4",
-          giftCard: "GFT1107",
-          customer: "Patricia Lewis",
-          customerImage: "https://i.pravatar.cc/150?img=20",
-          issuedDate: "18 Nov 2024",
-          expiryDate: "18 Dec 2024",
-          amount: 120,
-          balance: 0,
-          status: "Redeemed",
-        },
-      ];
-      setGiftCards(mockData);
-      setFilteredData(mockData);
-      setPagination((p) => ({ ...p, total: mockData.length }));
+      const res = await giftcardsService.getGiftCards();
+      console.log("Gift cards API response:", res.data);
+      const fetchedCards = res.data.data?.giftcards || [];
+      
+      const mappedData = fetchedCards.map(item => ({
+        key: item.id,
+        id: item.id,
+        giftCard: item.giftcard_no,
+        customer: `${item.customer?.first_name || ''} ${item.customer?.last_name || ''}`.trim(),
+        customerImage: item.customer?.image || null,
+        customerId: item.customer_id,
+        issuedDate: item.issued_date ? dayjs(item.issued_date).format("DD MMM YYYY") : "",
+        expiryDate: item.expiry_date ? dayjs(item.expiry_date).format("DD MMM YYYY") : "",
+        amount: parseFloat(item.amount),
+        balance: parseFloat(item.balance),
+        status: item.status ? "Active" : "Inactive",
+      }));
+      
+      setGiftCards(mappedData);
+      setFilteredData(mappedData);
+      setPagination((p) => ({ ...p, total: res.data.data?.total || mappedData.length }));
     } catch (error) {
       console.error("Error fetching gift cards:", error);
+      message.error("Failed to fetch gift cards");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchCustomers = async () => {
+    try {
+      const res = await customerService.getCustomers(1, 1000);
+      console.log("Customers API response:", res);
+      // Handle both possible response structures
+      const fetchedCustomers = res.data?.data?.customers || res.data?.customers || [];
+      console.log("Fetched customers:", fetchedCustomers);
+      setCustomers(fetchedCustomers);
+    } catch (error) {
+      console.error("Error fetching customers:", error);
+      message.error("Failed to fetch customers");
     }
   };
 
@@ -136,11 +131,11 @@ const GiftCards = () => {
     setEditingCard(record);
     form.setFieldsValue({
       giftCard: record.giftCard,
-      customer: record.customer,
+      customer: record.customerId,
       amount: record.amount,
       balance: record.balance,
-      issuedDate: null,
-      expiryDate: null,
+      issuedDate: record.issuedDate ? dayjs(record.issuedDate, "DD MMM YYYY") : null,
+      expiryDate: record.expiryDate ? dayjs(record.expiryDate, "DD MMM YYYY") : null,
       status: record.status === "Active",
     });
     setIsModalVisible(true);
@@ -157,46 +152,50 @@ const GiftCards = () => {
     setEditingCard(null);
   };
 
-  const handleSubmit = (values) => {
-    const newStatus = values.status ? "Active" : "Inactive";
-
-    if (editingCard) {
-      const updatedList = giftCards.map((card) =>
-        card.key === editingCard.key
-          ? {
-              ...card,
-              giftCard: values.giftCard,
-              customer: values.customer,
-              amount: values.amount,
-              balance: values.balance,
-              issuedDate: values.issuedDate?.format("DD MMM YYYY"),
-              expiryDate: values.expiryDate?.format("DD MMM YYYY"),
-              status: newStatus,
-            }
-          : card
-      );
-      setGiftCards(updatedList);
-      setFilteredData(updatedList);
-    } else {
-      const newCard = {
-        key: Date.now().toString(),
-        giftCard: values.giftCard,
-        customer: values.customer,
-        customerImage: "https://i.pravatar.cc/150?img=60",
-        issuedDate: values.issuedDate?.format("DD MMM YYYY"),
-        expiryDate: values.expiryDate?.format("DD MMM YYYY"),
+  const handleSubmit = async (values) => {
+    try {
+      const giftCardData = {
+        giftcard_no: values.giftCard,
+        customer_id: values.customer,
+        issued_date: values.issuedDate?.format("YYYY-MM-DD"),
+        expiry_date: values.expiryDate?.format("YYYY-MM-DD"),
         amount: values.amount,
         balance: values.balance,
-        status: newStatus,
+        status: values.status,
       };
-      const updated = [...giftCards, newCard];
-      setGiftCards(updated);
-      setFilteredData(updated);
-    }
 
-    setIsModalVisible(false);
-    form.resetFields();
-    setEditingCard(null);
+      if (editingCard) {
+        await giftcardsService.updateGiftCard(editingCard.id, giftCardData);
+        message.success("Gift card updated successfully");
+      } else {
+        await giftcardsService.createGiftCard(giftCardData);
+        message.success("Gift card added successfully");
+      }
+
+      setIsModalVisible(false);
+      form.resetFields();
+      setEditingCard(null);
+      fetchGiftCards();
+    } catch (error) {
+      console.error("Error saving gift card:", error);
+      message.error(error.response?.data?.message || "Failed to save gift card");
+    }
+  };
+
+  const handleDeleteGiftCard = async (record) => {
+    Modal.confirm({
+      title: "Are you sure you want to delete this gift card?",
+      onOk: async () => {
+        try {
+          await giftcardsService.deleteGiftCard(record.id);
+          message.success("Gift card deleted successfully!");
+          fetchGiftCards();
+        } catch (err) {
+          console.error("Failed to delete gift card:", err);
+          message.error(err.response?.data?.message || "Failed to delete gift card");
+        }
+      },
+    });
   };
 
   const getStatusTag = (status) => {
@@ -289,7 +288,10 @@ const GiftCards = () => {
             <EditOutlined className="text-gray-500 text-base" />
           </div>
           {/* 🗑 Delete */}
-          <div className="w-8 h-8 border border-gray-300 rounded flex items-center justify-center hover:bg-red-50 cursor-pointer">
+          <div 
+            className="w-8 h-8 border border-gray-300 rounded flex items-center justify-center hover:bg-red-50 cursor-pointer"
+            onClick={() => handleDeleteGiftCard(record)}
+          >
             <DeleteOutlined className="text-red-500 text-base" />
           </div>
         </Space>
@@ -373,10 +375,18 @@ const GiftCards = () => {
               name="customer"
               rules={[{ required: true, message: "Please select a customer" }]}
             >
-              <Select placeholder="Select Customer">
-                <Option value="Carl Evans">Carl Evans</Option>
-                <Option value="Minerva Rameriz">Minerva Rameriz</Option>
-                <Option value="Robert Lamon">Robert Lamon</Option>
+              <Select 
+                placeholder="Select Customer"
+                showSearch
+                filterOption={(input, option) =>
+                  option.children.toLowerCase().includes(input.toLowerCase())
+                }
+              >
+                {customers.map(customer => (
+                  <Option key={customer.id} value={customer.id}>
+                    {`${customer.first_name} ${customer.last_name}`}
+                  </Option>
+                ))}
               </Select>
             </Form.Item>
           </div>

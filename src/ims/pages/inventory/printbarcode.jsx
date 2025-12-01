@@ -2,8 +2,7 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { message, Spin } from "antd";
 import printbarcodeService from "./printbarcodeService";
-import warehouseService from "../peoples/WarehouseService";
-import storesService from "../peoples/StoresService";
+import masterService from "./masterService";
 
 import { Select, Input, Table, Switch, Button, Modal } from "antd";
 import {
@@ -43,24 +42,12 @@ const PrintBarcode = () => {
   const [showProductName, setShowProductName] = useState(true);
   const [showPrice, setShowPrice] = useState(true);
 
-  // Helper: normalize various API shapes into an array
-  const toArray = (res) => {
-    // res may be: array, {data: array}, {data: {data: array}}, {result: array}, etc.
-    if (!res) return [];
-    if (Array.isArray(res)) return res;
-    if (Array.isArray(res.data)) return res.data;
-    if (Array.isArray(res.data?.data)) return res.data.data;
-    if (Array.isArray(res.result)) return res.result;
-    return [];
-  };
-
   // Fetch barcodes, warehouses and stores on mount
   useEffect(() => {
     const fetchAll = async () => {
       setLoading(true);
       setError(null);
       try {
-        // run them in parallel but ignore individual failures to still show what loads
         await Promise.all([fetchBarcodes(), fetchWarehouses(), fetchStores()]);
       } catch (err) {
         console.error("Error fetching initial data:", err);
@@ -73,51 +60,114 @@ const PrintBarcode = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // fetch barcodes
+  // FIXED: Fetch products with proper data structure handling
   const fetchBarcodes = async () => {
     try {
-      const res = await printbarcodeService.getBarcode();
-      // normalize to array
-      const arr = toArray(res?.data ?? res);
-      const items = (arr ?? []).map((p) => ({
-        key: p.id ?? p._id ?? p.key ?? `${p.code ?? p.sku ?? Math.random()}`,
-        image: p.imageUrl ?? p.image ?? NikeJordan,
-        name: p.name ?? p.productName ?? "Unnamed",
+      console.log("Fetching products for barcode...");
+      const res = await masterService.getProducts();
+      console.log("Products response:", res);
+      
+      // FIXED: Check nested data.data.rows first, then fallback
+      let arr = res?.data?.data?.rows || res?.data?.rows || res?.data?.data || res?.data || res || [];
+      if (!Array.isArray(arr) && typeof arr === 'object') {
+        arr = Object.values(arr);
+      }
+      console.log("Normalized products array:", arr);
+      
+      const items = (Array.isArray(arr) ? arr : []).map((p, index) => ({
+        key: p.id ?? p._id ?? p.key ?? `product-${index}`,
+        image: p.ProductImages?.[0]?.image_url ?? p.imageUrl ?? p.image ?? NikeJordan,
+        name: p.product_name ?? p.name ?? p.productName ?? "Unnamed",
         sku: p.sku ?? "",
-        code: p.code ?? "",
+        code: p.Barcode?.text ?? p.code ?? p.productCode ?? "",
         qty: p.qty ?? p.quantity ?? 1,
-        price: p.price ?? 0,
-        storeName: p.storeName ?? p.store?.name ?? "",
+        price: p.SingleProduct?.price ?? p.price ?? 0,
+        storeName: p.Store?.store_name ?? p.storeName ?? p.store?.name ?? "",
       }));
+      console.log("Mapped product items:", items);
       setProducts(items);
     } catch (err) {
-      console.error("Failed to fetch barcodes", err);
-      setError("Failed to load barcodes");
-      message.error("Failed to load barcodes. Check console/network.");
-      setProducts([]); // safe fallback
+      console.error("Failed to fetch products", err);
+      console.error("Error details:", err.response?.data);
+      setError("Failed to load products");
+      message.error("Failed to load products. Check console/network.");
+      setProducts([]);
     }
   };
 
-  // fetch warehouses
+  // FIXED: Fetch warehouses with correct data structure
   const fetchWarehouses = async () => {
     try {
-      const res = await warehouseService.getWarehouses(1, 1000, "");
-      const arr = toArray(res?.data ?? res);
-      setWarehouseList(arr ?? []);
+      console.log("🔍 Fetching warehouses...");
+      const warehouseRes = await masterService.getWarehouses();
+      console.log("🔍 Full Warehouse Response:", warehouseRes);
+      console.log("🔍 Response.data:", warehouseRes.data);
+      
+      let warehouses = [];
+      if (warehouseRes.data) {
+        // FIXED: Check data.data.rows first (your actual API structure)
+        if (Array.isArray(warehouseRes.data.data?.rows)) {
+          console.log("✅ Using data.data.rows");
+          warehouses = warehouseRes.data.data.rows;
+        } else if (Array.isArray(warehouseRes.data.rows)) {
+          console.log("✅ Using data.rows");
+          warehouses = warehouseRes.data.rows;
+        } else if (Array.isArray(warehouseRes.data.data)) {
+          console.log("✅ Using data.data");
+          warehouses = warehouseRes.data.data;
+        } else if (Array.isArray(warehouseRes.data)) {
+          console.log("✅ Using data directly");
+          warehouses = warehouseRes.data;
+        } else if (typeof warehouseRes.data === 'object' && warehouseRes.data !== null) {
+          console.log("✅ Wrapping single object");
+          warehouses = [warehouseRes.data];
+        }
+      }
+      
+      console.log("✅ Warehouses array:", warehouses);
+      console.log("✅ Warehouses length:", warehouses.length);
+      
+      if (warehouses.length === 0) {
+        console.error("❌ No warehouses found. Raw response data:", warehouseRes.data);
+        console.log("Response data keys:", Object.keys(warehouseRes.data || {}));
+      } else {
+        const firstWarehouse = warehouses[0];
+        console.log("✅ First warehouse:", firstWarehouse);
+        console.log("✅ Warehouse name fields:", {
+          warehouse_name: firstWarehouse.warehouse_name,
+          warehouseName: firstWarehouse.warehouseName,
+          name: firstWarehouse.name,
+          allKeys: Object.keys(firstWarehouse)
+        });
+      }
+      
+      setWarehouseList(warehouses);
     } catch (err) {
-      console.error("Error loading warehouses:", err);
+      console.error("❌ Error loading warehouses:", err);
+      console.error("Error details:", err.response?.data);
+      message.error("Failed to load warehouses");
       setWarehouseList([]);
     }
   };
 
-  // fetch stores
+  // FIXED: Fetch stores with correct data structure
   const fetchStores = async () => {
     try {
-      const res = await storesService.getStores(1, 1000, "");
-      const arr = toArray(res?.data ?? res);
-      setStoreList(arr ?? []);
+      console.log("Fetching stores...");
+      const res = await masterService.getStores();
+      console.log("Store response:", res);
+      
+      // FIXED: Check nested data.data.rows first
+      let arr = res?.data?.data?.rows || res?.data?.rows || res?.data?.data || res?.data || res || [];
+      if (!Array.isArray(arr) && typeof arr === 'object') {
+        arr = Object.values(arr);
+      }
+      console.log("Stores array:", arr);
+      setStoreList(Array.isArray(arr) ? arr : []);
     } catch (err) {
       console.error("Error loading stores:", err);
+      console.error("Error details:", err.response?.data);
+      message.error("Failed to load stores");
       setStoreList([]);
     }
   };
@@ -163,7 +213,6 @@ const PrintBarcode = () => {
       try {
         await printbarcodeService.deleteById(id);
       } catch (err) {
-        // log but continue to remove locally
         console.warn("Backend delete failed (ignored):", err);
       }
       setProducts((prev) => prev.filter((item) => item.key !== recordToDelete.key));
@@ -191,11 +240,138 @@ const PrintBarcode = () => {
   };
 
   const handleGenerateClick = () => {
+    // Validation
+    if (!warehouse) {
+      message.warning("Please select a warehouse");
+      return;
+    }
+    if (!store) {
+      message.warning("Please select a store");
+      return;
+    }
+    if (!paperSize) {
+      message.warning("Please select paper size");
+      return;
+    }
+    if (filteredProducts.length === 0) {
+      message.warning("No products available");
+      return;
+    }
+    
     setBarcodeModalVisible(true);
   };
 
   const handleCloseBarcodeModal = () => {
     setBarcodeModalVisible(false);
+  };
+
+  // Create barcode API call
+  const handlePrintBarcode = async () => {
+    try {
+      setLoading(true);
+
+      // Prepare payload
+      const payload = {
+        warehouseId: warehouse,
+        storeId: store,
+        paperSize: paperSize,
+        showStoreName: showStoreName,
+        showProductName: showProductName,
+        showPrice: showPrice,
+        products: filteredProducts.map((p) => ({
+          productId: p.key,
+          productName: p.name,
+          sku: p.sku,
+          code: p.code,
+          quantity: p.qty,
+          price: p.price,
+          storeName: p.storeName,
+        })),
+      };
+
+      console.log("Creating barcode with payload:", payload);
+
+      // Call API
+      const response = await printbarcodeService.createBarcode(payload);
+      
+      console.log("Barcode created successfully:", response);
+      message.success("Barcode created successfully!");
+      
+      // Close modal and optionally trigger print
+      setBarcodeModalVisible(false);
+      
+      // Optional: Trigger browser print
+      // window.print();
+      
+    } catch (err) {
+      console.error("Failed to create barcode:", err);
+      console.error("Error details:", err.response?.data);
+      message.error(err.response?.data?.message || "Failed to create barcode");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Direct print without modal (for the red Print Barcode button)
+  const handleDirectPrint = async () => {
+    // Validation
+    if (!warehouse) {
+      message.warning("Please select a warehouse");
+      return;
+    }
+    if (!store) {
+      message.warning("Please select a store");
+      return;
+    }
+    if (!paperSize) {
+      message.warning("Please select paper size");
+      return;
+    }
+    if (filteredProducts.length === 0) {
+      message.warning("No products available");
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      const payload = {
+        warehouseId: warehouse,
+        storeId: store,
+        paperSize: paperSize,
+        showStoreName: showStoreName,
+        showProductName: showProductName,
+        showPrice: showPrice,
+        products: filteredProducts.map((p) => ({
+          productId: p.key,
+          productName: p.name,
+          sku: p.sku,
+          code: p.code,
+          quantity: p.qty,
+          price: p.price,
+          storeName: p.storeName,
+        })),
+      };
+
+      console.log("Direct printing barcode with payload:", payload);
+
+      const response = await printbarcodeService.createBarcode(payload);
+      
+      console.log("Barcode created successfully:", response);
+      message.success("Barcode created and ready to print!");
+      
+      // Trigger browser print
+      setTimeout(() => {
+        window.print();
+      }, 500);
+      
+    } catch (err) {
+      console.error("Failed to create barcode:", err);
+      console.error("Error details:", err.response?.data);
+      message.error(err.response?.data?.message || "Failed to create barcode");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const BarcodeVisual = ({ code }) => {
@@ -309,10 +485,9 @@ const PrintBarcode = () => {
               (option?.children ?? "").toLowerCase().includes(input.toLowerCase())
             }
           >
-            {/* dynamic options */}
             {warehouseList.map((w) => (
-              <Option key={w._id ?? w.id ?? w.key} value={w._id ?? w.id ?? w.key}>
-                {w.name ?? w.warehouseName ?? w.title ?? "Unnamed Warehouse"}
+              <Option key={w.id ?? w._id ?? w.key} value={w.id ?? w._id ?? w.key}>
+                {w.warehouse_name ?? w.warehouseName ?? w.name ?? "Unnamed Warehouse"}
               </Option>
             ))}
           </Select>
@@ -334,8 +509,8 @@ const PrintBarcode = () => {
             }
           >
             {storeList.map((s) => (
-              <Option key={s._id ?? s.id ?? s.key} value={s._id ?? s.id ?? s.key}>
-                {s.name ?? s.storeName ?? "Unnamed Store"}
+              <Option key={s.id ?? s._id ?? s.key} value={s.id ?? s._id ?? s.key}>
+                {s.store_name ?? s.storeName ?? s.name ?? "Unnamed Store"}
               </Option>
             ))}
           </Select>
@@ -419,7 +594,7 @@ const PrintBarcode = () => {
           Generate Barcode
         </Button>
 
-        <Button
+        {/* <Button
           onClick={resetForm}
           style={{
             backgroundColor: "#0C1E5B",
@@ -431,7 +606,7 @@ const PrintBarcode = () => {
           }}
         >
           Reset Barcode
-        </Button>
+        </Button> */}
 
         <Button
           style={{
@@ -442,6 +617,8 @@ const PrintBarcode = () => {
             borderRadius: "6px",
             boxShadow: "0 2px 6px rgba(226, 27, 27, 0.3)",
           }}
+          onClick={handleDirectPrint}
+          loading={loading}
         >
           Print Barcode
         </Button>
@@ -533,9 +710,8 @@ const PrintBarcode = () => {
                   borderRadius: 6,
                   boxShadow: "0 2px 6px rgba(115,103,240,0.25)",
                 }}
-                onClick={() => {
-                  // future: trigger print
-                }}
+                onClick={handlePrintBarcode}
+                loading={loading}
               >
                 Print Barcode
               </Button>
