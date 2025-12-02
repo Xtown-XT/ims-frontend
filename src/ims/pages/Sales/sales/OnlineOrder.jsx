@@ -897,7 +897,7 @@ const OnlineOrders = () => {
           prefix={<SearchOutlined className="text-gray-400" />}
           value={searchText}
           onChange={(e) => handleSearch(e.target.value)}
-          className="w-64 h-10 rounded-lg border-gray-300"
+          className="w-48 h-10 rounded-lg border-gray-300"
           style={{ fontFamily: 'Inter, system-ui, sans-serif' }}
         />
         

@@ -1,13 +1,10 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
+import masterService from "./masterService";
+import printqrcodeService from "./printqrcodeService";
 import { Select, Input, Table, Switch, Button, Modal } from "antd";
-import {
-  PlusOutlined,
-  MinusOutlined,
-  DeleteOutlined,
-} from "@ant-design/icons";
+import { PlusOutlined, MinusOutlined, DeleteOutlined } from "@ant-design/icons";
 import { QRCodeCanvas } from "qrcode.react";
-
-import NikeJordan from "../../pages/purchases/assets/NikeJordan.png"; // replace with correct image path
+import NikeJordan from "../../pages/purchases/assets/NikeJordan.png";
 
 const { Option } = Select;
 
@@ -15,50 +12,113 @@ const PrintQRCode = () => {
   const [warehouse, setWarehouse] = useState("");
   const [store, setStore] = useState("");
   const [paperSize, setPaperSize] = useState("");
-  const [showReference, setShowReference] = useState(true);
+
+  const [warehouseList, setWarehouseList] = useState([]);
+  const [storeList, setStoreList] = useState([]);
+
+  const [products, setProducts] = useState([]);
   const [searchText, setSearchText] = useState("");
 
-  // 🟣 Delete Modal States
+  const [showReference, setShowReference] = useState(true);
+
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [recordToDelete, setRecordToDelete] = useState(null);
 
-  // 🟣 QR Preview Modal State
   const [qrModalVisible, setQrModalVisible] = useState(false);
 
-  const [products, setProducts] = useState([
-    {
-      key: 1,
-      image: NikeJordan,
-      name: "Nike Jordan",
-      sku: "PT002",
-      code: "HG3FK",
-      ref: "32RRR554",
-      qty: 4,
-    },
-    {
-      key: 2,
-      image: NikeJordan,
-      name: "Adidas UltraBoost",
-      sku: "PT005",
-      code: "AD345",
-      ref: "45AD123",
-      qty: 3,
-    },
-    {
-      key: 3,
-      image: NikeJordan,
-      name: "Puma Running Shoes",
-      sku: "PT007",
-      code: "PM987",
-      ref: "90PM876",
-      qty: 2,
-    },
-  ]);
+  // FETCH MASTER DATA (WAREHOUSE, STORE, PRODUCTS)
+  useEffect(() => {
+    fetchAllMasterData();
+  }, []);
 
-  // ✅ Search filter logic
+  // Replace your fetchAllMasterData function with this improved version:
+
+const fetchAllMasterData = async () => {
+  try {
+    console.log("Fetching master data...");
+    
+    // Fetch warehouses
+    const warehouseRes = await masterService.getWarehouses();
+    console.log("🔍 Full Warehouse Response:", warehouseRes);
+    console.log("🔍 Response.data:", warehouseRes.data);
+    
+    let warehouses = [];
+    if (warehouseRes.data) {
+      // The correct path is: response.data.data.rows
+      if (Array.isArray(warehouseRes.data.data?.rows)) {
+        warehouses = warehouseRes.data.data.rows;
+      } else if (Array.isArray(warehouseRes.data.rows)) {
+        warehouses = warehouseRes.data.rows;
+      } else if (Array.isArray(warehouseRes.data.data)) {
+        warehouses = warehouseRes.data.data;
+      } else if (Array.isArray(warehouseRes.data)) {
+        warehouses = warehouseRes.data;
+      }
+    }
+    
+    console.log("Processed Warehouses:", warehouses);
+    console.log("First warehouse object:", warehouses[0]);
+    
+    // If warehouses is still empty, check the raw response
+    if (warehouses.length === 0) {
+      console.error("No warehouses found. Raw response data:", warehouseRes.data);
+      console.log("Response data keys:", Object.keys(warehouseRes.data || {}));
+    } else {
+      // Log all possible name fields in the first warehouse
+      const firstWarehouse = warehouses[0];
+      console.log("Warehouse name fields:", {
+        warehouse_name: firstWarehouse.warehouse_name,
+        warehouseName: firstWarehouse.warehouseName,
+        name: firstWarehouse.name,
+        allKeys: Object.keys(firstWarehouse)
+      });
+    }
+    
+    setWarehouseList(warehouses);
+
+    // Fetch stores
+    const storeRes = await masterService.getStores();
+    console.log("Store response:", storeRes);
+    let stores = storeRes.data?.data?.rows || storeRes.data?.rows || storeRes.data?.data || storeRes.data || [];
+    if (!Array.isArray(stores) && typeof stores === 'object') {
+      stores = Object.values(stores);
+    }
+    console.log("Stores:", stores);
+    setStoreList(Array.isArray(stores) ? stores : []);
+
+    // Fetch products
+    const productsRes = await masterService.getProducts();
+    console.log("Products response:", productsRes);
+    let productsData = productsRes.data?.data?.rows || productsRes.data?.rows || productsRes.data?.data || productsRes.data || [];
+    if (!Array.isArray(productsData) && typeof productsData === 'object') {
+      productsData = Object.values(productsData);
+    }
+    console.log("Products data:", productsData);
+
+    const mappedProducts = (Array.isArray(productsData) ? productsData : []).map((item, index) => ({
+      key: item.id || index + 1,
+      productId: item.id,
+      image: item.ProductImages?.[0]?.image_url || item.image || item.imageUrl || NikeJordan,
+      name: item.product_name || item.productName || item.name || "Unnamed Product",
+      sku: item.sku || "",
+      code: item.Barcode?.text || item.productCode || item.code || "",
+      ref: item.Barcode?.text || item.referenceNumber || item.reference || `REF-${item.id || index}`,
+      qty: 1,
+    }));
+
+    console.log("Mapped products:", mappedProducts);
+    setProducts(mappedProducts);
+  } catch (error) {
+    console.error("Master data fetch error:", error);
+    console.error("Error details:", error.response?.data);
+  }
+};
+  // SEARCH FILTER LOGIC
   const filteredProducts = useMemo(() => {
     if (!searchText.trim()) return products;
+
     const lowerSearch = searchText.toLowerCase();
+
     return products.filter(
       (item) =>
         item.name.toLowerCase().includes(lowerSearch) ||
@@ -68,6 +128,7 @@ const PrintQRCode = () => {
     );
   }, [searchText, products]);
 
+  // QUANTITY UPDATE
   const increaseQty = (key) => {
     setProducts(
       products.map((item) =>
@@ -86,7 +147,7 @@ const PrintQRCode = () => {
     );
   };
 
-  // 🟣 Delete Logic
+  // DELETE PRODUCT
   const handleDeleteClick = (record) => {
     setRecordToDelete(record);
     setDeleteModalVisible(true);
@@ -103,6 +164,7 @@ const PrintQRCode = () => {
     setRecordToDelete(null);
   };
 
+  // RESET FORM
   const resetForm = () => {
     setWarehouse("");
     setStore("");
@@ -111,16 +173,50 @@ const PrintQRCode = () => {
     setSearchText("");
   };
 
-  // 🟣 Generate QR Code button click
+  // OPEN QR PREVIEW MODAL (VALIDATION FIRST)
   const handleGenerateQRCode = () => {
+    if (!warehouse) return alert("Please select warehouse");
+    if (!store) return alert("Please select store");
+    if (!paperSize) return alert("Select Paper Size");
+    if (products.length === 0) return alert("Products not found");
+
     setQrModalVisible(true);
   };
 
-  // 🟣 Close QR Preview
-  const handleCloseQrModal = () => {
-    setQrModalVisible(false);
+  // GENERATE QR CODE API CALL
+  const generateQRCodeAPI = async () => {
+    try {
+      const productPayload = products.map((p) => ({
+        productId: p.productId,
+        quantity: p.qty,
+        referenceNumber: p.ref,
+        productCode: p.code,
+        productName: p.name,
+      }));
+
+      const payload = {
+        warehouseId: warehouse,
+        storeId: store,
+        paperSize,
+        products: productPayload,
+      };
+
+      console.log("Sending Payload: ", payload);
+
+      const res = await printqrcodeService.createqrcode(payload);
+
+      alert("QR Code Created Successfully!");
+
+      setQrModalVisible(false);
+
+      fetchAllMasterData();
+    } catch (error) {
+      console.error("QR Create Error:", error);
+      alert("Failed to generate QR Code!");
+    }
   };
 
+  // TABLE COLUMNS
   const columns = [
     {
       title: "Product",
@@ -133,20 +229,12 @@ const PrintQRCode = () => {
             alt={record.name}
             className="w-8 h-8 rounded-md object-contain border border-gray-200"
           />
-          <span className="font-medium text-gray-800">{record.name}</span>
+          <span className="font-medium">{record.name}</span>
         </div>
       ),
     },
-    {
-      title: "SKU",
-      dataIndex: "sku",
-      key: "sku",
-    },
-    {
-      title: "Code",
-      dataIndex: "code",
-      key: "code",
-    },
+    { title: "SKU", dataIndex: "sku", key: "sku" },
+    { title: "Code", dataIndex: "code", key: "code" },
     {
       title: "Reference Number",
       dataIndex: "ref",
@@ -164,119 +252,52 @@ const PrintQRCode = () => {
       key: "qty",
       align: "center",
       render: (qty, record) => (
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 10,
-          }}
-        >
-          {/* minus button */}
+        <div className="flex items-center gap-2 justify-center">
           <button
             onClick={() => decreaseQty(record.key)}
-            style={{
-              width: 30,
-              height: 30,
-              borderRadius: "50%",
-              border: "1px solid rgba(16,24,39,0.08)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              background: "#fff",
-              cursor: "pointer",
-              boxShadow: "0 1px 2px rgba(16,24,39,0.04)",
-            }}
-            aria-label="decrease"
-            type="button"
+            className="w-8 h-8 rounded-full border flex items-center justify-center bg-white shadow"
           >
             <MinusOutlined />
           </button>
 
-          {/* qty pill */}
-          <div
-            style={{
-              minWidth: 44,
-              padding: "6px 8px",
-              borderRadius: 18,
-              border: "1px solid rgba(16,24,39,0.06)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              background: "#FBFBFD",
-              fontWeight: 600,
-              color: "#1f2937",
-            }}
-          >
+          <span className="px-4 py-1 border rounded-full bg-gray-50 font-semibold">
             {qty}
-          </div>
+          </span>
 
-          {/* plus button */}
           <button
             onClick={() => increaseQty(record.key)}
-            style={{
-              width: 30,
-              height: 30,
-              borderRadius: "50%",
-              border: "1px solid rgba(16,24,39,0.08)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              background: "#fff",
-              cursor: "pointer",
-              boxShadow: "0 1px 2px rgba(16,24,39,0.04)",
-            }}
-            aria-label="increase"
-            type="button"
+            className="w-8 h-8 rounded-full border flex items-center justify-center bg-white shadow"
           >
             <PlusOutlined />
           </button>
         </div>
       ),
     },
-    // Right-aligned Delete column
     {
       title: "",
       key: "actions",
       width: 80,
       align: "right",
       render: (_, record) => (
-        <div style={{ display: "flex", justifyContent: "flex-end" }}>
-          <button
-            onClick={() => handleDeleteClick(record)}
-            style={{
-              width: 36,
-              height: 36,
-              borderRadius: 8,
-              border: "1px solid rgba(16,24,39,0.06)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              background: "#fff",
-              cursor: "pointer",
-              boxShadow: "0 1px 2px rgba(16,24,39,0.04)",
-            }}
-            aria-label="delete"
-            type="button"
-          >
-            <DeleteOutlined style={{ color: "#4b5563" }} />
-          </button>
-        </div>
+        <button
+          onClick={() => handleDeleteClick(record)}
+          className="w-9 h-9 rounded-md border flex items-center justify-center bg-white shadow"
+        >
+          <DeleteOutlined style={{ color: "#4b5563" }} />
+        </button>
       ),
     },
   ];
 
   return (
     <div className="p-6 bg-white rounded-2xl shadow-sm">
-      <h2 className="text-lg font-semibold text-gray-800 mb-1">
-        Print QR Code
-      </h2>
+      <h2 className="text-lg font-semibold text-gray-800 mb-1">Print QR Code</h2>
       <p className="text-sm text-gray-500 mb-6">Manage your QR codes</p>
 
-      {/* Warehouse & Store */}
+      {/* WAREHOUSE & STORE */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium mb-1">
             Warehouse <span className="text-red-500">*</span>
           </label>
           <Select
@@ -285,13 +306,16 @@ const PrintQRCode = () => {
             onChange={setWarehouse}
             className="w-full h-[38px]"
           >
-            <Option value="Warehouse 1">Warehouse 1</Option>
-            <Option value="Warehouse 2">Warehouse 2</Option>
+            {warehouseList.map((wh) => (
+              <Option key={wh.id || wh._id} value={wh.id || wh._id}>
+                {wh.warehouse_name || wh.warehouseName || wh.name || "Unnamed Warehouse"}
+              </Option>
+            ))}
           </Select>
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium mb-1">
             Store <span className="text-red-500">*</span>
           </label>
           <Select
@@ -300,15 +324,18 @@ const PrintQRCode = () => {
             onChange={setStore}
             className="w-full h-[38px]"
           >
-            <Option value="Store 1">Store 1</Option>
-            <Option value="Store 2">Store 2</Option>
+            {storeList.map((st) => (
+              <Option key={st.id || st._id} value={st.id || st._id}>
+                {st.store_name || st.storeName || st.name || "Unnamed Store"}
+              </Option>
+            ))}
           </Select>
         </div>
       </div>
 
-      {/* Product Search */}
+      {/* PRODUCT SEARCH */}
       <div className="mb-5">
-        <label className="block text-sm font-medium text-gray-700 mb-1">
+        <label className="block text-sm font-medium mb-1">
           Product <span className="text-red-500">*</span>
         </label>
         <Input
@@ -321,7 +348,7 @@ const PrintQRCode = () => {
         />
       </div>
 
-      {/* Product Table */}
+      {/* PRODUCT TABLE */}
       <div className="mb-6 border border-gray-200 rounded-lg overflow-hidden">
         <Table
           columns={columns}
@@ -333,10 +360,10 @@ const PrintQRCode = () => {
         />
       </div>
 
-      {/* Paper Size + Toggle */}
+      {/* PAPER SIZE + TOGGLE */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium mb-1">
             Paper Size <span className="text-red-500">*</span>
           </label>
           <Select
@@ -353,37 +380,26 @@ const PrintQRCode = () => {
 
         <div className="flex items-center gap-2">
           <Switch checked={showReference} onChange={setShowReference} />
-          <span className="text-sm text-gray-700">Reference Number</span>
+          <span className="text-sm">Reference Number</span>
         </div>
       </div>
 
-      {/* Buttons (DreamPOS Style - Purple Updated) */}
+      {/* BUTTONS */}
       <div className="flex flex-wrap justify-end gap-3 mt-4">
-        {/* Generate QR */}
         <Button
-          icon={<i className="fa fa-eye mr-1"></i>}
+          onClick={handleGenerateQRCode}
           style={{
             backgroundColor: "#7367F0",
             color: "white",
             border: "none",
             padding: "8px 22px",
             borderRadius: "6px",
-            boxShadow: "0 2px 6px rgba(115, 103, 240, 0.3)",
           }}
-          onMouseEnter={(e) =>
-            (e.currentTarget.style.backgroundColor = "#5E50EE")
-          }
-          onMouseLeave={(e) =>
-            (e.currentTarget.style.backgroundColor = "#7367F0")
-          }
-          onClick={handleGenerateQRCode}
         >
           Generate QR Code
         </Button>
 
-        {/* Reset */}
-        <Button
-          icon={<i className="fa fa-power-off mr-1"></i>}
+        {/* <Button
           onClick={resetForm}
           style={{
             backgroundColor: "#0C1E5B",
@@ -391,41 +407,25 @@ const PrintQRCode = () => {
             border: "none",
             padding: "8px 22px",
             borderRadius: "6px",
-            boxShadow: "0 2px 6px rgba(12, 30, 91, 0.3)",
           }}
-          onMouseEnter={(e) =>
-            (e.currentTarget.style.backgroundColor = "#122B83")
-          }
-          onMouseLeave={(e) =>
-            (e.currentTarget.style.backgroundColor = "#0C1E5B")
-          }
         >
           Reset
-        </Button>
+        </Button> */}
 
-        {/* Print */}
         <Button
-          icon={<i className="fa fa-print mr-1"></i>}
           style={{
             backgroundColor: "#EA5455",
             color: "white",
             border: "none",
             padding: "8px 22px",
             borderRadius: "6px",
-            boxShadow: "0 2px 6px rgba(234, 84, 85, 0.3)",
           }}
-          onMouseEnter={(e) =>
-            (e.currentTarget.style.backgroundColor = "#D63D3E")
-          }
-          onMouseLeave={(e) =>
-            (e.currentTarget.style.backgroundColor = "#EA5455")
-          }
         >
           Print QR Code
         </Button>
       </div>
 
-      {/* 🟣 Delete Confirmation Modal */}
+      {/* DELETE CONFIRM MODAL */}
       <Modal
         open={deleteModalVisible}
         onCancel={handleCancelDelete}
@@ -433,24 +433,8 @@ const PrintQRCode = () => {
         centered
       >
         <div className="text-center">
-          <div
-            style={{
-              backgroundColor: "#F4F1FF",
-              width: "60px",
-              height: "60px",
-              margin: "0 auto",
-              borderRadius: "50%",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <DeleteOutlined style={{ fontSize: "28px", color: "#6C5CE7" }} />
-          </div>
-          <h3 className="mt-4 text-lg font-semibold">Delete Product</h3>
-          <p className="text-gray-500 mt-1">
-            Are you sure you want to delete product?
-          </p>
+          <h3 className="text-lg font-semibold">Delete Product</h3>
+          <p className="text-gray-500">Are you sure you want to delete?</p>
 
           <div className="flex justify-center gap-3 mt-6">
             <Button
@@ -459,7 +443,7 @@ const PrintQRCode = () => {
                 backgroundColor: "#0A2540",
                 color: "#fff",
                 border: "none",
-                minWidth: "90px",
+                minWidth: "100px",
               }}
             >
               Cancel
@@ -479,85 +463,68 @@ const PrintQRCode = () => {
         </div>
       </Modal>
 
-      {/* 🟣 QR Preview Modal (Screenshot Style with Purple Button) */}
+      {/* QR PREVIEW MODAL */}
       <Modal
         open={qrModalVisible}
-        onCancel={handleCloseQrModal}
+        onCancel={() => setQrModalVisible(false)}
         footer={null}
         width={600}
         centered
         bodyStyle={{ padding: "0" }}
       >
         <div style={{ padding: 24, background: "#fff" }}>
-          {/* Header */}
           <div
             style={{
               display: "flex",
               justifyContent: "space-between",
-              alignItems: "center",
               marginBottom: 16,
             }}
           >
-            <h3 style={{ margin: 0, fontSize: 18, fontWeight: 600 }}>QR Code</h3>
+            <h3 style={{ fontSize: 18, fontWeight: 600 }}>QR Code</h3>
+
             <Button
-              icon={<i className="fa fa-print mr-1"></i>}
+              onClick={generateQRCodeAPI}
               style={{
-                backgroundColor: "#7367F0", // purple instead of orange
+                backgroundColor: "#7367F0",
                 color: "white",
                 border: "none",
                 padding: "8px 16px",
                 borderRadius: 6,
-                boxShadow: "0 2px 6px rgba(115,103,240,0.3)",
               }}
-              onMouseEnter={(e) =>
-                (e.currentTarget.style.backgroundColor = "#5E50EE")
-              }
-              onMouseLeave={(e) =>
-                (e.currentTarget.style.backgroundColor = "#7367F0")
-              }
             >
-              Print QR Code
+              Save & Print QR
             </Button>
           </div>
 
-          {/* Body */}
-          <div>
-            {filteredProducts.slice(0, 1).map((item) => (
-              <div key={item.key}>
-                <h4
-                  style={{
-                    fontSize: 16,
-                    fontWeight: 600,
-                    marginBottom: 12,
-                    color: "#1f2d3d",
-                  }}
-                >
-                  {item.name}
-                </h4>
-                <div
-                  style={{
-                    border: "1px solid #e5e7eb",
-                    borderRadius: 8,
-                    padding: 20,
-                    width: "fit-content",
-                  }}
-                >
-                  <div style={{ textAlign: "center" }}>
-                    <QRCodeCanvas value={item.ref} size={100} />
-                    <p
-                      style={{
-                        marginTop: 10,
-                        fontSize: 13,
-                        color: "#4b5563",
-                      }}
-                    >
-                      Ref No : {item.ref}
-                    </p>
-                  </div>
+          {filteredProducts.slice(0, 1).map((item) => (
+            <div key={item.key}>
+              <h4 style={{ fontSize: 16, fontWeight: 600, marginBottom: 12 }}>
+                {item.name}
+              </h4>
+
+              <div
+                style={{
+                  border: "1px solid #e5e7eb",
+                  borderRadius: 8,
+                  padding: 20,
+                  width: "fit-content",
+                }}
+              >
+                <div style={{ textAlign: "center" }}>
+                  <QRCodeCanvas value={item.ref} size={100} />
+                  <p
+                    style={{
+                      marginTop: 10,
+                      fontSize: 13,
+                      color: "#4b5563",
+                    }}
+                  >
+                    Ref No : {item.ref}
+                  </p>
                 </div>
               </div>
-            ))}
-          </div>
+            </div>
+          ))}
         </div>
       </Modal>
     </div>

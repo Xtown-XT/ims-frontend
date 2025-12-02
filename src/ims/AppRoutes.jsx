@@ -347,8 +347,6 @@ export const imsMenuItems = [
 
   // Reports
   {
-
-
     icon: <BarChartOutlined className="w-6 h-6" />,
     key: "/ims/reports",
     label: "Reports",
@@ -376,7 +374,11 @@ export const imsMenuItems = [
         ]
       },
 
+<<<<<<< HEAD
       // { key: "/ims/reports/InvoiceReport", label: "Invoice Report", icon: <FileProtectOutlined /> },
+=======
+      
+>>>>>>> 37e0dd6e22a163249077a0b54df66bb5677658fe
 
       {
         key: "/ims/reports/SupplierReports",

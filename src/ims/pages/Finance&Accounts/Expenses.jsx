@@ -1,8 +1,4 @@
-
-
-
-
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Plus, AlertCircle } from "lucide-react";
 import {
   Modal,
@@ -27,6 +23,9 @@ import jsPDF from "jspdf";
 import "jspdf-autotable";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
+
+// <-- ADDED: import expensesService
+import expensesService from "./ExpensesService";
 
 const { Option } = Select;
 
@@ -76,7 +75,48 @@ const Expenses = () => {
     setFormData({ ...formData, [name]: value });
   };
 
-  const handleSave = () => {
+  // <-- ADDED: load expenses from API on mount and when needed
+  useEffect(() => {
+    loadExpenses();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const loadExpenses = async (page = 1, limit = 10, search = "") => {
+    try {
+      const res = await expensesService.getAllExpenses(page, limit, search);
+      // Try common response shapes
+      let data = null;
+      if (res && Array.isArray(res)) data = res;
+      else if (res && res.data && Array.isArray(res.data)) data = res.data;
+      else if (res && res.data && res.data.data && Array.isArray(res.data.data))
+        data = res.data.data;
+      else if (res && res.data && res.data.expenses && Array.isArray(res.data.expenses))
+        data = res.data.expenses;
+      // if we found an array, set it
+      if (data) {
+        setExpenses(
+          data.map((item) => ({
+            reference: item.reference ?? item.id ?? item._id ?? item.ref ?? item.reference,
+            expensename: item.expensename ?? item.expense ?? item.name ?? "",
+            category: item.category ?? "",
+            description: item.description ?? "",
+            date: item.date ?? item.createdAt ?? "",
+            amount: item.amount ?? item.value ?? "",
+            status: item.status ?? "",
+            ...item,
+          }))
+        );
+      } else {
+        // fallback: leave existing sample data and notify
+        console.warn("Unexpected response shape from getAllExpenses:", res);
+      }
+    } catch (error) {
+      console.error("Error loading expenses:", error);
+      message.error("Failed to load expenses from server. Showing local data.");
+    }
+  };
+
+  const handleSave = async () => {
     if (
       !formData.expense ||
       !formData.category ||
@@ -96,6 +136,28 @@ const Expenses = () => {
       );
       setExpenses(updated);
       message.success("Expense updated successfully");
+
+      // <-- ADDED: try to update via API if possible (best-effort, backend update endpoint not provided)
+      try {
+        // If backend supports update via create with id or a specific update endpoint,
+        // this will attempt to call createExpense as a fallback (some APIs upsert).
+        // If your backend has a PUT endpoint, replace this with expensesService.updateExpense(id, data)
+        const payload = {
+          reference: editReference,
+          expensename: formData.expense,
+          description: formData.description,
+          category: formData.category,
+          date: formData.date,
+          amount: formData.amount,
+          status: formData.status,
+        };
+        // Attempt to call createExpense (some APIs upsert), wrapped in try/catch
+        await expensesService.createExpense(payload);
+        // reload to sync
+        await loadExpenses();
+      } catch (err) {
+        console.warn("Edit: API update/upsert failed or not supported:", err);
+      }
     } else {
       const newExpense = {
         reference: "EX" + Math.floor(Math.random() * 1000),
@@ -104,6 +166,26 @@ const Expenses = () => {
       };
       setExpenses([...expenses, newExpense]);
       message.success("Expense added successfully");
+
+      // <-- ADDED: call create expense API
+      try {
+        const payload = {
+          reference: newExpense.reference,
+          expensename: newExpense.expensename,
+          description: newExpense.description,
+          category: newExpense.category,
+          date: newExpense.date,
+          amount: newExpense.amount,
+          status: newExpense.status,
+        };
+        await expensesService.createExpense(payload);
+        message.success("Expense created on server");
+        // Refresh list from server
+        await loadExpenses();
+      } catch (error) {
+        console.error("Error creating expense via API:", error);
+        message.error("Created locally but failed to save on server.");
+      }
     }
 
     setModalVisible(false);
@@ -125,9 +207,22 @@ const Expenses = () => {
       okText: "Yes, delete it",
       okType: "danger",
       cancelText: "No, keep it",
-      onOk() {
+      onOk: async () => {
+        // local delete
         setExpenses(expenses.filter((item) => item.reference !== record.reference));
-        message.success("Deleted successfully");
+        message.success("Deleted successfully (local)");
+
+        // <-- ADDED: try server delete
+        try {
+          // The delete endpoint provided earlier is same as getById; trying to call deleteExpense
+          await expensesService.deleteExpense(record.reference || record.id || record._id);
+          message.success("Deleted on server");
+          // reload from server
+          await loadExpenses();
+        } catch (err) {
+          console.error("Error deleting via API:", err);
+          message.error("Failed to delete on server. Local delete only.");
+        }
       },
     });
   };
@@ -144,18 +239,82 @@ const Expenses = () => {
       status: record.status,
     });
     setModalVisible(true);
+
+    // <-- ADDED: try to fetch latest from server by id (best-effort)
+    (async () => {
+      try {
+        const id = record.reference || record.id || record._id;
+        if (!id) return;
+        const res = await expensesService.getExpenseById(id);
+        let item =
+          (res && res.data && (res.data.data || res.data)) ||
+          (res && (res.data || res));
+        // if item is wrapped in array, take first
+        if (Array.isArray(item)) item = item[0];
+        if (item) {
+          setFormData({
+            expense: item.expensename ?? item.expense ?? formData.expense,
+            description: item.description ?? formData.description,
+            category: item.category ?? formData.category,
+            date: item.date ?? formData.date,
+            amount: item.amount ?? formData.amount,
+            status: item.status ?? formData.status,
+          });
+        }
+      } catch (err) {
+        // silently ignore — use local record if API fetch fails
+        console.warn("Could not fetch expense by id for edit:", err);
+      }
+    })();
   };
 
   const handleView = (record) => {
-    setViewData(record);
+    // try to fetch fresh data from server
+    (async () => {
+      try {
+        const id = record.reference || record.id || record._id;
+        if (!id) {
+          setViewData(record);
+          return;
+        }
+        const res = await expensesService.getExpenseById(id);
+        let item =
+          (res && res.data && (res.data.data || res.data)) ||
+          (res && (res.data || res));
+        if (Array.isArray(item)) item = item[0];
+        if (item) {
+          setViewData({
+            reference: item.reference ?? record.reference,
+            expensename: item.expensename ?? item.expense ?? record.expensename,
+            category: item.category ?? record.category,
+            description: item.description ?? record.description,
+            date: item.date ?? record.date,
+            amount: item.amount ?? record.amount,
+            status: item.status ?? record.status,
+            ...item,
+          });
+        } else {
+          setViewData(record);
+        }
+      } catch (err) {
+        console.warn("Error fetching expense for view:", err);
+        setViewData(record); // fallback
+      }
+    })();
   };
 
-  const handleRefresh = () => {
+  const handleRefresh = async () => {
     setSearchText("");
     setFilterCategory(null);
     setFilterStatus(null);
     setSortBy(null);
     message.info("Refreshed!");
+    // <-- ADDED: re-fetch from server
+    try {
+      await loadExpenses();
+    } catch (err) {
+      console.warn("Refresh load failed:", err);
+    }
   };
 
   const filteredExpenses = expenses

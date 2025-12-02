@@ -10,43 +10,51 @@ import { Dropdown, message, Modal, Input, Button } from "antd";
 import { useTheme } from "../../context/ThemeContext";
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
-import { userService } from "../../ims/services/Userservice"; // ✅ Import service
+import { userService } from "../../ims/services/Userservice";
+import { useAuth } from "../../context/AuthContext";   // ✅ ADDED
 
 const HeaderBar = ({ collapsed, toggleCollapsed }) => {
   const { theme, headerBgColor, headerGradient } = useTheme();
   const navigate = useNavigate();
 
-  // Example logged user (replace with your auth user)
-  const loggedUser = {
-    name: "John Doe",
-    identifier: "john@example.com",
-  };
+  const { currentUser, logout } = useAuth();     // ✅ REAL LOGGED-IN USER
 
-  // Change Password Modal State
+  // Safe access for name + email
+  const userName =
+    currentUser?.name ||
+    currentUser?.full_name ||
+    currentUser?.username ||
+    currentUser?.employee_name ||
+    "User";
+
+  const userEmail =
+    currentUser?.email ||
+    currentUser?.email_id ||
+    currentUser?.identifier ||
+    currentUser?.employee_email ||
+    "No Email";
+
+  // Change Password Modal
   const [passwordModalVisible, setPasswordModalVisible] = useState(false);
   const [oldPassword, setOldPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // ---------------- CHANGE PASSWORD FUNCTION ----------------
   const handleChangePassword = async () => {
     if (!oldPassword || !newPassword) {
       return message.error("Please fill all fields");
     }
 
-    const reqBody = {
-      oldPassword: oldPassword,
-      newPassword: newPassword,
-    };
-
     try {
       setLoading(true);
 
-      const response = await userService.changePassword(reqBody); // ✅ Final API call
+      const response = await userService.changePassword({
+        oldPassword,
+        newPassword,
+      });
 
-      message.success(response.data?.message || "Password changed successfully!");
+      message.success(response.data?.message || "Password changed!");
 
-      // Reset fields
       setOldPassword("");
       setNewPassword("");
       setPasswordModalVisible(false);
@@ -59,11 +67,8 @@ const HeaderBar = ({ collapsed, toggleCollapsed }) => {
   };
 
   const handleMenuClick = ({ key }) => {
-    if (key === "edit") {
-      setPasswordModalVisible(true);
-    }
-
     if (key === "logout") {
+      logout();     // ✅ CORRECT LOGOUT
       message.success("Logged out");
       navigate("/");
     }
@@ -74,8 +79,8 @@ const HeaderBar = ({ collapsed, toggleCollapsed }) => {
       key: "profile",
       label: (
         <div className="px-2 py-2">
-          <p className="font-semibold text-sm">{loggedUser.name}</p>
-          <p className="text-gray-500 text-xs">{loggedUser.identifier}</p>
+          <p className="font-semibold text-sm">{userName}</p>
+          <p className="text-gray-500 text-xs">{userEmail}</p>
 
           <Button
             type="primary"
@@ -119,26 +124,24 @@ const HeaderBar = ({ collapsed, toggleCollapsed }) => {
         zIndex: 99,
       }}
     >
-      {/* SIDEBAR TOGGLE */}
       <button
         onClick={toggleCollapsed}
-        className={`text-lg ${textColor} transition-transform duration-200 p-2`}
+        className={`text-lg ${textColor} p-2`}
       >
         {collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
       </button>
 
-      {/* PROFILE DROPDOWN */}
       <Dropdown
         menu={{ items: userMenuItems, onClick: handleMenuClick }}
         placement="bottomRight"
         trigger={["click"]}
       >
-        <div className="cursor-pointer w-10 h-10 bg-white shadow-md rounded-full flex items-center justify-center hover:shadow-lg transition-all">
+        <div className="cursor-pointer w-10 h-10 bg-white shadow-md rounded-full flex items-center justify-center hover:shadow-lg">
           <UserOutlined className="text-lg" />
         </div>
       </Dropdown>
 
-      {/* CHANGE PASSWORD MODAL */}
+      {/* Password Modal */}
       <Modal
         title="Change Password"
         open={passwordModalVisible}
@@ -164,7 +167,6 @@ const HeaderBar = ({ collapsed, toggleCollapsed }) => {
             block
             loading={loading}
             onClick={handleChangePassword}
-            style={{ marginTop: "1rem" }}
           >
             Update Password
           </Button>
