@@ -918,7 +918,7 @@ const CreateProducts = () => {
                           icon={<PlusCircleOutlined />}
                           onClick={addVariant}
                           disabled={!selectedAttribute}
-                          style={{ background: "#9333ea", borderColor: "#9333ea", width: "100%" }}
+                          style={{ background: "#9333ea", borderColor: "#9333ea", width: "100%",  color: "#fff" }}
                           size="large"
                         >
                           Add

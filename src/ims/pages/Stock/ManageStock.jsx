@@ -29,7 +29,8 @@ import * as XLSX from "xlsx";
 import { Plus } from "lucide-react";
 import manageStockService from "./manageStockService.js";
 import warehouseService from "../peoples/WarehouseService";
-import storesService from "../peoples/StoresService";
+import storeService from "../inventory/storeService";
+import productService from "../inventory/productService";
 
 const ManageStock = () => {
   const [searchText, setSearchText] = useState("");
@@ -45,24 +46,18 @@ const ManageStock = () => {
   const [total, setTotal] = useState(0);
   const [warehouses, setWarehouses] = useState([]);
   const [stores, setStores] = useState([]);
+  const [products, setProducts] = useState([]);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteRecord, setDeleteRecord] = useState(null);
 
-  const products = [
-    "Lenovo IdeaPad 3",
-    "Beats Pro",
-    "Nike Jordan",
-    "Apple Series 5 Watch",
-    "Amazon Echo Dot",
-  ];
-
   const persons = ["James Kirwin", "Francis Chang", "Steven", "Gravely", "Kevin"];
 
-  // Fetch stocks, warehouses and stores from API
+  // Fetch stocks, warehouses, stores and products from API
   useEffect(() => {
     fetchStocks();
     fetchWarehouses();
     fetchStores();
+    fetchProducts();
   }, []);
 
   const fetchWarehouses = async () => {
@@ -79,22 +74,54 @@ const ManageStock = () => {
 
   const fetchStores = async () => {
     try {
-      const res = await storesService.getStores();
-      console.log("Stores API response:", res.data);
+      const res = await storeService.getStores(1, 100, "");
+      console.log("=== STORES API RESPONSE ===");
+      console.log("Full response:", res);
+      console.log("res.data:", res.data);
       
       // Try different possible response structures
-      const rows = res?.data?.rows ?? res?.data?.data?.rows ?? res?.data ?? [];
+      const rows = res?.data?.data?.rows || res?.data?.rows || res?.data?.data || res?.data || [];
       console.log("Stores rows:", rows);
+      console.log("Rows length:", rows.length);
       
-      const storeNames = rows.map(s => s.store_name || s.store || s.storeName || s.name);
-      console.log("Store names:", storeNames);
-      
-      setStores(storeNames);
+      if (Array.isArray(rows) && rows.length > 0) {
+        const storeData = rows.map(s => {
+          console.log("Processing store:", s);
+          return {
+            id: s.id,
+            name: s.store_name || s.storeName || s.name || s.store
+          };
+        });
+        console.log("Final store data:", storeData);
+        setStores(storeData);
+      } else {
+        console.warn("No stores found in response");
+        setStores([]);
+      }
     } catch (err) {
       console.error("Failed to fetch stores:", err);
       console.error("Error response:", err.response?.data);
-      // Don't show error message if stores API doesn't exist yet
-      // message.error("Failed to load stores");
+      message.error("Failed to load stores");
+      setStores([]);
+    }
+  };
+
+  const fetchProducts = async () => {
+    try {
+      const res = await productService.getProducts(1, 100, "");
+      console.log("Products API response:", res);
+      
+      const fetchedProducts = res.data.data || [];
+      const productData = fetchedProducts.map(p => ({
+        id: p.id,
+        name: p.product_name
+      }));
+      console.log("Product data:", productData);
+      
+      setProducts(productData);
+    } catch (err) {
+      console.error("Failed to fetch products:", err);
+      message.error("Failed to load products");
     }
   };
 
@@ -379,18 +406,16 @@ const ManageStock = () => {
               value={filterStore || undefined}
               onChange={(v) => setFilterStore(v)}
               allowClear
-                            className="custom-select"
-
-              options={stores.map((s) => ({ label: s, value: s }))}
+              className="custom-select"
+              options={stores.map((s) => ({ label: s.name, value: s.name }))}
             />
             <Select
               placeholder="Product"
               value={filterProduct || undefined}
               onChange={(v) => setFilterProduct(v)}
               allowClear
-                            className="custom-select"
-
-              options={products.map((p) => ({ label: p, value: p }))}
+              className="custom-select"
+              options={products.map((p) => ({ label: p.name, value: p.name }))}
             />
           </div>
         </div>
@@ -448,7 +473,11 @@ const ManageStock = () => {
           >
             <Select
               placeholder="Select"
-              options={stores.map((s) => ({ value: s, label: s }))}
+              showSearch
+              filterOption={(input, option) =>
+                option.label.toLowerCase().includes(input.toLowerCase())
+              }
+              options={stores.map((s) => ({ value: s.name, label: s.name }))}
             />
           </Form.Item>
 
@@ -470,9 +499,13 @@ const ManageStock = () => {
           >
             <Select
               placeholder="Select"
-              options={products.map((p) => ({ value: p, label: p }))}
+              showSearch
+              filterOption={(input, option) =>
+                option.label.toLowerCase().includes(input.toLowerCase())
+              }
+              options={products.map((p) => ({ value: p.name, label: p.name }))}
             />
-          </Form.Item>
+          </Form.Item>              
 
           <Form.Item
             label="Quantity"
