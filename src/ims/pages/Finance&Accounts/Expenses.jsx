@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { Plus, AlertCircle } from "lucide-react";
 import {
@@ -24,8 +25,9 @@ import "jspdf-autotable";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 
-// <-- ADDED: import expensesService
-import expensesService from "./ExpensesService";
+// import expensesService
+
+import expensesService from "./ExpensesService.js";
 
 const { Option } = Select;
 
@@ -95,16 +97,28 @@ const Expenses = () => {
       // if we found an array, set it
       if (data) {
         setExpenses(
-          data.map((item) => ({
-            reference: item.reference ?? item.id ?? item._id ?? item.ref ?? item.reference,
-            expensename: item.expensename ?? item.expense ?? item.name ?? "",
-            category: item.category ?? "",
-            description: item.description ?? "",
-            date: item.date ?? item.createdAt ?? "",
-            amount: item.amount ?? item.value ?? "",
-            status: item.status ?? "",
-            ...item,
-          }))
+
+          data.map((item, index) => {
+            // Generate short reference code from UUID or use provided reference
+            let shortRef = item.reference;
+            if (!shortRef || shortRef.length > 10) {
+              // If no reference or it's a UUID, generate a short code
+              const uuidPart = (item.id || item._id || '').toString().replace(/-/g, '').substring(0, 3).toUpperCase();
+              shortRef = `EX${uuidPart}${(index + 1).toString().padStart(2, '0')}`;
+            }
+            
+            return {
+              reference: shortRef,
+              id: item.id, // Keep original ID for API calls
+              expensename: item.expensename ?? item.expense ?? item.name ?? "",
+              category: item.expenseCategory?.category_name ?? item.category ?? "",
+              description: item.description ?? "",
+              date: item.date ?? item.createdAt ?? "",
+              amount: item.amount ?? item.value ?? "",
+              status: item.status ?? "",
+              ...item,
+            };
+          })
         );
       } else {
         // fallback: leave existing sample data and notify

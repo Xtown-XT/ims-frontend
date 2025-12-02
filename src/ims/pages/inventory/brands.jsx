@@ -27,7 +27,7 @@ import brandService from "./brandsService.js";
 const { Option } = Select;
 
 // Use the same base URL as the API
-const API_BASE_URL = "http://192.168.1.17:3000";
+const API_BASE_URL = "http://192.168.1.10:3000";
 
 const Brands = () => {
   const [form] = Form.useForm();

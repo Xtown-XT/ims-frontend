@@ -1,7 +1,7 @@
 
 
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   FilePdfOutlined,
   FileExcelOutlined,
@@ -16,6 +16,13 @@ import jsPDF from "jspdf";
 import "jspdf-autotable";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
+import {
+  generateIncomeCode,
+  createIncomeCategory,
+  getAllIncomeCategories,
+  updateIncomeCategory,
+  deleteIncomeCategory,
+} from "./IncomeCategoryService";
 
 const { confirm } = Modal;
 const { Option } = Select;
@@ -28,29 +35,43 @@ const IncomeCategory = () => {
   const [searchText, setSearchText] = useState("");
   const [selectAll, setSelectAll] = useState(false);
   const [editingRecord, setEditingRecord] = useState(null);
+  const [loading, setLoading] = useState(false);
 
   const [formValues, setFormValues] = useState({
     code: "",
-    category: "",
-    AddedDate: "",
+    name: "",
   });
 
-  const [formData, setFormData] = useState([
-    {
-      key: 1,
-      code: "INCA849",
-      category: "Foreign investment",
-      AddedDate: "24 Dec 2025",
-      status: "Active",
-    },
-    {
-      key: 2,
-      code: "INCA48",
-      category: "Product Export",
-      AddedDate: "29 Dec 2025",
-      status: "Inactive",
-    },
-  ]);
+  const [formData, setFormData] = useState([]);
+
+  // Fetch income categories on component mount
+  useEffect(() => {
+    fetchIncomeCategories();
+  }, []);
+
+  // Fetch all income categories
+  const fetchIncomeCategories = async () => {
+    try {
+      setLoading(true);
+      const response = await getAllIncomeCategories();
+      if (response && response.data) {
+        const formattedData = response.data.map((item) => ({
+          key: item.id,
+          id: item.id,
+          code: item.code,
+          category: item.name,
+          AddedDate: new Date(item.createdAt).toLocaleDateString(),
+          status: "Active",
+        }));
+        setFormData(formattedData);
+      }
+    } catch (error) {
+      console.error("Error fetching income categories:", error);
+      message.error("Failed to fetch income categories");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // ✅ Filtered Data
   let filteredData = formData.filter((item) => {
@@ -112,9 +133,15 @@ const IncomeCategory = () => {
       okText: "Yes, delete it",
       okType: "danger",
       cancelText: "No, keep it",
-      onOk() {
-        setFormData(formData.filter((item) => item.key !== record.key));
-        message.success("Category deleted successfully");
+      async onOk() {
+        try {
+          await deleteIncomeCategory(record.id);
+          message.success("Category deleted successfully");
+          fetchIncomeCategories();
+        } catch (error) {
+          console.error("Error deleting category:", error);
+          message.error("Failed to delete category");
+        }
       },
     });
   };
@@ -124,40 +151,70 @@ const IncomeCategory = () => {
     setFormValues({ ...formValues, [e.target.name]: e.target.value });
   };
 
+  // ✅ Generate Code from API
+  const handleGenerateCode = async () => {
+    try {
+      const categoryName = formValues.name || "Income Category";
+      console.log("Generating code for:", categoryName);
+      const response = await generateIncomeCode(categoryName);
+      console.log("Generate code response:", response);
+      
+      // Handle different response structures
+      const generatedCode = response?.code || response?.data?.code || response;
+      
+      if (generatedCode) {
+        setFormValues({ ...formValues, code: generatedCode });
+        message.success("Code generated successfully");
+      } else {
+        console.error("No code in response:", response);
+        message.error("Failed to generate code - invalid response");
+      }
+    } catch (error) {
+      console.error("Error generating code:", error);
+      message.error("Failed to generate code: " + (error.response?.data?.message || error.message));
+    }
+  };
+
   // ✅ Add / Update Category
-  const handleAddCategory = () => {
-    if (!formValues.category || !formValues.code) {
+  const handleAddCategory = async () => {
+    if (!formValues.name || !formValues.code) {
       message.warning("Please fill all required fields!");
       return;
     }
 
-    if (editingRecord) {
-      const updated = formData.map((item) =>
-        item.key === editingRecord.key ? { ...item, ...formValues } : item
-      );
-      setFormData(updated);
-      message.success("Category updated successfully");
-    } else {
-      const newEntry = {
-        key: Date.now(),
-        code: formValues.code,
-        category: formValues.category,
-        AddedDate: new Date().toLocaleDateString(),
-        status: "Active",
-      };
-      setFormData([...formData, newEntry]);
-      message.success("Category added successfully");
+    try {
+      setLoading(true);
+      
+      if (editingRecord) {
+        // Update existing category
+        await updateIncomeCategory(editingRecord.id, {
+          code: formValues.code,
+          name: formValues.name,
+        });
+        message.success("Category updated successfully");
+      } else {
+        // Create new category
+        const response = await createIncomeCategory({
+          code: formValues.code,
+          name: formValues.name,
+        });
+        
+        if (response && response.message) {
+          message.success(response.message);
+        }
+      }
+
+      // Reset form and refresh data
+      setFormValues({ code: "", name: "" });
+      setEditingRecord(null);
+      setShowForm(false);
+      fetchIncomeCategories();
+    } catch (error) {
+      console.error("Error saving category:", error);
+      message.error(editingRecord ? "Failed to update category" : "Failed to create category");
+    } finally {
+      setLoading(false);
     }
-
-    setFormValues({ code: "", category: "", AddedDate: "" });
-    setEditingRecord(null);
-    setShowForm(false);
-  };
-
-  // ✅ Generate Code
-  const handleGenerateCode = () => {
-    const randomCode = "INCA" + Math.floor(Math.random() * 1000 + 100);
-    setFormValues({ ...formValues, code: randomCode });
   };
 
   // ✅ Edit Handler
@@ -165,8 +222,7 @@ const IncomeCategory = () => {
     setEditingRecord(record);
     setFormValues({
       code: record.code,
-      category: record.category,
-      AddedDate: record.AddedDate,
+      name: record.category,
     });
     setShowForm(true);
   };
@@ -177,6 +233,7 @@ const IncomeCategory = () => {
     setFilterStatus(null);
     setSortBy(null);
     setSearchText("");
+    fetchIncomeCategories();
     message.info("Refreshed!");
   };
 
@@ -446,6 +503,7 @@ const IncomeCategory = () => {
           pagination={{ pageSize: 5 }}
           rowClassName={() => "hover:bg-gray-50"}
           style={{ border: "1px solid #e5e7eb" }}
+          loading={loading}
         />
       </div>
 
@@ -480,7 +538,7 @@ const IncomeCategory = () => {
                   />
                   <button
                     onClick={handleGenerateCode}
-                    className="px-3 py-1 bg-violet-500 text-white rounded-md text-sm hover:bg-violet-600 transition"
+                    className="px-4 py-2 bg-violet-500 text-white rounded-md text-base hover:bg-violet-600 transition whitespace-nowrap"
                   >
                     Generate
                   </button>
@@ -493,10 +551,11 @@ const IncomeCategory = () => {
                 </label>
                 <input
                   type="text"
-                  name="category"
-                  value={formValues.category}
+                  name="name"
+                  value={formValues.name}
                   onChange={handleInputChange}
                   className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-400"
+                  placeholder="e.g., Service Income"
                 />
               </div>
             </div>

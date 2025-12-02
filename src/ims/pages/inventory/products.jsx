@@ -192,7 +192,9 @@ const Products = () => {
   };
 
   const handleView = (record) => {
-    navigate("/ims/inventory/productdetails", { state: { product: record } });
+    // Find the full product data from the products array
+    const fullProduct = products.find(p => p.id === record.id);
+    navigate("/ims/inventory/productdetails", { state: { product: fullProduct || record } });
   };
 
   const handleEdit = (record) => {
@@ -374,7 +376,6 @@ const Products = () => {
     { title: "Price", dataIndex: "price", key: "price" },
     { title: "Unit", dataIndex: "unit", key: "unit" },
     { title: "Quantity", dataIndex: "quantity", key: "quantity" },
-    { title: "Tax", dataIndex: "tax", key: "tax" },
     { title: "Created By", dataIndex: "createdby", key: "createdby" },
     {
       title: "Actions",

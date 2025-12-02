@@ -8,9 +8,28 @@ const ProductDetails = () => {
   const location = useLocation();
   const product = (location.state && location.state.product) || null;
 
-  // Get barcode from product data or generate using barcode text
-  const barcodeText = product?.Barcode?.text || product?.barcode || product?.sku || "86102192";
-  const barcodeImageUrl = product?.Barcode?.image_url;
+  // Get barcode from product data
+  // Check SingleProduct.Barcode first, then fallback to product.Barcode
+  const barcodeData = product?.SingleProduct?.Barcode || product?.Barcode;
+  const barcodeText = barcodeData?.text || product?.sku || "86102192";
+  
+  // Check multiple possible field names for barcode image
+  const barcodeImageUrl = barcodeData?.image_url || barcodeData?.imageUrl || barcodeData?.image;
+  
+  console.log("=== BARCODE DEBUG ===");
+  console.log("Full product data:", product);
+  console.log("SingleProduct:", product?.SingleProduct);
+  console.log("SingleProduct.Barcode:", product?.SingleProduct?.Barcode);
+  console.log("product.Barcode:", product?.Barcode);
+  console.log("Barcode data used:", barcodeData);
+  console.log("Barcode text field:", barcodeData?.text);
+  console.log("Barcode image_url:", barcodeData?.image_url);
+  console.log("Barcode imageUrl:", barcodeData?.imageUrl);
+  console.log("Barcode image:", barcodeData?.image);
+  console.log("Final barcode text:", barcodeText);
+  console.log("Final barcode image URL:", barcodeImageUrl);
+  console.log("Product SKU:", product?.sku);
+  console.log("===================");
   
   // Use backend barcode image if available, otherwise generate using external API
   const barcodeUrl = barcodeImageUrl || `https://barcode.tec-it.com/barcode.ashx?data=${barcodeText}&code=Code128&translate-esc=on&unit=Fit&dpi=96&imagetype=Gif&rotation=0&color=%23000000&bgcolor=%23ffffff&qunit=Mm&quiet=0`;
@@ -130,18 +149,20 @@ const ProductDetails = () => {
           >
             <tbody>
               {[
-                ["Product", product?.productname || "Macbook pro"],
-                ["Category", product?.category || "Computers"],
-                ["Sub Category", product?.subcategory || "None"],
-                ["Brand", product?.brand || "None"],
-                ["Unit", product?.unit || "Piece"],
+                ["Product", product?.product_name || product?.productname || "Macbook pro"],
+                ["Category", product?.Category?.category_name || product?.category || "Computers"],
+                ["Sub Category", product?.SubCategory?.sub_category_name || product?.subcategory || "None"],
+                ["Brand", product?.Brand?.brand_name || product?.brand || "None"],
+                ["Unit", product?.Unit?.unit_name || product?.unit || "Piece"],
                 ["SKU", product?.sku || "PT0001"],
-                ["Minimum Qty", product?.minqty || "5"],
-                ["Quantity", product?.quantity || "50"],
-                ["Tax", product?.tax || "0.00 %"],
-                ["Discount Type", product?.discounttype || "Percentage"],
-                ["Price", product?.price || "1500.00"],
-                ["Status", product?.status || "Active"],
+                ["Minimum Qty", product?.SingleProduct?.min_qty || product?.minqty || "5"],
+                ["Quantity", product?.SingleProduct?.quantity || product?.quantity || "50"],
+                ["Tax", product?.SingleProduct?.Tax?.tax_name 
+                  ? `${product.SingleProduct.Tax.tax_name} (${product.SingleProduct.Tax.tax_percentage}%)` 
+                  : product?.tax || "0.00 %"],
+                ["Discount Type", product?.SingleProduct?.discount_type || product?.discounttype || "Percentage"],
+                ["Price", product?.SingleProduct?.price || product?.price || "1500.00"],
+                ["Status", product?.is_active ? "Active" : "Inactive"],
                 [
                   "Description",
                   product?.description ||
@@ -190,6 +211,7 @@ const ProductDetails = () => {
         >
           <img
             src={
+              product?.ProductImages?.[0]?.image_url ||
               product?.image ||
               "https://via.placeholder.com/300x200?text=Product+Image"
             }
@@ -203,10 +225,10 @@ const ProductDetails = () => {
             }}
           />
           <p style={{ fontWeight: 600, color: "#374151", marginBottom: 4 }}>
-            {product?.imageName || "macbookpro.jpg"}
+            {product?.ProductImages?.[0]?.image_name || product?.imageName || "product-image.jpg"}
           </p>
           <p style={{ fontSize: 12, color: "#6b7280", marginBottom: 0 }}>
-            {product?.imageSize || "581kb"}
+            {product?.ProductImages?.[0]?.image_size || product?.imageSize || "-"}
           </p>
         </div>
       </div>
